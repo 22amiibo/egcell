@@ -12,6 +12,9 @@ import { createMemoryJsonStorage } from "@/lib/storage";
 describe("expanded settings", () => {
   it("ships safe gameplay defaults", () => {
     expect(DEFAULT_SETTINGS.sound.enabled).toBe(false);
+    expect(DEFAULT_SETTINGS.sound.pbPace).toBe(true);
+    expect(DEFAULT_SETTINGS.sound.rankedPromotion).toBe(true);
+    expect(DEFAULT_SETTINGS.sound.dailyComplete).toBe(true);
     expect(DEFAULT_SETTINGS.feedback.liveStats).toBe(true);
     expect(DEFAULT_SETTINGS.scoring.mousePolicy).toBe("allowed");
     expect(DEFAULT_SETTINGS.scoring.hotkeyStrictness).toBe("encouraged");
@@ -33,6 +36,14 @@ describe("expanded settings", () => {
     expect(coerceSettings("junk")).toEqual(DEFAULT_SETTINGS);
     expect(coerceSettings({ sound: { volume: "loud" } })).toEqual(DEFAULT_SETTINGS);
     expect(coerceSettings({ appearance: { themeId: "gone" } })).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it("coerces the extended sound categories independently", () => {
+    expect(
+      coerceSettings({
+        sound: { pbPace: false, rankedPromotion: false, dailyComplete: false },
+      }).sound,
+    ).toMatchObject({ pbPace: false, rankedPromotion: false, dailyComplete: false });
   });
 
   it("persists the complete model locally", () => {

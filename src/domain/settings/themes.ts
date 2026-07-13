@@ -486,7 +486,10 @@ export type Settings = {
     success: boolean;
     error: boolean;
     combo: boolean;
+    pbPace: boolean;
     runComplete: boolean;
+    rankedPromotion: boolean;
+    dailyComplete: boolean;
   };
   accessibility: {
     reducedMotion: boolean;
@@ -540,7 +543,10 @@ export const DEFAULT_SETTINGS: Settings = {
     success: true,
     error: true,
     combo: true,
+    pbPace: true,
     runComplete: true,
+    rankedPromotion: true,
+    dailyComplete: true,
   },
   accessibility: {
     reducedMotion: false,
@@ -686,7 +692,13 @@ export function coerceSettings(value: unknown): Settings {
       success: bool(sound.success, DEFAULT_SETTINGS.sound.success),
       error: bool(sound.error, DEFAULT_SETTINGS.sound.error),
       combo: bool(sound.combo, DEFAULT_SETTINGS.sound.combo),
+      pbPace: bool(sound.pbPace, DEFAULT_SETTINGS.sound.pbPace),
       runComplete: bool(sound.runComplete, DEFAULT_SETTINGS.sound.runComplete),
+      rankedPromotion: bool(
+        sound.rankedPromotion,
+        DEFAULT_SETTINGS.sound.rankedPromotion,
+      ),
+      dailyComplete: bool(sound.dailyComplete, DEFAULT_SETTINGS.sound.dailyComplete),
     },
     accessibility: {
       reducedMotion: bool(

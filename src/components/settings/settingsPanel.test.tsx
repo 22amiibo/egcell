@@ -52,6 +52,11 @@ describe("the settings panel", () => {
     expect(screen.getByLabelText("Live stats")).toBeChecked();
     expect(screen.getByLabelText("Shortcut flash")).toBeChecked();
 
+    await user.click(screen.getByRole("tab", { name: "Sound" }));
+    expect(screen.getByLabelText("PB pace sound")).toBeDisabled();
+    expect(screen.getByLabelText("Ranked promotion sound")).toBeDisabled();
+    expect(screen.getByLabelText("Daily complete sound")).toBeDisabled();
+
     await user.click(screen.getByRole("tab", { name: "Accessibility" }));
     expect(screen.getByLabelText("Reduced motion")).not.toBeChecked();
     expect(screen.getByLabelText("High contrast")).not.toBeChecked();

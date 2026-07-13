@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { ChallengePrompt } from "@/components/game/ChallengePrompt";
 import { LiveStatsBar } from "@/components/game/LiveStatsBar";
@@ -17,6 +17,7 @@ import type { Challenge, ChallengeMode } from "@/domain/challenges/challengeType
 import { useGameRun, type FinishedRun } from "@/hooks/useGameRun";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
 import { useSettings } from "@/hooks/useSettings";
+import { getSoundCue, playSoundCue, soundEventForFeedback } from "@/lib/sound/runSounds";
 
 type ChallengeRunProps = {
   challenge: Challenge;
@@ -40,6 +41,12 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
   ).length;
   const mistakes = Math.round(actionCount * (1 - run.validation.accuracy));
   const feedbackEvent = feedbackEventForRun(run.events, run.validation, run.result !== null);
+
+  useEffect(() => {
+    const soundEvent = soundEventForFeedback(feedbackEvent);
+
+    playSoundCue(soundEvent === null ? null : getSoundCue(soundEvent, settings.sound));
+  }, [feedbackEvent, run.events.length, settings.sound]);
 
   // Retry remounts the grid. The grid keeps its keyboard anchor in refs, and a reset that left
   // the component mounted would leave those refs pointing at the last run's selection; a fresh

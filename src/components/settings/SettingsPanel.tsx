@@ -19,6 +19,17 @@ import {
 } from "@/domain/settings/themes";
 import { useSettings } from "@/hooks/useSettings";
 
+const SOUND_CONTROLS = [
+  { key: "movement", label: "Movement" },
+  { key: "success", label: "Success" },
+  { key: "error", label: "Error" },
+  { key: "combo", label: "Combo" },
+  { key: "pbPace", label: "PB pace" },
+  { key: "runComplete", label: "Run complete" },
+  { key: "rankedPromotion", label: "Ranked promotion" },
+  { key: "dailyComplete", label: "Daily complete" },
+] as const;
+
 function ThemePreview({ preset, active, onPick }: { preset: ThemePreset; active: boolean; onPick: () => void }) {
   const { tokens } = preset;
 
@@ -233,9 +244,8 @@ export function SettingsPanel() {
               <div>
                 <SettingControl label="Sound" description="Off by default." htmlFor="sound-enabled"><Toggle id="sound-enabled" label="Sound" checked={settings.sound.enabled} onChange={(value) => updateSection("sound", { enabled: value })} /></SettingControl>
                 <SettingControl label={`Volume · ${settings.sound.volume}%`} htmlFor="sound-volume"><input id="sound-volume" aria-label="Volume" type="range" min="0" max="100" step="5" value={settings.sound.volume} disabled={!settings.sound.enabled} onChange={(event) => updateSection("sound", { volume: Number(event.target.value) })} className="w-40 accent-accent disabled:opacity-40" /></SettingControl>
-                {(["movement", "success", "error", "combo", "runComplete"] as const).map((eventName) => {
-                  const label = eventName === "runComplete" ? "Run complete" : `${eventName[0].toUpperCase()}${eventName.slice(1)}`;
-                  return <SettingControl key={eventName} label={label} htmlFor={`sound-${eventName}`}><Toggle id={`sound-${eventName}`} label={`${label} sound`} checked={settings.sound[eventName]} disabled={!settings.sound.enabled} onChange={(value) => updateSection("sound", { [eventName]: value })} /></SettingControl>;
+                {SOUND_CONTROLS.map(({ key, label }) => {
+                  return <SettingControl key={key} label={label} htmlFor={`sound-${key}`}><Toggle id={`sound-${key}`} label={`${label} sound`} checked={settings.sound[key]} disabled={!settings.sound.enabled} onChange={(value) => updateSection("sound", { [key]: value })} /></SettingControl>;
                 })}
               </div>
             )}

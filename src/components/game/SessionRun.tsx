@@ -31,6 +31,12 @@ import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
 import type { NewRunEntry } from "@/hooks/useLocalRunHistory";
 import type { LocalSessionRecords, SessionRecordSubmission } from "@/hooks/useLocalSessionRecords";
 import { useSettings } from "@/hooks/useSettings";
+import {
+  getSoundCue,
+  playSoundCue,
+  soundEventForFeedback,
+  type SoundPreferences,
+} from "@/lib/sound/runSounds";
 
 type SessionRunProps = {
   sessionMode: SessionMode;
@@ -82,6 +88,7 @@ type SessionTaskProps = {
   reducedMotion: boolean;
   showCombo: boolean;
   showShortcut: boolean;
+  soundPreferences: SoundPreferences;
 };
 
 /**
@@ -106,6 +113,7 @@ function SessionTask({
   reducedMotion,
   showCombo,
   showShortcut,
+  soundPreferences,
 }: SessionTaskProps) {
   // A task reports its result exactly once, whichever of completion, skip, or the session
   // deadline gets there first.
@@ -167,6 +175,12 @@ function SessionTask({
   ).length;
   const taskMistakes = Math.round(taskActions * (1 - run.validation.accuracy));
   const feedbackEvent = feedbackEventForRun(run.events, run.validation, run.result !== null);
+
+  useEffect(() => {
+    const soundEvent = soundEventForFeedback(feedbackEvent);
+
+    playSoundCue(soundEvent === null ? null : getSoundCue(soundEvent, soundPreferences));
+  }, [feedbackEvent, run.events.length, soundPreferences]);
 
   return (
     <div className="flex w-full flex-col items-center gap-5">
@@ -420,6 +434,7 @@ export function SessionRun({
           reducedMotion={settings.accessibility.reducedMotion}
           showCombo={settings.feedback.combo}
           showShortcut={settings.feedback.shortcutFlash}
+          soundPreferences={settings.sound}
         />
 
         {outcome !== null && (

@@ -1,8 +1,10 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ChallengeRun } from "@/components/game/ChallengeRun";
 import { TaskProgressRail } from "@/components/game/TaskProgressRail";
+import { SettingsPanel } from "@/components/settings/SettingsPanel";
 import { formattingBoldHeaderChallenge } from "@/data/challenges";
 import type { PersonalRecord } from "@/domain/records/recordTypes";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
@@ -16,6 +18,10 @@ const records: LocalPersonalRecords = {
     isNewRecord: true,
   })),
 };
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("ChallengeRun practice frame", () => {
   it("keeps the prompt, stats, grid, and toolbar in a stable game-first hierarchy", () => {
@@ -69,6 +75,53 @@ describe("ChallengeRun practice frame", () => {
     fireEvent.keyDown(grid, { key: "ArrowRight" });
 
     expect(screen.getByTestId("combo-indicator")).toHaveTextContent("2 streak");
+  });
+
+  it("plays a synthesized cue only after sound is enabled", async () => {
+    const oscillator = {
+      type: "sine" as OscillatorType,
+      frequency: { setValueAtTime: vi.fn() },
+      connect: vi.fn(),
+      start: vi.fn(),
+      stop: vi.fn(),
+    };
+    const gain = {
+      gain: {
+        setValueAtTime: vi.fn(),
+        exponentialRampToValueAtTime: vi.fn(),
+      },
+      connect: vi.fn(),
+    };
+    const AudioContextMock = vi.fn(function MockAudioContext() {
+      return {
+        state: "running",
+        currentTime: 0,
+        destination: {},
+        createOscillator: () => oscillator,
+        createGain: () => gain,
+        resume: vi.fn(),
+      };
+    });
+
+    vi.stubGlobal("AudioContext", AudioContextMock);
+
+    render(
+      <>
+        <SettingsPanel />
+        <ChallengeRun
+          challenge={formattingBoldHeaderChallenge}
+          mode="main-speed"
+          records={records}
+          onNext={vi.fn()}
+        />
+      </>,
+    );
+
+    await userEvent.click(screen.getByRole("tab", { name: "Sound" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Sound" }));
+    fireEvent.keyDown(screen.getByTestId("spreadsheet-grid"), { key: "ArrowDown" });
+
+    await waitFor(() => expect(AudioContextMock).toHaveBeenCalledOnce());
   });
 });
 
