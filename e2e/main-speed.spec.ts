@@ -65,6 +65,7 @@ test("retry clears the result and starts a fresh run", async ({ page }) => {
   await page.getByRole("button", { name: "Retry" }).click();
 
   await expect(page.getByTestId("result-card")).toBeHidden();
+  await expect(page.getByRole("grid", { name: "Spreadsheet" })).toBeFocused();
 
   // Exact, or the accessible-name match would also catch C10, C11, and C12.
   await expect(page.getByRole("button", { name: "C1", exact: true })).toHaveAttribute(
