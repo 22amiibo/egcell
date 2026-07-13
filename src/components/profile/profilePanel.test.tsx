@@ -71,4 +71,37 @@ describe("the profile panel", () => {
     expect(history).toHaveTextContent("Select the Revenue column");
     expect(history).toHaveTextContent("PR");
   });
+
+  it("places mastery and a focused practice recommendation above recent runs", () => {
+    seedProfile({
+      entries: [
+        {
+          id: "selection-run",
+          at: "2026-07-13T14:00:00.000Z",
+          modeKey: "main-speed",
+          label: "Select the Revenue column",
+          score: 900,
+          elapsedMs: 3000,
+          completed: true,
+          tasksCompleted: 1,
+          isNewRecord: false,
+        },
+      ],
+      totalRuns: 1,
+      totalTasksCompleted: 1,
+      byMode: {
+        "main-speed": { bestScore: 900, bestElapsedMs: 3000, runs: 1 },
+      },
+    });
+
+    render(<ProfilePanel />);
+
+    const mastery = screen.getByRole("heading", { name: "Mastery" });
+    const recent = screen.getByRole("heading", { name: "Recent runs" });
+
+    expect(screen.getByText(/recommended practice: selection/i)).toBeVisible();
+    expect(screen.getByText("Navigation")).toBeVisible();
+    expect(screen.getByText("Mixed Workflows")).toBeVisible();
+    expect(mastery.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });

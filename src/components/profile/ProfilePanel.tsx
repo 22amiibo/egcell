@@ -2,6 +2,12 @@
 
 import Link from "next/link";
 
+import { MasteryPanel } from "@/components/profile/MasteryPanel";
+import { challenges } from "@/data/challenges";
+import type { ChallengeFamily } from "@/domain/challenges/challengeTypes";
+import { calculateMastery } from "@/domain/mastery/calculateMastery";
+import type { MasteryRun, SkillFamily } from "@/domain/mastery/masteryTypes";
+import type { RunHistoryEntry } from "@/domain/profile/runHistory";
 import { SESSION_MODES, sessionModeLabel, type SessionMode } from "@/domain/sessions/sessionTypes";
 import { useLocalRunHistory } from "@/hooks/useLocalRunHistory";
 import { formatDateTime, formatElapsed, formatScore } from "@/lib/format";
@@ -22,6 +28,40 @@ function modeLabel(modeKey: string): string {
   return modeKey;
 }
 
+const familyByChallengeTitle = new Map(
+  challenges.map((challenge) => [challenge.title, challenge.family]),
+);
+
+function masteryFamily(family: ChallengeFamily | undefined, modeKey: string): SkillFamily {
+  if (modeKey.startsWith("sprint-") || modeKey.startsWith("timed-")) {
+    return "mixed";
+  }
+
+  switch (family) {
+    case "navigation":
+    case "selection":
+    case "formatting":
+    case "sort-filter":
+      return family;
+    case "formula":
+      return "formulas";
+    case "mixed":
+    case undefined:
+      return "mixed";
+  }
+}
+
+function masteryRun(entry: RunHistoryEntry): MasteryRun {
+  return {
+    family: masteryFamily(familyByChallengeTitle.get(entry.label), entry.modeKey),
+    score: entry.score,
+    // Older local history predates route metrics. Completion is the only honest accuracy signal
+    // available there, and no shortcut credit is inferred from a title or mode.
+    accuracy: entry.completed ? 1 : 0,
+    shortcutEfficiency: 0,
+  };
+}
+
 /**
  * The local book of everything played on this device. It lives on its own page so the run screen
  * stays a game surface; nothing here is required to play, and none of it leaves the machine.
@@ -29,6 +69,7 @@ function modeLabel(modeKey: string): string {
 export function ProfilePanel() {
   const { profile } = useLocalRunHistory();
   const modes = Object.entries(profile.byMode);
+  const mastery = calculateMastery(profile.entries.map(masteryRun));
 
   return (
     <main className="flex min-h-screen flex-col">
@@ -68,6 +109,8 @@ export function ProfilePanel() {
               <p className="mt-1 text-[12px] text-muted">challenges completed</p>
             </div>
           </div>
+
+          <MasteryPanel mastery={mastery} />
 
           <section className="flex flex-col gap-3">
             <h2 className="text-[11px] font-medium tracking-widest text-muted uppercase">
