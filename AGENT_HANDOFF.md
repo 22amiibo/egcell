@@ -4,21 +4,17 @@ Last updated: 2026-07-12
 
 ## What Was Done
 
-Phase 0 (scaffold and tooling) and Phase 1 (domain model and first challenge) of `IMPLEMENTATION_PLAN.md`.
+Phases 0 through 5 of `IMPLEMENTATION_PLAN.md`. **The game is playable.**
 
-The app builds and runs. It is not playable yet. The route at `/` shows a dark placeholder shell, not the game.
+Open `/`, and a run is already under way against "Select the Revenue column". Click the Revenue column header and the run completes, scores, banks a personal record, and offers a retry. The record survives a reload.
 
-Created:
+Committed on `main`, one commit per phase:
 
-- Scaffold: `package.json`, `tsconfig.json`, `next.config.ts`, `postcss.config.mjs`, `eslint.config.mjs`, `vitest.config.ts`, `vitest.setup.ts`, `playwright.config.ts`, `.gitignore`.
-- App shell: `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`.
-- Domain: `src/domain/grid/gridTypes.ts`, `src/domain/grid/range.ts`, `src/domain/grid/selectors.ts`, `src/domain/challenges/challengeTypes.ts`.
-- Data: `src/data/challenges/selectionRevenueColumn.ts`, `src/data/challenges/index.ts`.
-- Tests: `src/domain/grid/range.test.ts`, `src/domain/grid/selectors.test.ts`, `src/data/challenges/selectionRevenueColumn.test.ts`, `src/test/fixtures/revenueGrid.ts`, `e2e/smoke.spec.ts`.
-
-Four decisions were recorded in `DECISIONS.md`: the hand-written scaffold, the challenge owning its grid data, `id` split from `version`, and the `@playwright/test` and `eslint` tooling corrections.
-
-`eslint.config.mjs` was then corrected to Next 16's flat-config style, importing `eslint-config-next/core-web-vitals` and `eslint-config-next/typescript` directly instead of routing them through the `FlatCompat` eslintrc shim. `@eslint/eslintrc` was uninstalled with it.
+- `1de4388` Phase 0 and Phase 1: scaffold, grid domain model, first challenge.
+- `f3e387e` Phase 2: grid reducer, selection validation.
+- `807245c` Phase 3: scoring, local personal records.
+- `b88d1b6` Phase 4: the playable game surface.
+- Phase 5: the main-speed e2e suite and the doc updates.
 
 ## Required Reading Before Coding
 
@@ -30,31 +26,41 @@ Four decisions were recorded in `DECISIONS.md`: the hand-written scaffold, the c
 
 ## Next Step
 
-Phase 2 in `IMPLEMENTATION_PLAN.md`: the grid reducer and the selection validator.
+Phase 6 in `IMPLEMENTATION_PLAN.md`: expand the challenge families.
 
-Land these:
+To add a family:
 
-- `src/domain/grid/gridReducer.ts`
-- `src/domain/validation/validatorTypes.ts`
-- `src/domain/validation/validateSelection.ts`
-- `src/domain/runs/runTypes.ts`
-- `src/domain/grid/gridReducer.test.ts`
-- `src/domain/validation/validateSelection.test.ts`
+1. Turn `ValidationSpec` in `domain/challenges/challengeTypes.ts` into a real discriminated union. It is a one-member union today, so it has never had to discriminate.
+2. Write the validator in `domain/validation/` and register it in the `validators` map in `validateChallenge.ts`.
+3. Add `GridAction` kinds and `gridReducer` cases if the family needs interactions the grid cannot yet perform. Formatting and sort/filter both do; navigation does not.
+4. Add the challenge with a deterministic fixture in `data/challenges/`, and export it from `data/challenges/index.ts`.
+5. Unit test the validator's pass and fail states.
 
-Two things to hold on to:
+Navigation is the cheapest family to start with: no new grid actions, just a validator comparing `grid.activeCell` to a target.
 
-- The validator must dispatch on `challenge.validation.kind` and read the `ValidationSpec`. It must never branch on a challenge id.
-- `columnRangeWithinUsedRange(grid, col)` in `src/domain/grid/selectors.ts` already returns the range a `usedRangeOnly` column selection covers. That is what `requireEntireColumnWithinUsedRange` compares against `requiredRange`. Selecting column 2, and selecting the exact range `{ start: { row: 0, col: 2 }, end: { row: 6, col: 2 } }`, must both validate complete.
+## Things That Will Bite You
 
-Do not start Phase 4 (the UI) until the reducer, the validator, and Phase 3's scoring have passing tests.
+- **The clock starts when the grid appears, not on the first click.** This is deliberate, and `DECISIONS.md` explains why: in this game the action is the answer, so starting the clock on the first action would put every correct run at roughly zero elapsed time and pin the speed multiplier at its cap. Do not "fix" this.
+- **Playwright must target `localhost`, not `127.0.0.1`.** Next's dev server treats `127.0.0.1` as cross-origin and blocks its own client chunks. The page still renders, so the symptom looks like an app bug: a frozen clock and dead buttons, because nothing hydrates.
+- **Playwright's accessible-name matching is substring by default.** `getByRole("button", { name: "C1" })` also matches C10, C11, and C12. Use `exact: true` for cell locators.
+- **Do not clear `localStorage` with `page.addInitScript`.** It re-runs on every navigation, so it wipes the record mid-test in anything that reloads. Each Playwright test already gets a fresh context with empty storage.
+- **`window.localStorage` is undefined under Vitest** on Node 26, which ships an experimental `localStorage` global that shadows jsdom's. `vitest.setup.ts` installs a shim. Browsers never take that path.
+- **Client-only state goes through `useSyncExternalStore`,** not a mount effect. React Compiler's `react-hooks/set-state-in-effect` rule is on, and there are no suppressions in the codebase. Keep it that way.
+- **`challenge.initialGrid` is a single shared object.** The reducer is pure and never mutates it, which is what makes retry safe. If you ever add a mutating path, this breaks quietly.
 
 ## Known Issues
 
-None blocking. Three things worth knowing:
+None blocking.
 
-- The Git repository root is `/Users/noahmartz/Desktop/egcell`. Nothing is committed yet: `git ls-files` returns zero tracked files.
-- `npm install` left install scripts unapproved for `sharp` and `unrs-resolver` under npm 11's `allowScripts` policy. Neither blocks any gate. Run `npm approve-scripts` if `sharp`-backed image optimization is needed later.
-- `e2e/smoke.spec.ts` asserts only that the shell renders. Phase 5 replaces it with `e2e/main-speed.spec.ts` covering the real loop.
+- The Git root is `/Users/noahmartz/Desktop/egcell`. There is no remote, so nothing has been pushed.
+- `npm install` left install scripts unapproved for `sharp` and `unrs-resolver` under npm 11's `allowScripts` policy. Neither blocks any gate.
+- Next warns that it inferred the workspace root as `/Users/noahmartz`, because of a stray `package-lock.json` there. It is only a warning. Setting `turbopack.root` to silence it broke Next's React Client Manifest and was reverted. Either leave it, or delete the stray lockfile in the home directory.
+
+## Gaps Worth Knowing About
+
+- The grid is pointer-only. There is no keyboard interaction, so the "fast route" the challenge's practice note describes cannot actually be taken yet.
+- Range selections are only reachable programmatically. There is no drag-to-select.
+- `practiceNotes` exist on the challenge but nothing renders them. That is Phase 7.
 
 ## Verification Commands
 
@@ -66,4 +72,4 @@ npm run build
 npm run e2e
 ```
 
-All five pass as of this handoff: clean lint, 31 unit tests, a clean typecheck, a successful build, and 1 Chromium e2e test.
+All five pass as of this handoff: clean lint, 105 unit tests across 9 files, clean typecheck, a successful build, and 7 Chromium e2e tests.

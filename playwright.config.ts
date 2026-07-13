@@ -1,6 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = "http://127.0.0.1:3000";
+// Must be localhost, not 127.0.0.1. Next's dev server serves from localhost and treats a request
+// from 127.0.0.1 as cross-origin, blocking its own client chunks. The page would still render, but
+// it would never hydrate: a frozen clock and dead buttons.
+const baseURL = "http://localhost:3000";
 
 export default defineConfig({
   testDir: "./e2e",

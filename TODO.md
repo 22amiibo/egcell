@@ -7,35 +7,37 @@
 - Create grid and challenge domain types.
 - Add the first challenge: "Select the Revenue column."
 - Fix `eslint.config.mjs` so `npm run lint` runs clean.
+- Grid reducer and selection validation.
+- Scoring and local personal records.
+- First playable UI: grid, prompt, timer, result card, retry.
+- Playwright coverage of the full main-speed loop.
 
 ## Immediate
 
-- Phase 2: grid reducer for cell, range, row, and column selection.
-- Phase 2: selection validator driven by `ValidationSpec`, never by challenge id.
-- Phase 2: run state types.
-- Phase 3: scoring formula, personal record comparison, `localStorage` wrapper.
-- Phase 4: first playable UI (grid, prompt, timer, result card, retry).
-- Phase 5: Playwright test for completing the first challenge.
+- Phase 6: turn `ValidationSpec` into a real discriminated union, then add the navigation family (cheapest: no new grid actions, just compare `grid.activeCell` to a target).
+- Phase 6: more selection challenges (row, range, table).
+- Phase 6: formatting family. Needs new `GridAction` kinds and reducer cases for applying a format.
+- Phase 6: sort/filter family. Needs sort and filter actions plus a visible-rows model.
+- Phase 6: a challenge picker or a sequential run list.
+- Phase 7: practice mode. Mode toggle, and `practiceNotes` surfaced in the result card after completion only.
+- Phase 8: serializable versioned run result and a client event digest.
 
-## Soon After First Playable
+## Soon
 
-- Add navigation challenge family.
-- Add row and range selection challenges.
-- Add basic formatting challenge family.
-- Add sort/filter state model.
-- Add practice mode post-run suggestions.
-- Add simple challenge picker or sequence mode.
+- Keyboard interaction. The grid is pointer-only today, so the "fast route" a practice note describes cannot actually be taken.
+- Drag-to-select a range. Range selections are only reachable programmatically right now.
+- Deploy to Vercel.
 
 ## Later
 
-- Add fixed-time mode with partial progress scoring.
-- Add simple formula challenges.
-- Add official daily challenge shape.
-- Add profile and account planning.
-- Add real leaderboard backend.
-- Add replay/event viewer.
-- Add measured anti-cheat.
-- Add themes after design tokens stabilize.
+- Fixed-time mode with partial progress scoring.
+- Simple formula challenges.
+- Official daily challenge shape.
+- Profile and account planning.
+- Real leaderboard backend.
+- Replay and event viewer.
+- Measured anti-cheat.
+- Themes, once the design tokens have settled.
 
 ## Explicitly Not Early
 
@@ -49,9 +51,8 @@
 - Enterprise/team mode.
 - Heavy onboarding.
 - Forced signup.
-- Full global leaderboard before core loop works.
-- Full anti-cheat before core loop works.
-- Complex achievements before core loop works.
+- Full global leaderboard before the core loop works.
+- Full anti-cheat before the core loop works.
+- Complex achievements before the core loop works.
 - Theme marketplace.
-- Sound system before core loop works.
-
+- Sound system before the core loop works.

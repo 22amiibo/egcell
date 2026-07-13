@@ -427,7 +427,9 @@ Two deviations, both recorded in `DECISIONS.md`: `createRevenueGrid()` lives in 
 - No sort/filter engine.
 - No random challenge generator.
 
-### Phase 2: Grid Reducer And Selection Validation
+### Phase 2: Grid Reducer And Selection Validation — COMPLETE (2026-07-12)
+
+Added `src/domain/validation/validateChallenge.ts` as the dispatcher the Validator Architecture section calls for. A test pins that validation reads the spec, not the challenge id.
 
 **Goal:** Make selection state deterministic and validate the first challenge.
 
@@ -464,7 +466,9 @@ Two deviations, both recorded in `DECISIONS.md`: `createRevenueGrid()` lives in 
 - No keyboard shortcut purity scoring.
 - No instant-fail mistake system.
 
-### Phase 3: Scoring And Local Personal Records
+### Phase 3: Scoring And Local Personal Records — COMPLETE (2026-07-12)
+
+Storage is injected into the record functions rather than imported, so the domain stays testable without a browser.
 
 **Goal:** Score completed runs and save local PRs.
 
@@ -502,7 +506,9 @@ Two deviations, both recorded in `DECISIONS.md`: `createRevenueGrid()` lives in 
 - No accounts.
 - No global leaderboard API.
 
-### Phase 4: First Playable UI
+### Phase 4: First Playable UI — COMPLETE (2026-07-12)
+
+The clock starts when the grid appears, not on the first click; see `DECISIONS.md`. Client-only state is read through `useSyncExternalStore`. The grid is pointer-only: no keyboard, no drag-to-select yet.
 
 **Goal:** Build the clean dark game surface and complete the first playable loop.
 
@@ -555,7 +561,9 @@ Two deviations, both recorded in `DECISIONS.md`: `createRevenueGrid()` lives in 
 - No themes beyond initial tokens.
 - No mobile layout work beyond not breaking catastrophically.
 
-### Phase 5: End-To-End Verification And Handoff
+### Phase 5: End-To-End Verification And Handoff — COMPLETE (2026-07-12)
+
+`e2e/main-speed.spec.ts` covers the loop in 7 Chromium tests, including a personal record surviving a reload. Playwright targets `localhost`, not `127.0.0.1`; see `DECISIONS.md`.
 
 **Goal:** Prove the first playable loop works in Chrome and update project docs.
 

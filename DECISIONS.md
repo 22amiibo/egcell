@@ -1,5 +1,79 @@
 # Decisions
 
+## 2026-07-12: The Clock Starts When The Grid Appears, Not On The First Click
+
+Decision: A run's timer starts the moment the challenge is on screen, not when the player first interacts.
+
+Reasoning:
+
+- Monkeytype starts its clock on the first keystroke, and copying that here looks tempting.
+- It would break scoring. In this game the action *is* the answer: the correct first click both starts and ends the run. Elapsed time would always be near zero, the speed multiplier would sit at its 2.0 cap on every run, and every correct run would score the same.
+- The player's reading and aiming time is the skill being measured, so it belongs inside the clock.
+
+Consequences:
+
+- `useGameRun` starts the clock on the first client render rather than on the first action.
+- Scores spread across a real range, and a faster run genuinely beats a slower one.
+- A player who leaves the tab idle and comes back will post a slow time. Acceptable for now; a pause or an idle reset can come later if it turns out to matter.
+
+## 2026-07-12: Client-Only State Is Read Through useSyncExternalStore
+
+Decision: The personal record store and the run clock are exposed as external stores with a server snapshot, rather than loaded in a mount effect.
+
+Reasoning:
+
+- `localStorage` and `Date.now()` do not exist, or do not agree, during a server render. Reading them while rendering produces a hydration mismatch.
+- The obvious fix is to load them in a `useEffect` and call `setState`. That works, but it costs an extra render and React Compiler's `react-hooks/set-state-in-effect` rule rejects it.
+- `useSyncExternalStore` is built for exactly this: `getServerSnapshot` returns the empty store and a null clock, the browser reads the real values after hydration, and React reconciles.
+
+Consequences:
+
+- The server renders "no record yet" and a stopped clock. Both fill in immediately in the browser.
+- The lint rule stays on, with no suppressions anywhere in the codebase.
+
+## 2026-07-12: Playwright Targets localhost, Not 127.0.0.1
+
+Decision: `playwright.config.ts` uses `http://localhost:3000`.
+
+Reasoning:
+
+- Next's dev server serves from `localhost` and treats a request originating at `127.0.0.1` as cross-origin, so it blocks its own client chunks.
+- The page still renders, so this fails in a way that looks like an app bug rather than a config one: a frozen clock and buttons that do nothing, because the page never hydrates.
+- The alternative, adding `allowedDevOrigins: ['127.0.0.1']` to `next.config.ts`, loosens the app's origin policy to satisfy a test. Pointing the test at the right origin is the smaller change.
+
+Consequences:
+
+- E2E exercises the same origin a developer uses.
+- `next.config.ts` stays empty.
+
+## 2026-07-12: Vitest Installs Its Own localStorage
+
+Decision: `vitest.setup.ts` installs a minimal `localStorage` when the environment lacks one.
+
+Reasoning:
+
+- Node 26 ships an experimental `localStorage` global that stays inert unless the process is started with `--localstorage-file`. It shadows the implementation jsdom would otherwise install, so `window.localStorage` is undefined under Vitest.
+- The app already survives that, because `createLocalJsonStorage` guards every call. But then the personal record tests would pass while proving nothing, since no value is ever stored.
+
+Consequences:
+
+- Record persistence is genuinely exercised in unit tests.
+- Browsers never take this path. The shim is confined to the test setup file.
+
+## 2026-07-12: One Validator Dispatcher, Keyed By Validation Spec
+
+Decision: `validateChallenge` routes to a validator using `challenge.validation.kind`. Validators never see a challenge id.
+
+Reasoning:
+
+- `ARCHITECTURE.md` calls for a single dispatcher, but no file in the plan's Phase 2 list held one, so `src/domain/validation/validateChallenge.ts` was added.
+- Branching on a challenge id would mean every new challenge needs a code change, and renaming or reversioning a challenge would silently break its validation.
+
+Consequences:
+
+- Phase 6 adds a challenge family by registering one validator against a new `ValidationSpec` kind.
+- A challenge can be renamed or reversioned without touching validation code, which a test pins.
+
 ## 2026-07-12: Scaffold Next.js By Hand Instead Of Using create-next-app
 
 Decision: Write `package.json`, `tsconfig.json`, `next.config.ts`, `postcss.config.mjs`, `eslint.config.mjs`, `vitest.config.ts`, and `playwright.config.ts` by hand rather than running `npm create next-app@latest .` as `IMPLEMENTATION_PLAN.md` suggested.
