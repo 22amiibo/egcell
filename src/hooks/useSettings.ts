@@ -66,8 +66,21 @@ function createSettingsStore() {
  */
 const settingsStore = createSettingsStore();
 
+function subscribeToHydration(): () => void {
+  return () => {};
+}
+
+function getHydratedSnapshot(): true {
+  return true;
+}
+
+function getServerHydratedSnapshot(): false {
+  return false;
+}
+
 export type LocalSettings = {
   settings: Settings;
+  isHydrated: boolean;
   setSettings: (update: Settings | ((current: Settings) => Settings)) => void;
   setThemeId: (themeId: string) => void;
 };
@@ -78,6 +91,11 @@ export function useSettings(): LocalSettings {
     settingsStore.getSnapshot,
     settingsStore.getServerSnapshot,
   );
+  const isHydrated = useSyncExternalStore(
+    subscribeToHydration,
+    getHydratedSnapshot,
+    getServerHydratedSnapshot,
+  );
 
   const setThemeId = useCallback((themeId: string) => settingsStore.setThemeId(themeId), []);
   const setSettings = useCallback(
@@ -85,5 +103,5 @@ export function useSettings(): LocalSettings {
     [],
   );
 
-  return { settings, setSettings, setThemeId };
+  return { settings, isHydrated, setSettings, setThemeId };
 }

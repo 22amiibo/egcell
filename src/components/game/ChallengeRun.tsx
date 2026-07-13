@@ -88,6 +88,9 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
           grid={run.grid}
           onAction={run.dispatch}
           allowedActions={challenge.allowedActions}
+          density={settings.grid.density}
+          gridlineStrength={settings.grid.gridlineStrength}
+          largeTargets={settings.accessibility.largeTargets}
         />
         <RunFeedbackLayer
           event={feedbackEvent}

@@ -20,6 +20,7 @@ import type { FinishedRun } from "@/hooks/useGameRun";
 import { useLocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
 import { useLocalRunHistory } from "@/hooks/useLocalRunHistory";
 import { useLocalSessionRecords } from "@/hooks/useLocalSessionRecords";
+import { useSettings } from "@/hooks/useSettings";
 import { formatElapsed, formatScore } from "@/lib/format";
 
 /**
@@ -110,6 +111,7 @@ export function GameShell() {
   const records = useLocalPersonalRecords();
   const sessionRecords = useLocalSessionRecords();
   const history = useLocalRunHistory();
+  const { isHydrated: settingsReady } = useSettings();
 
   const { record: recordHistory } = history;
 
@@ -308,7 +310,7 @@ export function GameShell() {
             Keyed by what is being played, so switching challenge, mode, or session length mounts
             a fresh run rather than inheriting the old clock, grid, and result.
           */}
-          {play.kind === "single" ? (
+          {settingsReady && (play.kind === "single" ? (
             <ChallengeRun
               key={`${challenge.id}:${challenge.seed}:${play.mode}`}
               challenge={challenge}
@@ -326,7 +328,7 @@ export function GameShell() {
               recordHistory={recordHistory}
               seedOverride={params?.get("sessionSeed") ?? null}
             />
-          )}
+          ))}
         </div>
       </div>
     </main>

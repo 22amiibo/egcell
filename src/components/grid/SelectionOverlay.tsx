@@ -1,6 +1,6 @@
 "use client";
 
-import { COL_WIDTH, ROW_HEIGHT, cellLeft, cellTop } from "@/components/grid/gridMetrics";
+import { cellLeft, cellTop, type GridMetrics } from "@/components/grid/gridMetrics";
 import type { GridState } from "@/domain/grid/gridTypes";
 import { renderedRowIndex, renderedRows, selectionBounds } from "@/domain/grid/selectors";
 
@@ -13,7 +13,7 @@ import { renderedRowIndex, renderedRows, selectionBounds } from "@/domain/grid/s
  * above the selection. Positioning by index would slide the box down the page by one row height for
  * every row that had been hidden.
  */
-export function SelectionOverlay({ grid }: { grid: GridState }) {
+export function SelectionOverlay({ grid, metrics }: { grid: GridState; metrics: GridMetrics }) {
   const bounds = selectionBounds(grid);
 
   if (bounds === null) {
@@ -36,10 +36,10 @@ export function SelectionOverlay({ grid }: { grid: GridState }) {
     return null;
   }
 
-  const left = cellLeft(bounds.start.col);
-  const top = cellTop(firstDrawnRow);
-  const width = (bounds.end.col - bounds.start.col + 1) * COL_WIDTH;
-  const height = (lastDrawnRow - firstDrawnRow + 1) * ROW_HEIGHT;
+  const left = cellLeft(metrics, bounds.start.col);
+  const top = cellTop(metrics, firstDrawnRow);
+  const width = (bounds.end.col - bounds.start.col + 1) * metrics.colWidth;
+  const height = (lastDrawnRow - firstDrawnRow + 1) * metrics.rowHeight;
 
   return (
     <div

@@ -15,6 +15,7 @@ import { Toolbar } from "@/components/game/Toolbar";
 import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
 import { SESSION_DIFFICULTY, buildSessionQueue } from "@/data/challenges/queue";
 import type { Challenge } from "@/domain/challenges/challengeTypes";
+import type { GridDensity, Settings } from "@/domain/settings/themes";
 import { sessionRecordFromResult } from "@/domain/sessions/sessionRecords";
 import { buildSessionResult } from "@/domain/sessions/sessionResult";
 import {
@@ -90,6 +91,9 @@ type SessionTaskProps = {
   showCombo: boolean;
   showShortcut: boolean;
   soundPreferences: SoundPreferences;
+  gridDensity: GridDensity;
+  gridlineStrength: Settings["grid"]["gridlineStrength"];
+  largeTargets: boolean;
 };
 
 /**
@@ -115,6 +119,9 @@ function SessionTask({
   showCombo,
   showShortcut,
   soundPreferences,
+  gridDensity,
+  gridlineStrength,
+  largeTargets,
 }: SessionTaskProps) {
   // A task reports its result exactly once, whichever of completion, skip, or the session
   // deadline gets there first.
@@ -204,6 +211,9 @@ function SessionTask({
           grid={run.grid}
           onAction={run.dispatch}
           allowedActions={challenge.allowedActions}
+          density={gridDensity}
+          gridlineStrength={gridlineStrength}
+          largeTargets={largeTargets}
         />
         <RunFeedbackLayer
           event={feedbackEvent}
@@ -259,6 +269,11 @@ export function SessionRun({
     submission: SessionRecordSubmission;
   } | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [gridPresentation] = useState(() => ({
+    density: settings.grid.density,
+    gridlineStrength: settings.grid.gridlineStrength,
+    largeTargets: settings.accessibility.largeTargets,
+  }));
 
   const tasksRef = useRef<SessionTaskResult[]>([]);
 
@@ -454,6 +469,9 @@ export function SessionRun({
           showCombo={settings.feedback.combo}
           showShortcut={settings.feedback.shortcutFlash}
           soundPreferences={settings.sound}
+          gridDensity={gridPresentation.density}
+          gridlineStrength={gridPresentation.gridlineStrength}
+          largeTargets={gridPresentation.largeTargets}
         />
 
         {outcome !== null && (

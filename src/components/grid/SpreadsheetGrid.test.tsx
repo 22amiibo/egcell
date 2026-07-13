@@ -7,6 +7,68 @@ import { gridReducer } from "@/domain/grid/gridReducer";
 import { createRevenueGrid } from "@/test/fixtures/revenueGrid";
 
 describe("SpreadsheetGrid", () => {
+  it("applies compact density and gridline strength to the grid", () => {
+    render(
+      <SpreadsheetGrid
+        grid={createRevenueGrid()}
+        density="compact"
+        gridlineStrength="strong"
+        onAction={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("spreadsheet-grid")).toHaveAttribute("data-density", "compact");
+    expect(screen.getByTestId("spreadsheet-grid")).toHaveAttribute(
+      "data-gridline-strength",
+      "strong",
+    );
+    expect(screen.getByRole("button", { name: "A1" })).toHaveStyle({
+      width: "96px",
+      height: "26px",
+    });
+  });
+
+  it("keeps compact grids large enough when large targets are enabled", () => {
+    render(
+      <SpreadsheetGrid
+        grid={createRevenueGrid()}
+        density="compact"
+        largeTargets
+        onAction={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "A1" })).toHaveStyle({
+      width: "116px",
+      height: "40px",
+    });
+  });
+
+  it("keeps its initial geometry for the full mounted run", () => {
+    const { rerender } = render(
+      <SpreadsheetGrid
+        grid={createRevenueGrid()}
+        density="compact"
+        onAction={vi.fn()}
+      />,
+    );
+
+    rerender(
+      <SpreadsheetGrid
+        grid={createRevenueGrid()}
+        density="large"
+        largeTargets
+        onAction={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("spreadsheet-grid")).toHaveAttribute("data-density", "compact");
+    expect(screen.getByRole("button", { name: "A1" })).toHaveStyle({
+      width: "96px",
+      height: "26px",
+    });
+  });
+
   it("dispatches a used-range column selection when a column header is clicked", async () => {
     const onAction = vi.fn();
     render(<SpreadsheetGrid grid={createRevenueGrid()} onAction={onAction} />);

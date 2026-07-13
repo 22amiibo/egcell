@@ -123,6 +123,37 @@ describe("ChallengeRun practice frame", () => {
 
     await waitFor(() => expect(AudioContextMock).toHaveBeenCalledOnce());
   });
+
+  it("starts a run with the saved grid presentation", async () => {
+    const user = userEvent.setup();
+    const settingsView = render(<SettingsPanel />);
+
+    await user.click(screen.getByRole("tab", { name: "Grid" }));
+    await user.selectOptions(screen.getByLabelText("Grid density"), "compact");
+    await user.selectOptions(screen.getByLabelText("Gridline strength"), "strong");
+    await user.click(screen.getByRole("tab", { name: "Accessibility" }));
+    await user.click(screen.getByRole("checkbox", { name: "Large targets" }));
+    settingsView.unmount();
+
+    render(
+      <ChallengeRun
+        challenge={formattingBoldHeaderChallenge}
+        mode="main-speed"
+        records={records}
+        onNext={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("spreadsheet-grid")).toHaveAttribute("data-density", "compact");
+    expect(screen.getByTestId("spreadsheet-grid")).toHaveAttribute(
+      "data-gridline-strength",
+      "strong",
+    );
+    expect(screen.getByRole("button", { name: "A1" })).toHaveStyle({
+      width: "116px",
+      height: "40px",
+    });
+  });
 });
 
 describe("TaskProgressRail", () => {

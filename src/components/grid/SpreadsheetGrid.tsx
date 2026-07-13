@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
   type KeyboardEvent,
   type PointerEvent,
   type RefObject,
@@ -13,7 +14,7 @@ import { CellView } from "@/components/grid/CellView";
 import { ColumnHeader } from "@/components/grid/ColumnHeader";
 import { RowHeader } from "@/components/grid/RowHeader";
 import { SelectionOverlay } from "@/components/grid/SelectionOverlay";
-import { COLUMN_HEADER_HEIGHT, ROW_HEADER_WIDTH, ROW_HEIGHT } from "@/components/grid/gridMetrics";
+import { getGridMetrics } from "@/components/grid/gridMetrics";
 import type {
   CellAddress,
   GridAction,
@@ -21,6 +22,7 @@ import type {
   GridState,
 } from "@/domain/grid/gridTypes";
 import type { RunInputMethod } from "@/domain/runs/runTypes";
+import type { GridDensity, Settings } from "@/domain/settings/themes";
 import { jumpActive, stepActive, type MoveDirection } from "@/domain/grid/keyboardNav";
 import { cellKey, normalizeRange } from "@/domain/grid/range";
 import { isCellSelected, isRangeBold, renderedRows, selectionBounds } from "@/domain/grid/selectors";
@@ -36,6 +38,15 @@ type SpreadsheetGridProps = {
   allowedActions?: GridActionKind[];
   /** Lets the parent refocus the grid, so retry puts the player straight back on the keys. */
   focusRef?: RefObject<HTMLDivElement | null>;
+  density?: GridDensity;
+  gridlineStrength?: Settings["grid"]["gridlineStrength"];
+  largeTargets?: boolean;
+};
+
+const GRIDLINE_CLASSES: Record<Settings["grid"]["gridlineStrength"], string> = {
+  soft: "border-line/60",
+  standard: "border-line",
+  strong: "border-line-strong",
 };
 
 const ARROW_DIRECTIONS: Record<string, MoveDirection> = {
@@ -45,7 +56,23 @@ const ARROW_DIRECTIONS: Record<string, MoveDirection> = {
   ArrowRight: "right",
 };
 
-export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: SpreadsheetGridProps) {
+export function SpreadsheetGrid({
+  grid,
+  onAction,
+  allowedActions,
+  focusRef,
+  density = "comfortable",
+  gridlineStrength = "standard",
+  largeTargets = false,
+}: SpreadsheetGridProps) {
+  // A run is an aiming test. Snapshot presentation on mount so a settings update cannot move a
+  // target under the pointer or selection outline while that run is active.
+  const [presentation] = useState(() => ({
+    density,
+    gridlineStrength,
+    metrics: getGridMetrics(density, largeTargets),
+  }));
+  const gridlineClass = GRIDLINE_CLASSES[presentation.gridlineStrength];
   const anchorRef = useRef<CellAddress | null>(null);
   const draggedRef = useRef(false);
 
@@ -268,16 +295,21 @@ export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: Sp
       role="grid"
       aria-label="Spreadsheet"
       data-testid="spreadsheet-grid"
+      data-density={presentation.density}
+      data-gridline-strength={presentation.gridlineStrength}
       tabIndex={0}
       ref={containerRef}
       onKeyDown={handleKeyDown}
-      className="relative w-max touch-none overflow-hidden rounded-md border-t border-l border-line bg-canvas select-none"
+      className={`relative w-max touch-none overflow-hidden rounded-md border-t border-l ${gridlineClass} bg-canvas select-none`}
     >
       <div role="row" className="flex">
         <div
           aria-hidden
-          className="border-r border-b border-line bg-surface-raised"
-          style={{ width: ROW_HEADER_WIDTH, height: COLUMN_HEADER_HEIGHT }}
+          className={`border-r border-b ${gridlineClass} bg-surface-raised`}
+          style={{
+            width: presentation.metrics.rowHeaderWidth,
+            height: presentation.metrics.columnHeaderHeight,
+          }}
         />
         {grid.columns.map((label, col) => (
           <ColumnHeader
@@ -286,17 +318,26 @@ export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: Sp
             label={label}
             isSelected={isColumnSelected(col)}
             onSelect={selectColumn}
+            metrics={presentation.metrics}
+            gridlineClass={gridlineClass}
           />
         ))}
       </div>
 
       {renderedRows(grid).map((row) => (
-        <div role="row" key={grid.rows[row]} className="flex" style={{ height: ROW_HEIGHT }}>
+        <div
+          role="row"
+          key={grid.rows[row]}
+          className="flex"
+          style={{ height: presentation.metrics.rowHeight }}
+        >
           <RowHeader
             row={row}
             label={grid.rows[row]}
             isSelected={isRowSelected(row)}
             onSelect={selectRow}
+            metrics={presentation.metrics}
+            gridlineClass={gridlineClass}
           />
           {grid.columns.map((_, col) => (
             <CellView
@@ -309,12 +350,14 @@ export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: Sp
               onSelect={selectCell}
               onDragStart={startDrag}
               onDragOver={extendDrag}
+              metrics={presentation.metrics}
+              gridlineClass={gridlineClass}
             />
           ))}
         </div>
       ))}
 
-      <SelectionOverlay grid={grid} />
+      <SelectionOverlay grid={grid} metrics={presentation.metrics} />
     </div>
   );
 }

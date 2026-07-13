@@ -2,7 +2,7 @@
 
 import { memo, type PointerEvent } from "react";
 
-import { COL_WIDTH, ROW_HEIGHT } from "@/components/grid/gridMetrics";
+import type { GridMetrics } from "@/components/grid/gridMetrics";
 import type { CellAddress, GridCell } from "@/domain/grid/gridTypes";
 import { columnLabel } from "@/domain/grid/range";
 import { formatCellValue, isNumericValue } from "@/lib/format";
@@ -21,6 +21,8 @@ type CellViewProps = {
   onSelect: (address: CellAddress) => void;
   onDragStart: (address: CellAddress) => void;
   onDragOver: (address: CellAddress, event: PointerEvent<HTMLButtonElement>) => void;
+  metrics: GridMetrics;
+  gridlineClass: string;
 };
 
 function CellViewComponent({
@@ -32,6 +34,8 @@ function CellViewComponent({
   onSelect,
   onDragStart,
   onDragOver,
+  metrics,
+  gridlineClass,
 }: CellViewProps) {
   const value = cell?.value ?? { kind: "blank" as const };
   const format = cell?.format ?? {};
@@ -45,9 +49,10 @@ function CellViewComponent({
       onClick={() => onSelect({ row, col })}
       onPointerDown={() => onDragStart({ row, col })}
       onPointerEnter={(event) => onDragOver({ row, col }, event)}
-      style={{ width: COL_WIDTH, height: ROW_HEIGHT }}
+      style={{ width: metrics.colWidth, height: metrics.rowHeight }}
       className={[
-        "truncate border-r border-b border-line px-2 text-[13px] tabular-nums",
+        "truncate border-r border-b px-2 text-[13px] tabular-nums",
+        gridlineClass,
         isNumericValue(value) ? "text-right" : "text-left",
         format.bold ? "font-semibold text-ink" : "text-ink/90",
         format.numberFormat === "currency" ? "text-accent-strong/90" : "",
