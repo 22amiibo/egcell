@@ -1,13 +1,15 @@
 "use client";
 
+import { PracticeNotes } from "@/components/game/PracticeNotes";
 import { RetryButton } from "@/components/game/RetryButton";
 import { StatRow } from "@/components/game/StatRow";
-import type { Challenge } from "@/domain/challenges/challengeTypes";
+import type { Challenge, ChallengeMode } from "@/domain/challenges/challengeTypes";
 import type { FinishedRun } from "@/hooks/useGameRun";
 import { formatElapsed, formatPercent, formatScore } from "@/lib/format";
 
 type ResultCardProps = {
   challenge: Challenge;
+  mode: ChallengeMode;
   run: FinishedRun;
   onRetry: () => void;
   onNext: () => void;
@@ -41,7 +43,7 @@ function PersonalBest({ run }: { run: FinishedRun }) {
   );
 }
 
-export function ResultCard({ challenge, run, onRetry, onNext }: ResultCardProps) {
+export function ResultCard({ challenge, mode, run, onRetry, onNext }: ResultCardProps) {
   return (
     <div
       role="dialog"
@@ -73,6 +75,8 @@ export function ResultCard({ challenge, run, onRetry, onNext }: ResultCardProps)
       <div className="mt-4 flex flex-col gap-1 border-t border-line pt-4">
         <StatRow label="Correctness" value={formatPercent(run.validation.correctness)} />
       </div>
+
+      {mode === "practice" && <PracticeNotes notes={challenge.practiceNotes} />}
 
       <details className="mt-3 border-t border-line pt-3">
         <summary className="cursor-pointer text-[12px] text-muted hover:text-ink">Details</summary>

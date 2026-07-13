@@ -39,7 +39,13 @@ export function ChallengeRun({ challenge, mode, records, onNext }: ChallengeRunP
 
         {run.result !== null && (
           <div className="absolute inset-0 flex items-center justify-center bg-canvas/70 backdrop-blur-[2px]">
-            <ResultCard challenge={challenge} run={run.result} onRetry={run.retry} onNext={onNext} />
+            <ResultCard
+              challenge={challenge}
+              mode={mode}
+              run={run.result}
+              onRetry={run.retry}
+              onNext={onNext}
+            />
           </div>
         )}
       </div>

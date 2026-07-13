@@ -9,13 +9,18 @@ import { recordKey } from "@/domain/records/personalRecords";
 import { useLocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
 import { formatElapsed } from "@/lib/format";
 
-const MODE: ChallengeMode = "main-speed";
+const MODES: Array<{ mode: ChallengeMode; label: string }> = [
+  { mode: "main-speed", label: "Speed" },
+  { mode: "practice", label: "Practice" },
+];
 
 export function GameShell() {
   const [challenge, setChallenge] = useState<Challenge>(defaultChallenge);
+  const [mode, setMode] = useState<ChallengeMode>("main-speed");
   const records = useLocalPersonalRecords();
 
-  const best = records.records[recordKey(challenge.id, MODE)];
+  // Records are keyed by mode, so a practice best can never be mistaken for a speed best.
+  const best = records.records[recordKey(challenge.id, mode)];
 
   const goToNext = useCallback(() => {
     setChallenge((current) => challengeAfter(current));
@@ -53,7 +58,24 @@ export function GameShell() {
             </select>
           </label>
 
-          <span>main speed</span>
+          <div role="group" aria-label="Mode" className="flex items-center gap-1">
+            {MODES.map((option) => (
+              <button
+                key={option.mode}
+                type="button"
+                aria-pressed={mode === option.mode}
+                onClick={() => setMode(option.mode)}
+                className={[
+                  "rounded border px-2 py-1 text-[12px] font-medium transition-colors",
+                  mode === option.mode
+                    ? "border-accent bg-accent/15 text-ink"
+                    : "border-line text-muted hover:bg-surface-raised hover:text-ink",
+                ].join(" ")}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
 
           <span data-testid="best-time">
             {best === undefined ? "no record yet" : `best ${formatElapsed(best.bestElapsedMs)}`}
@@ -63,11 +85,14 @@ export function GameShell() {
 
       <div className="flex flex-1 justify-center px-6 py-10">
         <div className="w-full max-w-4xl">
-          {/* Keyed by challenge, so switching mounts a fresh run instead of inheriting the old clock. */}
+          {/*
+            Keyed by challenge and mode, so switching either one mounts a fresh run rather than
+            inheriting the old clock, grid, and result.
+          */}
           <ChallengeRun
-            key={challenge.id}
+            key={`${challenge.id}:${mode}`}
             challenge={challenge}
-            mode={MODE}
+            mode={mode}
             records={records}
             onNext={goToNext}
           />
