@@ -4,9 +4,20 @@ Last updated: 2026-07-13
 
 ## What Was Done
 
-The original plan (phases 0-8) plus the 2026-07-13 gameplay expansion batch. Six play modes, 23 challenges, full keyboard control, a local profile, and 16 player-chosen themes.
+The Core Game Feel + Settings upgrade is complete through **Task 7 of 12**. The latest checkpoint commits are:
 
-Seventeen commits on `main`. The batch, one commit per section:
+| Commit | Task |
+| --- | --- |
+| `c085a63` | Task 4 — live run stats bar |
+| `e422d8e` | Task 5 — fixed practice screen frame |
+| `f5761ea` | Task 6 — feedback and combo layer |
+| `6da8b65` | Task 7 — original sound hooks |
+
+Tasks 1-3 immediately precede them at `97711ca`, `57ee973`, and `ca475a0`.
+
+The original plan (phases 0-8), the 2026-07-13 gameplay expansion batch, and Core Game Feel Tasks 1-7. Six play modes, 23 challenges, full keyboard control, a local profile, and 13 original player-chosen themes.
+
+The earlier gameplay batch, one commit per section:
 
 | Commit | Section |
 | --- | --- |
@@ -32,7 +43,11 @@ Docs commit follows. No remote, so nothing has been pushed.
 
 ## Next Step
 
-**Phase B of the Challenge Variant System**, in `IMPLEMENTATION_PLAN.md`: seeded RNG, seed composition, and the template/variant/difficulty types. Read `ARCHITECTURE.md` § Challenge Variant Architecture first — the whole design lives there, and Phase A (2026-07-13) was writing it. No code has changed for it yet.
+**Task 8 — Upgrade Results For Replay Motivation.** Follow the read-only plan at `src/app/games/excel-speed-design-implementation-plan.md`: test first, redesign `ResultCard` and `SessionResultCard`, run all five gates, and commit one green task. Continue Tasks 8-10, then pause for compaction.
+
+Do not stage or overwrite the parallel workstream in `src/domain/challenges/challengeTypes.ts`, `src/domain/validation/validatorTypes.ts`, or `src/app/games/`.
+
+The Challenge Variant System remains a separate workstream. Its architecture notes below are retained for that work, but they are not the next step for this upgrade.
 
 Off that path, unblocked, still worth doing:
 
@@ -93,4 +108,4 @@ npm run build
 npm run e2e
 ```
 
-All five pass as of this handoff: clean lint, 297 unit tests across 28 files, clean typecheck, a successful build, and 34 Chromium e2e tests.
+All five pass as of this handoff: clean lint, 462 unit tests across 47 files, clean typecheck, a successful build, and 39 Chromium e2e tests.

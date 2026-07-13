@@ -6,7 +6,23 @@ Last updated: 2026-07-13
 
 **The plan's eight phases plus a full gameplay-expansion batch are complete.** The game now has six play modes, 23 challenges, full keyboard control, a local profile, and player-chosen themes.
 
+The Core Game Feel + Settings upgrade is complete through **Task 7 of 12**. Tasks 4-7 added live run stats, a fixed practice frame, reduced-motion-safe feedback/combo cues, and original synthesized sound hooks. Continue with Task 8, the results redesign.
+
 Open `/` and a run is already under way. Complete the challenge and it scores, banks a personal record, logs to the local history, and offers a retry or the next challenge.
+
+## Core Game Feel Checkpoint (Tasks 1-7)
+
+| Commit | Task |
+| --- | --- |
+| `97711ca` | Semantic design tokens and 13 original themes |
+| `57ee973` | Expanded local settings model |
+| `ca475a0` | Eight-category tuning panel |
+| `c085a63` | Live EPM, accuracy, shortcut efficiency, and progress |
+| `e422d8e` | Fixed practice frame and session progress rail |
+| `f5761ea` | Feedback, combo, shortcut, and reduced-motion layer |
+| `6da8b65` | Silent-by-default original synthesized run cues |
+
+Latest verification: clean lint, 462 unit tests across 47 files, clean typecheck, successful production build, and 39 Chromium end-to-end tests. The known inferred-workspace-root warning remains harmless.
 
 ## Play Modes
 

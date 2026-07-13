@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-13 (core game feel, Tasks 4-7)
+
+- Added a self-ticking live stats bar for EPM, accuracy, shortcut efficiency, and progress. Keyboard and pointer input origins are preserved in replay events.
+- Reframed single and session play into a fixed prompt/stats/grid/toolbar hierarchy. The grid stays dominant, timer/stat widths are stable, and sessions have a fixed-width progress rail.
+- Added pointer-transparent feedback for task appearance, success, mistakes, shortcuts, combos, PB pace, and run completion. Practice feedback uses 160ms motion or no animation under reduced motion.
+- Added eight original synthesized sound categories with master volume and individual local toggles. Sound remains off by default; no copied or bundled audio assets exist.
+- All five gates pass: lint, 462 unit tests across 47 files, typecheck, production build, and 39 Chromium end-to-end tests.
+
 ## 2026-07-13 (challenge variant system, Phase A)
 
 Architecture and planning only. **No source file changed, no test changed, no behaviour changed.**
@@ -74,4 +82,3 @@ Phase 0 and Phase 1 of `IMPLEMENTATION_PLAN.md`.
 - Defined the first playable target around the "Select the Revenue column" challenge.
 - Chose a custom simplified grid first with a future grid adapter boundary.
 - Chose local personal records before accounts or leaderboards.
-
