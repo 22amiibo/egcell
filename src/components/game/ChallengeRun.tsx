@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback, useRef } from "react";
+
 import { ChallengePrompt } from "@/components/game/ChallengePrompt";
 import { ResultCard } from "@/components/game/ResultCard";
 import { TimerDisplay } from "@/components/game/TimerDisplay";
@@ -22,6 +24,14 @@ type ChallengeRunProps = {
  */
 export function ChallengeRun({ challenge, mode, records, onNext }: ChallengeRunProps) {
   const run = useGameRun(challenge, mode, records);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+
+  // Retry puts focus straight back on the grid, so a keyboard player never has to reach for the
+  // mouse between attempts.
+  const retry = useCallback(() => {
+    run.retry();
+    gridRef.current?.focus({ preventScroll: true });
+  }, [run]);
 
   return (
     <div className="flex flex-col items-center gap-5">
@@ -35,7 +45,12 @@ export function ChallengeRun({ challenge, mode, records, onNext }: ChallengeRunP
       </div>
 
       <div className="relative">
-        <SpreadsheetGrid grid={run.grid} onAction={run.dispatch} />
+        <SpreadsheetGrid
+          grid={run.grid}
+          onAction={run.dispatch}
+          allowedActions={challenge.allowedActions}
+          focusRef={gridRef}
+        />
 
         {run.result !== null && (
           <div className="absolute inset-0 flex items-center justify-center bg-canvas/70 backdrop-blur-[2px]">
@@ -43,7 +58,7 @@ export function ChallengeRun({ challenge, mode, records, onNext }: ChallengeRunP
               challenge={challenge}
               mode={mode}
               run={run.result}
-              onRetry={run.retry}
+              onRetry={retry}
               onNext={onNext}
             />
           </div>

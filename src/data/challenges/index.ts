@@ -36,7 +36,7 @@ export const selectionRevenueColumnChallenge: Challenge = {
   practiceNotes: [
     {
       title: "Fast route",
-      body: "Click the Revenue column header instead of dragging down the cells.",
+      body: "Click the Revenue column header, or put the active cell anywhere in Revenue and press Ctrl+Space.",
     },
   ],
 };
@@ -61,7 +61,7 @@ export const navigationLastRevenueCellChallenge: Challenge = {
   practiceNotes: [
     {
       title: "Fast route",
-      body: "In Excel this is Ctrl+Down from anywhere in the column, which jumps to the last cell before a blank.",
+      body: "Click any Revenue cell, then Ctrl+Down or Cmd+Down jumps to the last filled cell, here and in Excel.",
     },
   ],
 };
@@ -89,7 +89,7 @@ export const selectionHeaderRowChallenge: Challenge = {
   practiceNotes: [
     {
       title: "Fast route",
-      body: "Click the row header to the left of row 1. Dragging across the five header cells works too, but it is slower.",
+      body: "Click the row header to the left of row 1, or press Shift+Space with the active cell anywhere in row 1.",
     },
   ],
 };
@@ -117,7 +117,7 @@ export const selectionWholeTableChallenge: Challenge = {
   practiceNotes: [
     {
       title: "Fast route",
-      body: "Drag from A1 to the bottom-right cell of the data. In Excel, Ctrl+A from inside a table selects the whole table in one keystroke.",
+      body: "Ctrl+A or Cmd+A selects the whole table in one keystroke, here and in Excel. Dragging from A1 to the last cell works too.",
     },
   ],
 };
@@ -147,7 +147,7 @@ export const formattingBoldHeaderChallenge: Challenge = {
   practiceNotes: [
     {
       title: "Fast route",
-      body: "Select the row, then Bold. In Excel that is Ctrl+B, and it is the same two steps.",
+      body: "Shift+Space selects the header row, then Ctrl+B or Cmd+B bolds it. Two keystrokes, here and in Excel.",
     },
   ],
 };
@@ -178,7 +178,7 @@ export const formattingCurrencyRevenueChallenge: Challenge = {
   practiceNotes: [
     {
       title: "Fast route",
-      body: "Select the column and apply Currency. Formatting the header along with it costs nothing: only the figures are graded.",
+      body: "Select the column and press Ctrl+Shift+4 for currency. Formatting the header along with it costs nothing: only the figures are graded.",
     },
   ],
 };

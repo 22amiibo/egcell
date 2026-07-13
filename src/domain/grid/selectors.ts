@@ -127,3 +127,18 @@ export function renderedRowIndex(grid: GridState, row: number): number | null {
 
   return index === -1 ? null : index;
 }
+
+/** True when every cell in the range is bold. Drives the bold toggle: an all-bold range unbolds. */
+export function isRangeBold(grid: GridState, range: RangeAddress): boolean {
+  const { start, end } = normalizeRange(range);
+
+  for (let row = start.row; row <= end.row; row += 1) {
+    for (let col = start.col; col <= end.col; col += 1) {
+      if (getCell(grid, { row, col })?.format.bold !== true) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
