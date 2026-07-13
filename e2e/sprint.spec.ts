@@ -13,7 +13,7 @@ async function completeFirstFiveTasks(page: Page) {
   await clickButton(page, "Bold");
 }
 
-/** Tasks 6-10: the rest of the pool, then the queue wraps to the start. */
+/** Tasks 6-10: currency, sort, filter, then the first two of the expanded pool. */
 async function completeTasksSixThroughTen(page: Page) {
   await clickButton(page, "Select column C");
   await clickButton(page, "Format as currency");
@@ -24,8 +24,11 @@ async function completeTasksSixThroughTen(page: Page) {
   await clickButton(page, "A2");
   await clickButton(page, "Filter to the selected value");
 
-  await clickButton(page, "Select column C");
-  await clickButton(page, "C7");
+  // Go to the first Region entry.
+  await clickButton(page, "A2");
+
+  // Go to the last cell of the Status column.
+  await clickButton(page, "E7");
 }
 
 test.describe("sprint mode", () => {

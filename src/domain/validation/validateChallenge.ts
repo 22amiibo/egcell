@@ -1,3 +1,4 @@
+import { validateComposite } from "@/domain/validation/validateComposite";
 import { validateFormatting } from "@/domain/validation/validateFormatting";
 import { validateNavigation } from "@/domain/validation/validateNavigation";
 import { validateSelection } from "@/domain/validation/validateSelection";
@@ -23,5 +24,7 @@ export function validateChallenge(input: ValidationInput): ValidationResult {
       return validateFormatting(input, spec);
     case "sort-filter":
       return validateSortFilter(input, spec);
+    case "composite":
+      return validateComposite(input, spec);
   }
 }

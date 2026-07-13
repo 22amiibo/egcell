@@ -44,16 +44,27 @@ describe("the challenge registry", () => {
   it.each(eachChallenge)(
     "%s allows the actions its own solution needs",
     (_id, challenge) => {
-      const needed: Record<Challenge["validation"]["kind"], GridActionKind[]> = {
+      const needed: Record<
+        Exclude<Challenge["validation"]["kind"], "composite">,
+        GridActionKind[]
+      > = {
         selection: ["select-cell", "select-range", "select-row", "select-column"],
         navigation: ["select-cell"],
         formatting: ["set-format"],
         "sort-filter": ["sort-column", "filter-column"],
       };
 
-      const required = needed[challenge.validation.kind];
+      // A composite must be solvable part by part, so every part's family needs an action.
+      const parts =
+        challenge.validation.kind === "composite"
+          ? challenge.validation.parts
+          : [challenge.validation];
 
-      expect(required.some((action) => challenge.allowedActions.includes(action))).toBe(true);
+      for (const part of parts) {
+        expect(
+          needed[part.kind].some((action) => challenge.allowedActions.includes(action)),
+        ).toBe(true);
+      }
     },
   );
 

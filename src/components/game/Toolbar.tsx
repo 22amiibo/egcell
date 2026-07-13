@@ -130,6 +130,21 @@ export function Toolbar({ challenge, grid, onAction }: ToolbarProps) {
             }
           />
           <ToolbarButton
+            label="Filter >"
+            title="Filter above the selected value"
+            // A threshold only means something for a number.
+            disabled={typeof filterValue !== "number"}
+            onClick={() =>
+              typeof filterValue === "number" &&
+              onAction({
+                kind: "filter-column",
+                col: grid.activeCell.col,
+                op: "greater-than",
+                value: filterValue,
+              })
+            }
+          />
+          <ToolbarButton
             label="Clear"
             title="Clear filters"
             disabled={grid.filters.length === 0}
