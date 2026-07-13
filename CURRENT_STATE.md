@@ -57,6 +57,45 @@ All five gates pass:
 - No formula family. `CellValue` supports it; nothing creates one.
 - Fixed-time partial credit is the validator's `completionPercent` at the buzzer. Finer-grained subgoals would need validators to report per-step progress, which none do.
 - No deployment, no accounts, no server, no real leaderboard. By design.
+- No challenge generation of any kind. See the audit below.
+
+## Challenge System Audit (2026-07-13, Phase A)
+
+What the challenge system is, and exactly what stops it scaling to many randomised challenges. The design that fixes it is `ARCHITECTURE.md` § Challenge Variant Architecture; the work is Phases B-I of `IMPLEMENTATION_PLAN.md`. **Nothing below is broken.** These are ceilings, not defects.
+
+**Families.** Six in the type (`navigation`, `selection`, `formatting`, `sort-filter`, `formula`, `mixed`); four carry content, `formula` is declared and empty.
+
+**Challenge data model.** A flat literal: id, version, slug, title, prompt, family, difficulty 1-5, seed, timing policy, `initialGrid`, `allowedActions`, `validation`, `scoring`, `practiceNotes`. Two properties are load-bearing for what comes next and are already right: **`id` and `seed` are separate fields**, and `PersonalRecord` stores both — so a record can key to a drill while the instance varies.
+
+**Grid state model.** Row/col counts, `usedRange`, `headerRows`, cells keyed `"r:c"`, `activeCell`, `selection`, `hiddenRows`, `sortState`, `filters`. Actions: select cell/range/row/column, set-format, sort-column, filter-column, clear-filters. Pure reducer; a sort moves whole rows and never the header; filters recompute from scratch after a sort.
+
+**Validators.** One dispatcher (`validateChallenge`) switching exhaustively on `validation.kind`, never on an id. Four leaf validators plus a flat `composite`. All grade final grid state, never route. This is the layer needing the least change: a generated spec grades exactly as a hand-written one does.
+
+**Scoring.** `base × clamp(target/elapsed, 0.2, 2) × correctness² × (0.75 + 0.25·accuracy) × completion`. Speed is normalised against **each task's own** `targetSeconds` — which turns out to be what can make a randomised sprint queue fair.
+
+**Run modes.** Six: Speed, Practice, Sprint 5, Sprint 10, 30s, 60s. Sessions run `challenges[N % 23]` under one clock.
+
+**Records.** Four localStorage books, all `v1`: personal records keyed `${challengeId}:${mode}`; session records keyed by mode; run history (capped at 50); settings.
+
+### The Eight Limits
+
+1. **One dataset.** All 23 challenges call `createRevenueGrid()` — 6 data rows, 5 columns, fixed values. Positions are memorisable; "Go to Dara's Units" decays into recall after a few plays.
+2. **`seed` is decorative.** Every challenge carries one; nothing reads it. There is no RNG in the codebase, seeded or otherwise.
+3. **Coordinates are module constants of one table.** `REVENUE_COL = 2`, `LAST_DATA_ROW = 6`, and every validation spec is written in terms of them. A generated grid with a different column order would silently invalidate every spec unless grid and spec are emitted **from one schema, in one call**. This is the most dangerous property of the current code and the rule the variant design is built around.
+4. **Session queues are list slices.** `taskChallengeAt(pool, i) = pool[i % pool.length]`, chosen deliberately so a sprint record is not a lucky draw. It also pins the first eight challenges in order, makes inserting a challenge mid-list a change to what Sprint 5 means, and leaves queues unable to mix families or avoid repetition.
+5. **Personal records would explode under naive generation.** The key is `${challengeId}:${mode}`. Give each generated variant a fresh id per seed and every run sets a first-ever PR, which kills the chase. Fix: key on template + difficulty, vary the seed. The types already permit this.
+6. **Partial credit is coarse.** Only `validateFormatting` reports a fraction; navigation, selection, and sort/filter are binary. `validateComposite` averages its parts but never says *which* part is done, so a timed buzzer cannot tell the player what they got.
+7. **Prompts are hand-written English tied to one table.** "Show Units above Bruno's" names a row that exists in exactly one dataset. Generated prompts must derive from the dataset's real headers, and something must prove the header named in a prompt is the column its spec grades.
+8. **Three planned families are grid-blocked.** Structure edits, fill/copy, and formulas have no reducer actions, no clipboard model, and no evaluator. They cannot be added by writing challenges; each needs a reducer phase first.
+
+### What Is Already Right
+
+Stated because the temptation will be to rebuild it:
+
+- The validator dispatcher is spec-keyed and exhaustive. **No new validator registry is needed.**
+- `id` ≠ `seed`, and records store both. The PR-safety seam already exists.
+- `scoreRun` normalises speed per task, so a varied queue can still yield comparable scores.
+- `challenges.test.ts` already asserts the four things a generator must guarantee: unique identity, does-not-start-complete, allowed-actions-cover-the-solution, no-shortcut-in-prompt. It is the eligibility gate in embryo — promote it, do not rewrite it.
 
 ## Known Issues
 
@@ -68,9 +107,12 @@ None blocking.
 
 ## Next Best Step
 
-1. **Playtest the sessions.** Sprint and timed modes exist as designed, but nobody has felt whether a 5-task chain or a 30-second burst is the fun one.
-2. **Deploy to Vercel.** Build passes, no env vars.
-3. **A second dataset**, then a seeded generator, so the table cannot be memorised.
+**Phase B of the Challenge Variant System** in `IMPLEMENTATION_PLAN.md`: seeded RNG and core variant types. Phase A (audit and architecture) is done — it is the audit section above plus `ARCHITECTURE.md` § Challenge Variant Architecture. No code has changed.
+
+Open, unblocked, and off that path:
+
+- **Playtest the sessions.** Nobody has felt whether a 5-task chain or a 30-second burst is the fun one. That answer should shape Phase I and could reorder everything before it.
+- **Deploy to Vercel.** Build passes, no env vars.
 
 ## Verification Commands
 

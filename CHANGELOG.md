@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-07-13 (challenge variant system, Phase A)
+
+Architecture and planning only. **No source file changed, no test changed, no behaviour changed.**
+
+- Audited the challenge system and wrote down the eight limits that stop it scaling to many randomised challenges: one dataset, a decorative `seed`, column coordinates as module constants, list-slice session queues, a record key that would explode under generation, coarse partial credit, prompts welded to one table, and three families the grid cannot express. In `CURRENT_STATE.md`.
+- Designed the variant system in `ARCHITECTURE.md`: family → template → variant → validator → queue, a seeded RNG with named forked streams, dataset themes, difficulty presets, an eligibility gate, and repetition avoidance. The load-bearing idea is that a generated variant **is** a `Challenge`, so the existing run loop, validators, scoring, and record store consume it unchanged.
+- Planned Phases B-I in `IMPLEMENTATION_PLAN.md`, each with files, work, acceptance criteria, tests, risks, and what not to build. The game stays playable at every commit, and no existing personal record is invalidated.
+- Recorded five decisions in `DECISIONS.md`. One supersedes "session queues are deterministic slices": its fairness argument is satisfied instead by the fact that `scoreRun` already normalises each task's speed against that task's own target, so a seeded, varied queue pays out comparably to a frozen one.
+
 ## 2026-07-13 (gameplay expansion batch)
 
 Eight commits on top of the finished plan, one per section:

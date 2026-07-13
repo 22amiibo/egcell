@@ -1,5 +1,81 @@
 # Decisions
 
+> The five decisions below are **design decisions taken during Phase A of the Challenge Variant System**. No code implements them yet. Everything after them describes shipped behaviour.
+
+## 2026-07-13: A Generated Variant Is A Challenge, Not A New Type
+
+Decision: `ChallengeVariant = Challenge & { templateId, dimensions, eligibility flags, ... }`. The generator's output is the type the game already consumes.
+
+Reasoning:
+
+- `useGameRun`, `validateChallenge`, `scoreRun`, `Toolbar`, `SpreadsheetGrid`, and the record store all take a `Challenge` today. A parallel type would need a second code path through every one of them, and the two would drift.
+- A variant genuinely is a challenge plus provenance. The extra fields — which template made it, what it varied, whether it is sprint- or leaderboard-eligible — are read by the queue and by tests, and ignorable by everything else.
+
+Consequences:
+
+- The variant system ships behind the existing engine with no change to the run loop.
+- The 23 hand-authored challenges migrate as fixed templates: one pinned seed each, `id` unchanged, records untouched.
+
+## 2026-07-13: A Template Emits Its Grid And Its Spec From One Schema, In One Call
+
+Decision: dataset generation returns the column layout it chose (`columnsByRole`), and a template reads its target coordinates only from that. No template and no validation spec may refer to a column constant.
+
+Reasoning:
+
+- Today `REVENUE_COL = 2` is a module constant of the one dataset, and every spec is written against it. Randomise column order without changing that and a spec grades the wrong column, while type-checking cleanly and reading correctly in review. It is the one failure mode of this design that is both silent and fatal.
+- Deriving the spec in a second pass over the generated grid is the same bug with extra steps: two derivations that must agree, and nothing forcing them to.
+
+Consequences:
+
+- A template that cannot express its target in terms of a role the dataset actually placed generates nothing, and the queue re-draws.
+- An eligibility check re-derives the target column from the prompt's own header text and asserts it equals the spec's column, so a prompt and its validator cannot disagree.
+
+## 2026-07-13: A Record Is Keyed To The Drill, Not To The Seed
+
+Decision: a generated variant's `id` is `${templateId}@${version}:d${difficulty}`; its `seed` is the instance. Personal records stay keyed `${challengeId}:${mode}`, unchanged.
+
+Reasoning:
+
+- Key a record by the seed and every run is a first-ever PR. The chase, which is the whole emotional loop, dies.
+- `Challenge` already splits `id` from `seed`, and `PersonalRecord` already stores both. The seam was built for this and needs no new storage shape.
+- It is the Monkeytype bargain: the words change, the test does not. A best time means "my fastest run of this drill at this difficulty".
+
+Consequences:
+
+- Two variants of one template at one difficulty must be the **same amount of work**: same target size, same step count, row count within one band. A test asserts it per template, because if that drifts a PR becomes a lucky seed.
+- Bumping a template's version starts a new record book for it, deliberately.
+
+## 2026-07-13: Seeded Queues Supersede Deterministic Slices, Because Score Is Already Draw-Normalised
+
+Decision: sprint and timed queues become seeded, family-balanced, and repetition-avoiding. This supersedes "Session Queues Are Deterministic Slices Of The Challenge List" below.
+
+Reasoning:
+
+- That decision's reasoning was right as far as it went: a *time* record over a random draw is a lottery, because three navigation tasks are quicker than three sort tasks.
+- But sessions do not record time, they record **score** — and `scoreRun` already divides each task's target seconds by its elapsed seconds. Speed is normalised per task, against that task's own par. A hard draw pays out like an easy one.
+- So the fairness that freezing the queue bought is available without freezing it. Freezing was the expensive way to get the same property, and it capped variety permanently.
+
+Consequences:
+
+- The first eight challenges stop being pinned. `taskChallengeAt` goes away in Phase G.
+- **A sprint elapsed-time record must never be introduced.** It would not survive randomisation. Sessions chase score; single runs chase time.
+- Session records gain the difficulty in their key. The old session book is not comparable to a seeded queue and is dropped once, under a new storage version. Per-challenge records are untouched.
+- Per-template target times become load-bearing, and must be tuned in Phase I rather than guessed.
+
+## 2026-07-13: Difficulty Comes From The Table, Never From The Prompt
+
+Decision: difficulty is a preset over grid shape — more rows, more columns, distractor columns, confusable headers, blanks, table offset, chain length, time pressure. Prompts are always as clear as they can be made.
+
+Reasoning:
+
+- This is a speed game. A prompt the player has to decode measures reading comprehension while the clock runs.
+- Ambiguity is also the one difficulty knob that breaks validation: if the player cannot tell what is being asked, a correct answer can fail.
+
+Consequences:
+
+- Eligibility rejects an ambiguous target (two cells satisfying "the first numeric value") rather than shipping it as hard.
+- Generation is bounded: a rejected draw re-draws a fixed number of times, then falls back to a lower difficulty preset. It always terminates.
+
 ## 2026-07-13: Cmd And Ctrl Are Both Jump Modifiers, With No Platform Sniffing
 
 Decision: Cmd+Arrow and Ctrl+Arrow (and Cmd/Ctrl+A, Cmd/Ctrl+B) behave identically. Only Ctrl+Space and Shift+Space are single-modifier, because Cmd+Space belongs to Spotlight and never reaches the page.
@@ -14,6 +90,8 @@ Consequences:
 - No user-agent checks anywhere. Tests fire `metaKey` and `ctrlKey` interchangeably and both must pass.
 
 ## 2026-07-13: Session Queues Are Deterministic Slices Of The Challenge List
+
+> **Superseded by "Seeded Queues Supersede Deterministic Slices" above.** It describes what ships today and stays true until Phase G lands.
 
 Decision: Task N of a sprint or timed session is always `challenges[N % length]`. No shuffling.
 

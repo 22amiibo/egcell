@@ -1,6 +1,8 @@
 # Excel Speed Trainer Implementation Plan
 
-> **Status (2026-07-13):** every phase below is complete, and a user-directed gameplay expansion batch has landed on top of it: keyboard controls, sprint and fixed-time session modes, a result-screen upgrade, 23 challenges, local run history/profile, a polish pass, and theme settings. This file is a historical record of the original plan; the batch is summarized in `CHANGELOG.md` and the live picture is `CURRENT_STATE.md`.
+> **Status (2026-07-13):** the original eight phases are complete, and a user-directed gameplay expansion batch landed on top of them: keyboard controls, sprint and fixed-time session modes, a result-screen upgrade, 23 challenges, local run history/profile, a polish pass, and theme settings. Everything from here down to "Handoff Rules For Future Agents" is a **historical record**.
+>
+> **The live plan is the last section of this file: Challenge Variant System.** Its Phase A (audit and architecture docs) is done. Phases B-I are the work. Read `ARCHITECTURE.md` § Challenge Variant Architecture before starting any of them.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -814,4 +816,297 @@ npm run e2e
 - Mark completed phases in this file.
 - Update `CHANGELOG.md` for meaningful completed slices.
 - Update `AGENT_HANDOFF.md` with what changed, what remains, known issues, and exact commands.
+
+---
+
+# Challenge Variant System
+
+**This is the live plan.** Design: `ARCHITECTURE.md` § Challenge Variant Architecture. Goal: many more randomised Excel-like speed challenges, without the game becoming messy, repetitive, or impossible to validate.
+
+The five gates run after every phase and all five must pass before the phase is done:
+
+```bash
+npm run lint && npm test && npm run typecheck && npm run build && npm run e2e
+```
+
+Two rules hold across every phase below:
+
+- **The game stays playable at every commit.** The 23 hand-authored challenges keep working until generated ones demonstrably replace them, and their personal records are never invalidated.
+- **No new challenge variants ship before the architecture that validates them.** Phases B through D produce zero new player-visible tasks.
+
+## Phase A: Audit And Architecture Docs — COMPLETE (2026-07-13)
+
+**Goal:** Understand the current challenge system, write down what stops it scaling, and design the variant system. No app behaviour changes.
+
+**Done:** `ARCHITECTURE.md` gained the Challenge Variant Architecture section. This plan gained Phases A-I. `CURRENT_STATE.md` gained the limitations audit. `DECISIONS.md` gained four decisions, one of which supersedes the deterministic-slice session queue. `TODO.md` and `AGENT_HANDOFF.md` point at Phase B.
+
+**Files touched:** docs only. Zero source files, zero tests, zero behaviour change.
+
+## Phase B: Seeded RNG And Core Types
+
+**Goal:** A deterministic random source and the types the rest of the system is written against. Nothing player-visible.
+
+**Files:**
+
+- Create `src/domain/random/rng.ts`, `rng.test.ts`
+- Create `src/domain/random/seeds.ts`, `seeds.test.ts`
+- Create `src/domain/challenges/variantTypes.ts`
+- Create `src/domain/challenges/difficulty.ts`, `difficulty.test.ts`
+
+**Work:**
+
+- `createRng(seed: string): Rng` — mulberry32 over an FNV-1a hash of the seed string. `next`, `int`, `pick`, `shuffle`, `bool`, `fork(label)`.
+- `fork` derives a child stream from `hash(parentSeed + ":" + label)`, so streams are named rather than positional and adding a draw in one stage cannot shift another.
+- Seed composition: `queueSeed`, `taskSeed`, `dailySeed`. Seeds are canonical strings, composed and never parsed.
+- `ChallengeTemplate`, `ChallengeVariant` (`= Challenge & {...}`), `VariantDimensions`, `GenerationContext`, `EligibilityIssue`.
+- The five `DifficultyPreset` rows.
+
+**Acceptance:**
+
+- Same seed produces the same sequence, across two separately-constructed RNGs.
+- Different seeds diverge within the first three draws.
+- `shuffle` is a permutation, not a partial one; `int` is inclusive at both ends; `pick` never returns undefined on a non-empty array.
+- A forked stream is independent: draining the parent does not change the child.
+- `ChallengeVariant` is assignable to `Challenge` (a type-level test, `expectTypeOf` or an assignment in a test file).
+
+**Tests:** determinism, distribution sanity (no draw is impossible), fork independence, `int` boundary inclusivity, seed composition round-trips to a stable string.
+
+**Risks:** an RNG that looks deterministic but is seeded from object identity or insertion order. Guard: construct two RNGs from the same string literal in separate `it` blocks and compare 1000 draws.
+
+**Do not build:** templates, datasets, queue, any UI.
+
+**Commit:** `Add seeded RNG and challenge variant types`
+
+## Phase C: Template And Family Registries, With The 23 Migrated
+
+**Goal:** Every existing challenge is reachable through the template registry, and the game plays exactly as it does today.
+
+**Files:**
+
+- Create `src/domain/challenges/templateRegistry.ts`, `templateRegistry.test.ts`
+- Modify `src/data/challenges/index.ts`
+- Modify `src/components/game/GameShell.tsx` (picker reads the registry)
+
+**Work:**
+
+- A registry mapping template id → `ChallengeTemplate`. One lookup function, no second source of truth.
+- Wrap each of the 23 hand-authored challenges as a **fixed template**: one pinned seed, `generate` returns the existing literal, `id` and `seed` unchanged.
+- Family registry: family → the templates in it, plus the `GridActionKind`s that family's solutions need (today that map lives inside `challenges.test.ts`; it moves to the domain and the test reads it from there).
+- The existing registry tests keep passing untouched. They are the eligibility gate in embryo.
+
+**Acceptance:**
+
+- `challenges` is derived from the registry rather than hand-listed, and produces the identical 23 in the identical order.
+- Every existing personal record still resolves: `recordKey(challenge.id, mode)` is byte-identical to what it was.
+- Sprint 5 faces exactly the same five tasks it did before this phase.
+- All five gates pass with zero e2e changes.
+
+**Tests:** registry round-trip (every id resolves to a template whose generate returns a variant with that id); order pin; the existing challenge-registry suite, unmodified.
+
+**Risks:** the pinned head-of-list order. `DECISIONS.md` records that reordering `challenges` silently changes what Sprint 5 means. The order must survive this phase byte-for-byte; a test asserts the id sequence.
+
+**Do not build:** generation from seeds, datasets, any behaviour change.
+
+**Commit:** `Route the existing challenges through a template registry`
+
+## Phase D: Dataset Theme Generator
+
+**Goal:** Generate a real spreadsheet from a theme, a shape, and a seed. Still nothing player-visible.
+
+**Files:**
+
+- Create `src/domain/datasets/datasetTypes.ts`
+- Create `src/domain/datasets/generateDataset.ts`, `generateDataset.test.ts`
+- Create `src/data/datasets/themes.ts`, `themes.test.ts`
+
+**Work:**
+
+- `generateDataset(rng, themeId, shape) -> GeneratedGrid`: a `GridState` plus the `columnsByRole` map, header row, data row bounds, and the rows it drew.
+- Four themes: `sales-pipeline`, `expenses`, `projects`, `customers`.
+- Shape controls: row count, column count, column order, distractor columns, blanks, table offset, confusable headers.
+- The returned `GridState` must satisfy everything the existing engine assumes: `headerRows` set, `usedRange` correct, `rowCount`/`colCount` at least the used range, cells keyed by `cellKey`.
+
+**Acceptance:**
+
+- Same seed + theme + shape → deep-equal grid.
+- Every generated grid passes an invariant check: used range within row/col count, no cell outside the used range, every header non-empty and unique, `columnsByRole` points only at columns that exist.
+- A numeric column drawn for a sort target has at least two distinct values.
+- Themes are pure data: swapping a theme changes headers and values and nothing else about the grid's shape.
+
+**Tests:** determinism; the invariant check as a fuzz over 200 seeds × 4 themes × 5 difficulties; theme content (every column has a header, a type, and a pool).
+
+**Risks:** a generated grid that breaks a silent assumption of the sort/filter reducer (it recomputes hidden rows from `dataRowBounds`, which is `usedRange.start.row + headerRows`). Guard: the fuzz test dispatches a sort and a filter at every generated grid and asserts the reducer does not throw and the header does not move.
+
+**Do not build:** templates that use the datasets yet. Land the generator and its fuzz test alone.
+
+**Commit:** `Generate seeded datasets from reusable themes`
+
+## Phase E: Navigation And Selection Variants
+
+**Goal:** The first generated challenges a player can actually meet. Two families, because they are the two with no grid-mutation risk.
+
+**Files:**
+
+- Create `src/domain/challenges/generateVariant.ts`, `generateVariant.test.ts`
+- Create `src/domain/challenges/eligibility.ts`, `eligibility.test.ts`
+- Create `src/domain/challenges/templates/navigation.ts`, `selection.ts`, and their tests
+- Modify `src/components/game/GameShell.tsx` (picker offers templates; a re-roll gives a new seed)
+
+**Work:**
+
+- `generateVariant(templateId, seed, difficulty)`: fork the RNG, generate a dataset, hand the template its `GenerationContext`, run eligibility, return the variant or null.
+- Navigation templates: last filled cell in a column; first filled cell in a row; edge of the data region; a labelled cell (by name); first blank cell under a column; last row of the table; first numeric value in a column.
+- Selection templates: a column by role; a row by role; the whole table; the data values under a header; the header row; a rectangular subrange.
+- Every template emits its coordinates from `dataset.columnsByRole`, never from a constant. This is the rule the whole design rests on.
+- Prompts are built from the dataset's actual headers.
+
+**Acceptance:**
+
+- A generated navigation challenge is completable by keyboard alone.
+- A generated selection challenge is completable by drag alone.
+- Eligibility rejects: a target off-grid, an already-satisfied start, a prompt naming a column the dataset did not sample, an ambiguous "first numeric value" with two answers.
+- A rejected draw re-draws and generation still terminates (bounded attempts, asserted).
+
+**Tests:** determinism per template; near-miss validation (off-by-one range, wrong column, header included when it should not be); the eligibility fuzz (every template × 5 difficulties × 100 seeds → zero issues, zero already-complete); e2e for one generated navigation and one generated selection challenge.
+
+**Risks:** validator/prompt divergence. A prompt that says "Revenue" while the spec points at the Units column is undetectable by type-checking and lethal to trust. Guard: an eligibility check that re-derives the target column *from the prompt's header text* and asserts it equals the spec's column.
+
+**Do not build:** formatting, sort/filter, mixed, or queue changes. Single-challenge play only.
+
+**Commit:** `Generate navigation and selection variants from seeds`
+
+## Phase F: Formatting And Sort/Filter Variants
+
+**Goal:** The two families that mutate the grid, generated.
+
+**Files:**
+
+- Create `src/domain/challenges/templates/formatting.ts`, `sortFilter.ts`, and tests
+- Modify `src/domain/datasets/generateDataset.ts` if a format-stripped variant of a grid is needed
+
+**Work:**
+
+- Formatting templates: currency on an amount column; percent on a rate column; bold the header row; date format on a date column; whole-number format on a count column; bold a category column.
+- Sort/filter templates: sort a numeric column either direction; sort text A-Z; filter a category to one of its values; filter a status; filter above/below a threshold drawn from the data.
+- A formatting target must start **without** the required format (the existing "must not start complete" rule, per cell). The dataset generator gains a per-column "start unformatted" flag, exactly as `createRevenueGrid({ revenueFormat: "general" })` does today.
+- A filter value is drawn from the data so it always matches ≥1 and < all rows.
+
+**Acceptance:**
+
+- Sorting a generated grid moves whole rows and leaves the header alone (the reducer already guarantees this; the test asserts it on generated shapes).
+- A filter target always has a non-trivial answer.
+- A generated formatting challenge cannot start complete, at any seed.
+
+**Tests:** near-miss (reversed sort, one unformatted cell in the range, filter one row off); the row-integrity check after a generated sort (every data row's values still belong to the same original record); eligibility fuzz extended to both families; e2e for one generated formatting and one generated sort/filter challenge.
+
+**Risks:** a sort target column whose values are all equal makes any order correct. Eligibility rejects it; a test proves the rejection fires.
+
+**Do not build:** mixed chains. Queue still untouched.
+
+**Commit:** `Generate formatting and sort/filter variants from seeds`
+
+## Phase G: Seeded Task Queues
+
+**Goal:** Sprint and timed modes run generated, family-balanced, repetition-avoiding queues.
+
+**Files:**
+
+- Create `src/domain/queue/queueTypes.ts`, `buildTaskQueue.ts`, `buildTaskQueue.test.ts`
+- Modify `src/components/game/SessionRun.tsx` (consume a queue instead of `taskChallengeAt`)
+- Modify `src/domain/sessions/sessionResult.ts` (drop `taskChallengeAt`)
+- Modify `src/hooks/useLocalSessionRecords.ts` and `src/domain/sessions/sessionRecords.ts` (records key on mode **and** difficulty)
+
+**Work:**
+
+- `buildTaskQueue(request) -> TaskQueue`: seeded, family-mixed, repetition-avoiding, eligibility-respecting.
+- Timed queues generate a bounded overshoot and the player consumes a prefix. Nothing is generated mid-run.
+- Timed mode prefers short targets; sprint mode allows longer ones.
+- Practice mode may target a family list.
+- Session record keys gain the difficulty. The old session record book is not comparable to seeded queues and is dropped **once**, under a new storage version, with a line in `DECISIONS.md` — per-challenge records are untouched.
+
+**Acceptance:**
+
+- Same seed → same queue, asserted on a 10-task sprint.
+- Sprint 5 has exactly 5 tasks; Sprint 10 exactly 10.
+- No template appears more than twice consecutively, nor in more than a third of a queue.
+- A 10-task queue contains at least three families.
+- No timed-30 task has a target time exceeding the clock.
+- A session score is comparable across seeds: two queues at one difficulty have total target times within a stated band (a test pins the band).
+
+**Tests:** all of the above; plus a regression that per-challenge personal records still resolve after the session-record migration.
+
+**Risks:** the repetition-avoidance loop failing to terminate on a small template pool. Guard: bounded attempts, then accept the draw; a test with a two-template pool asserts termination.
+
+**Do not build:** partial credit, subgoals, daily challenge.
+
+**Commit:** `Run sprint and timed modes on seeded task queues`
+
+## Phase H: Mixed Chains And Partial Credit
+
+**Goal:** Two- and three-step chains, with subgoal progress that timed mode can pay out on.
+
+**Files:**
+
+- Create `src/domain/challenges/templates/mixed.ts`, tests
+- Modify `src/domain/challenges/challengeTypes.ts` (a `Subgoal` label per composite part)
+- Modify `src/domain/validation/validateComposite.ts` (report per-part results)
+- Modify `src/domain/validation/validatorTypes.ts` (`ValidationResult` gains an optional `subgoals`)
+- Modify `src/components/game/SessionResultCard.tsx` (show subgoal progress)
+
+**Work:**
+
+- Mixed templates compose leaf specs from the single-family templates. The composite spec is already flat and already forbids nesting; this phase does not change that.
+- `validateComposite` already averages part completion. It gains a per-part breakdown so a timed buzzer can pay for the part that got done, and the result card can say which.
+- `PartialCreditResult` is that breakdown, not a new scoring path. `scoreRun` is unchanged.
+
+**Acceptance:**
+
+- A 2-step chain grades each part independently and completes only when both pass.
+- A buzzer mid-chain pays completion percent equal to the fraction of parts done, and the result card names the unfinished one.
+- Order of operations does not matter unless a template says it does.
+- `scoreRun` is untouched, and its test suite is unmodified.
+
+**Tests:** composite with one part done (0.5 completion); subgoal labels reach the result card; a generated chain is solvable in either order.
+
+**Risks:** a chain whose steps interfere (sorting after filtering changes which rows are visible). Eligibility must reject chains whose parts are not independently satisfiable in at least one order. A test constructs an interfering pair and asserts rejection.
+
+**Do not build:** structure-edit, fill-copy, or formula families. The grid still cannot insert, delete, fill, or evaluate.
+
+**Commit:** `Add generated mixed chains with subgoal partial credit`
+
+## Phase I: Playtest Tuning
+
+**Goal:** Make it fun. This is the only phase whose acceptance criteria are subjective, and it is the point of all the others.
+
+**Files:** template parameters, difficulty presets, target times, theme content, docs.
+
+**Work:**
+
+- Play every mode. Cut variants that are boring, ambiguous, or slow to read.
+- Tune difficulty presets so a difficulty-3 variant of one template is genuinely the same work as a difficulty-3 variant of another.
+- Tune target times per template so score is comparable across draws.
+- Retire any hand-authored challenge a generated template subsumes.
+- Update every doc.
+
+**Acceptance:** a run feels like a speed drill, not a reading comprehension test. A player wants one more go.
+
+**Tests:** whatever the tuning breaks.
+
+**Risks:** tuning by taste with no measurement. Guard: the run history already records elapsed times per mode; use them.
+
+**Do not build:** anything new.
+
+**Commit:** `Tune generated challenge difficulty and pacing`
+
+## Deferred Families
+
+Designed in `ARCHITECTURE.md`, deliberately not planned above, because the grid cannot express them:
+
+| Family | Blocked on |
+| --- | --- |
+| Structure edit (insert/delete row or column) | Reducer has no insert/delete action; `GridState` has no way to say a column moved |
+| Fill / copy | No fill or paste action; no clipboard model |
+| Simple formulas | `CellValue` has a `formula` variant, but nothing creates or evaluates one; no parser |
+
+Each needs a reducer phase of its own before a template phase. Do not start one to add variety; variety comes from the four families that already work.
 

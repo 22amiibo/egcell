@@ -32,9 +32,25 @@ Docs commit follows. No remote, so nothing has been pushed.
 
 ## Next Step
 
-1. **Playtest the sessions.** Sprint and timed modes are built to spec, but nobody has felt whether a 5-task chain or a 30-second burst is the fun one. That answer outranks everything below.
+**Phase B of the Challenge Variant System**, in `IMPLEMENTATION_PLAN.md`: seeded RNG, seed composition, and the template/variant/difficulty types. Read `ARCHITECTURE.md` § Challenge Variant Architecture first — the whole design lives there, and Phase A (2026-07-13) was writing it. No code has changed for it yet.
+
+Off that path, unblocked, still worth doing:
+
+1. **Playtest the sessions.** Nobody has felt whether a 5-task chain or a 30-second burst is the fun one. It should shape Phase I and could reorder everything before it.
 2. **Deploy to Vercel.** Build passes, no env vars.
-3. **A second dataset**, then a seeded generator. Every challenge shares one Revenue grid and it can be memorised.
+
+## Adding A Challenge, After Phase A
+
+**Do not hand-write another challenge literal.** The 23 that exist are the last of their kind; the variant system replaces hand-authoring with templates that generate from a seed. If more variety is wanted before Phase E lands, build Phase B — that is the whole point of the plan.
+
+The rules that will govern every generated challenge, and that interim work must not violate:
+
+- **Grid and validation spec come out of one schema, in one call.** A spec may never name a column constant. This is the failure mode that is both silent and fatal; see `DECISIONS.md`.
+- **Validators grade final grid state, never route.** Unchanged, and the reason keyboard support cost zero validator edits.
+- **A record keys to the drill (template + difficulty); the seed varies.** Key a record by seed and every run is a first-ever PR.
+- **Sessions chase score, single runs chase time.** A sprint elapsed-time record cannot survive randomisation and must never be introduced.
+- **Difficulty comes from the table, never from a vaguer prompt.**
+- **Eligibility is a gate, not a warning.** A variant that fails a check is re-drawn, bounded, and never shipped.
 
 ## Things That Will Bite You
 

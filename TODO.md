@@ -13,23 +13,37 @@ Every phase of `IMPLEMENTATION_PLAN.md` (0-8), then the 2026-07-13 gameplay expa
 - 16 theme presets at `/settings`, applied before first paint.
 - 297 unit tests, 34 e2e tests.
 
+Then, on 2026-07-13, **Phase A of the Challenge Variant System**: the audit in `CURRENT_STATE.md`, the design in `ARCHITECTURE.md`, the phased plan in `IMPLEMENTATION_PLAN.md`, and five decisions in `DECISIONS.md`. Docs only; no code changed.
+
 ## Immediate
 
-- **Playtest the sessions.** Which mode is the fun one: single, sprint, or timed? That answer decides everything below. Nobody has judged feel.
+- **Phase B — seeded RNG and core variant types.** `IMPLEMENTATION_PLAN.md` § Challenge Variant System. Nothing player-visible; it is what everything after it stands on.
+- **Playtest the sessions.** Still unanswered and still important: which mode is the fun one — single, sprint, or timed? The answer should shape Phase I and could reorder everything before it.
 - **Deploy to Vercel.** Build passes, no env vars. Steps in `IMPLEMENTATION_PLAN.md`.
-- **A second dataset.** All 23 challenges share the one Revenue grid, so positions can be memorised; the find-the-value navigation challenge is already weaker for it. `createRevenueGrid` takes options; a seeded generator is the natural shape.
+
+## The Variant System, In Order
+
+Detail per phase in `IMPLEMENTATION_PLAN.md`. Do not skip ahead: each phase's tests are what make the next one safe.
+
+- **B** — seeded RNG, seed composition, template/variant/difficulty types.
+- **C** — template and family registries; the 23 existing challenges migrate as fixed templates, records intact.
+- **D** — dataset theme generator; four themes; the grid-invariant fuzz test.
+- **E** — generated navigation and selection variants; the eligibility gate.
+- **F** — generated formatting and sort/filter variants.
+- **G** — seeded, family-balanced, repetition-avoiding task queues for sprint and timed modes.
+- **H** — mixed chains with subgoal partial credit.
+- **I** — playtest tuning: cut the boring variants, calibrate difficulty and target times.
 
 ## Soon
 
-- More challenges per family once a second dataset exists, so variety comes from data as well as task.
 - Per-task target times shown during sessions, so the player knows the pace to beat.
 - Show the personal best on the run surface during a run, so the chase is visible.
 - Idle/pause handling for the single-run clock (a tabbed-away run posts a slow time today).
 
 ## Later
 
-- Simple formula challenges. `CellValue` has a `formula` variant; there is no parser.
-- Official daily challenge shape.
+- Official daily challenge: a published seed, which the variant system's `dailySeed` exists for.
+- The three grid-blocked families, each needing a reducer phase before a template phase: structure edits (insert/delete rows and columns), fill/copy, and simple formulas. `CellValue` has a `formula` variant; there is no parser.
 - Replay viewer on the run result's event list.
 - Accounts, then a real leaderboard backend with server-side revalidation of the deterministic validators.
 - Measured anti-cheat, not before there is something to cheat at.
