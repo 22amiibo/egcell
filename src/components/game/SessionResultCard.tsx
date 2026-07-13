@@ -1,5 +1,6 @@
 "use client";
 
+import { NewPrBadge } from "@/components/game/NewPrBadge";
 import { RetryButton } from "@/components/game/RetryButton";
 import { StatRow } from "@/components/game/StatRow";
 import type { SessionRecord } from "@/domain/sessions/sessionRecords";
@@ -79,11 +80,14 @@ export function SessionResultCard({
       data-testid="session-result-card"
       className="w-96 rounded-lg border border-line bg-surface p-5 shadow-2xl shadow-black/40"
     >
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-center justify-between gap-3">
         <span className="text-[11px] font-medium tracking-widest text-muted uppercase">
           {heading}
         </span>
-        <span className="text-[11px] text-muted">{sessionModeLabel(result.mode)}</span>
+        <span className="flex items-center gap-2">
+          {isNewRecord && <NewPrBadge />}
+          <span className="text-[11px] text-muted">{sessionModeLabel(result.mode)}</span>
+        </span>
       </div>
 
       <p className="mt-3 text-4xl font-semibold tabular-nums text-ink" data-testid="session-final-time">

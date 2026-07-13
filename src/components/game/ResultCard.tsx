@@ -1,5 +1,6 @@
 "use client";
 
+import { NewPrBadge } from "@/components/game/NewPrBadge";
 import { PracticeNotes } from "@/components/game/PracticeNotes";
 import { RetryButton } from "@/components/game/RetryButton";
 import { StatRow } from "@/components/game/StatRow";
@@ -51,12 +52,15 @@ export function ResultCard({ challenge, mode, run, onRetry, onNext }: ResultCard
       data-testid="result-card"
       className="w-80 rounded-lg border border-line bg-surface p-5 shadow-2xl shadow-black/40"
     >
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-center justify-between gap-3">
         <span className="text-[11px] font-medium tracking-widest text-muted uppercase">
           Complete
         </span>
-        <span className="text-[11px] tabular-nums text-muted">
-          target {challenge.scoring.targetSeconds}s
+        <span className="flex items-center gap-2">
+          {run.isNewRecord && <NewPrBadge />}
+          <span className="text-[11px] tabular-nums text-muted">
+            target {challenge.scoring.targetSeconds}s
+          </span>
         </span>
       </div>
 
@@ -72,8 +76,10 @@ export function ResultCard({ challenge, mode, run, onRetry, onNext }: ResultCard
         <PersonalBest run={run} />
       </div>
 
+      {/* The whole two-second read: time, score, and how clean the run was. */}
       <div className="mt-4 flex flex-col gap-1 border-t border-line pt-4">
         <StatRow label="Correctness" value={formatPercent(run.validation.correctness)} />
+        <StatRow label="Accuracy" value={formatPercent(run.validation.accuracy)} />
       </div>
 
       {mode === "practice" && <PracticeNotes notes={challenge.practiceNotes} />}
@@ -83,7 +89,6 @@ export function ResultCard({ challenge, mode, run, onRetry, onNext }: ResultCard
 
         <div className="mt-3 flex flex-col gap-1">
           <StatRow label="Completion" value={formatPercent(run.validation.completionPercent)} />
-          <StatRow label="Accuracy" value={formatPercent(run.validation.accuracy)} />
           <StatRow label="Speed multiplier" value={`${run.score.speedMultiplier.toFixed(2)}x`} />
           <StatRow label="Base points" value={formatScore(challenge.scoring.basePoints)} />
           <StatRow label="Challenge" value={`${challenge.id} ${challenge.version}`} />
