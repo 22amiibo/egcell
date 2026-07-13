@@ -3,7 +3,7 @@
 import type { Challenge } from "@/domain/challenges/challengeTypes";
 import { comparableValue } from "@/domain/grid/cellValues";
 import type { GridAction, GridActionKind, GridState } from "@/domain/grid/gridTypes";
-import { getCell, selectionBounds } from "@/domain/grid/selectors";
+import { dataRowBounds, getCell, selectionBounds } from "@/domain/grid/selectors";
 
 type ToolbarProps = {
   challenge: Challenge;
@@ -52,7 +52,20 @@ export function Toolbar({ challenge, grid, onAction }: ToolbarProps) {
   }
 
   const bounds = selectionBounds(grid);
-  const filterValue = comparableValue(getCell(grid, grid.activeCell)?.value);
+
+  // A filter is anchored to the selected cell's value, the way Excel's "filter by selected cell's
+  // value" is. A header cell is not data: filtering to "Status" hides every row, which reads as the
+  // table being wiped rather than filtered. Only a data cell can anchor a filter.
+  const { first, last } = dataRowBounds(grid);
+  const anchor = grid.activeCell;
+  const anchorIsData = anchor.row >= first && anchor.row <= last;
+  const filterValue = anchorIsData ? comparableValue(getCell(grid, anchor)?.value) : null;
+
+  const filterHint = !anchorIsData
+    ? "Filter uses the selected cell — click a cell below the header."
+    : filterValue === null
+      ? "That cell is blank — click a cell holding the value to filter by."
+      : null;
 
   return (
     <div
@@ -159,6 +172,11 @@ export function Toolbar({ challenge, grid, onAction }: ToolbarProps) {
             disabled={grid.filters.length === 0}
             onClick={() => onAction({ kind: "clear-filters" })}
           />
+          {filterHint !== null && (
+            <span data-testid="filter-hint" className="pl-1 text-[11px] text-muted">
+              {filterHint}
+            </span>
+          )}
         </>
       )}
     </div>
