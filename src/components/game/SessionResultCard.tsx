@@ -40,13 +40,20 @@ function SessionBest({
   isNewRecord: boolean;
 }) {
   if (isNewRecord) {
+    // A session record can fall on the score, or on the tiebreaks behind an equal score. A zero
+    // or negative "beat by" would read as a lie, so the tiebreak case says what actually happened.
+    const scoreDelta =
+      previousBest === undefined ? 0 : result.totalScore - previousBest.bestScore;
+
     return (
       <p className="text-[13px] font-semibold text-accent-strong" data-testid="session-pr-line">
         {previousBest === undefined
           ? "First personal record for this mode."
-          : `New personal record. Beat ${formatScore(previousBest.bestScore)} points by ${formatScore(
-              result.totalScore - previousBest.bestScore,
-            )}.`}
+          : scoreDelta > 0
+            ? `New personal record. Beat ${formatScore(previousBest.bestScore)} points by ${formatScore(
+                scoreDelta,
+              )}.`
+            : "New personal record. Matched the score and won on the tiebreak."}
       </p>
     );
   }

@@ -8,7 +8,13 @@ import { columnLabel } from "@/domain/grid/range";
 import { formatCellValue, isNumericValue } from "@/lib/format";
 
 type CellViewProps = {
-  address: CellAddress;
+  /**
+   * Primitives on purpose. An `address` object would be a fresh reference on every parent render,
+   * and the memo below compares props shallowly: with keyboard play dispatching on every
+   * keystroke, that one object prop would re-render the whole grid per key.
+   */
+  row: number;
+  col: number;
   cell: GridCell | undefined;
   isSelected: boolean;
   isActive: boolean;
@@ -18,7 +24,8 @@ type CellViewProps = {
 };
 
 function CellViewComponent({
-  address,
+  row,
+  col,
   cell,
   isSelected,
   isActive,
@@ -33,11 +40,11 @@ function CellViewComponent({
   return (
     <button
       type="button"
-      aria-label={`${columnLabel(address.col)}${address.row + 1}`}
+      aria-label={`${columnLabel(col)}${row + 1}`}
       aria-pressed={isSelected}
-      onClick={() => onSelect(address)}
-      onPointerDown={() => onDragStart(address)}
-      onPointerEnter={(event) => onDragOver(address, event)}
+      onClick={() => onSelect({ row, col })}
+      onPointerDown={() => onDragStart({ row, col })}
+      onPointerEnter={(event) => onDragOver({ row, col }, event)}
       style={{ width: COL_WIDTH, height: ROW_HEIGHT }}
       className={[
         "truncate border-r border-b border-line px-2 text-[13px] tabular-nums",

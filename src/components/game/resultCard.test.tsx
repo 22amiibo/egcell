@@ -123,6 +123,56 @@ describe("the single-run result card", () => {
   });
 });
 
+describe("the record line", () => {
+  it("never claims a time beat when the record fell to a higher score on a slower run", () => {
+    render(
+      <ResultCard
+        challenge={defaultChallenge}
+        mode="main-speed"
+        run={finishedRun({
+          isNewRecord: true,
+          elapsedMs: 5000,
+          previousBest: {
+            challengeId: defaultChallenge.id,
+            mode: "main-speed",
+            bestScore: 500,
+            bestElapsedMs: 2000,
+            bestCorrectness: 1,
+            achievedAt: "2026-07-01T00:00:00.000Z",
+            seed: defaultChallenge.seed,
+          },
+        })}
+        onRetry={vi.fn()}
+        onNext={vi.fn()}
+      />,
+    );
+
+    const line = screen.getByTestId("pr-line");
+
+    expect(line).toHaveTextContent("points beats the old");
+    expect(line.textContent).not.toContain("-");
+  });
+
+  it("describes a tiebreak session record as a tiebreak, not a zero-point beat", () => {
+    render(
+      <SessionResultCard
+        result={sessionResult()}
+        previousBest={{
+          mode: "sprint-5",
+          bestScore: 4200,
+          bestElapsedMs: 45_000,
+          bestTasksCompleted: 5,
+          achievedAt: "2026-07-01T00:00:00.000Z",
+        }}
+        isNewRecord={true}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("session-pr-line")).toHaveTextContent("won on the tiebreak");
+  });
+});
+
 describe("the session result card", () => {
   it("wears the badge on a new session record", () => {
     render(

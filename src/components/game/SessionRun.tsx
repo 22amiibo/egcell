@@ -176,6 +176,11 @@ export function SessionRun({
   const deadlineAtMs =
     durationMs !== null && sessionStartedAt !== null ? sessionStartedAt + durationMs : null;
 
+  // Only the stable submit function may enter dependency arrays below. The records object itself
+  // is rebuilt every render, and its identity would cascade into the deadline effect and re-arm
+  // the countdown timer on every unrelated re-render.
+  const { submit: submitSessionRecord } = sessionRecords;
+
   const finishSession = useCallback(
     (allTasks: SessionTaskResult[]) => {
       const now = Date.now();
@@ -185,7 +190,7 @@ export function SessionRun({
         totalElapsedMs: now - clock.startedAt(),
         finishedAtMs: now,
       });
-      const submission = sessionRecords.submit(sessionRecordFromResult(result));
+      const submission = submitSessionRecord(sessionRecordFromResult(result));
 
       recordHistory?.({
         modeKey: sessionMode,
@@ -204,7 +209,7 @@ export function SessionRun({
 
       setOutcome({ result, submission });
     },
-    [sessionMode, clock, sessionRecords, recordHistory],
+    [sessionMode, clock, submitSessionRecord, recordHistory],
   );
 
   const handleTaskFinished = useCallback(
@@ -215,8 +220,13 @@ export function SessionRun({
       setTasks(next);
 
       const sprintDone = plan.kind === "task-count" && next.length >= plan.taskCount;
-      // In a timed run the queue only stops when the clock does.
-      const timeUp = plan.kind === "fixed-time" && taskOutcome === "expired";
+      // In a timed run the queue only stops when the clock does. The wall clock is checked here
+      // as well as the outcome tag, because setTimeout is a lower bound: a completion can land
+      // after the true deadline but before the pending timer fires, and it must end the session
+      // rather than start a task the clock has no room for.
+      const timeUp =
+        plan.kind === "fixed-time" &&
+        (taskOutcome === "expired" || (deadlineAtMs !== null && Date.now() >= deadlineAtMs));
 
       if (sprintDone || timeUp) {
         finishSession(next);
@@ -224,7 +234,7 @@ export function SessionRun({
         setTaskIndex(next.length);
       }
     },
-    [challenge, plan, finishSession],
+    [challenge, plan, finishSession, deadlineAtMs],
   );
 
   const retry = useCallback(() => {

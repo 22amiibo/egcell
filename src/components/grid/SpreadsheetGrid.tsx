@@ -287,22 +287,19 @@ export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: Sp
             isSelected={isRowSelected(row)}
             onSelect={selectRow}
           />
-          {grid.columns.map((_, col) => {
-            const address = { row, col };
-
-            return (
-              <CellView
-                key={cellKey(address)}
-                address={address}
-                cell={grid.cells[cellKey(address)]}
-                isSelected={isCellSelected(grid, address)}
-                isActive={grid.activeCell.row === row && grid.activeCell.col === col}
-                onSelect={selectCell}
-                onDragStart={startDrag}
-                onDragOver={extendDrag}
-              />
-            );
-          })}
+          {grid.columns.map((_, col) => (
+            <CellView
+              key={cellKey({ row, col })}
+              row={row}
+              col={col}
+              cell={grid.cells[cellKey({ row, col })]}
+              isSelected={isCellSelected(grid, { row, col })}
+              isActive={grid.activeCell.row === row && grid.activeCell.col === col}
+              onSelect={selectCell}
+              onDragStart={startDrag}
+              onDragOver={extendDrag}
+            />
+          ))}
         </div>
       ))}
 

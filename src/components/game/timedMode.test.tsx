@@ -79,6 +79,26 @@ describe("timed mode", () => {
     expect(screen.getByTestId("session-score")).toHaveTextContent("0 points");
   });
 
+  it("ends the session when a completion lands past the deadline but before the timer fires", () => {
+    render(<GameShell />);
+
+    click("30s");
+
+    // 29 seconds pass normally. Then the wall clock slips past the deadline without the pending
+    // setTimeout firing, which is exactly what main-thread jitter does to a timer.
+    act(() => {
+      vi.advanceTimersByTime(29_000);
+    });
+    vi.setSystemTime(Date.now() + 1_500);
+
+    // The player completes the task in that gap. The session must end, not advance to task 2.
+    click("Select column C");
+
+    expect(screen.getByTestId("session-result-card")).toBeVisible();
+    expect(screen.getByText("Time's up")).toBeVisible();
+    expect(screen.getByTestId("session-tasks")).toHaveTextContent("1 of 1");
+  });
+
   it("keeps 30-second and 60-second records apart", () => {
     render(<GameShell />);
 

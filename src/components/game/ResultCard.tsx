@@ -19,14 +19,21 @@ type ResultCardProps = {
 function PersonalBest({ run }: { run: FinishedRun }) {
   if (run.isNewRecord) {
     const previous = run.previousBest;
+    // A record falls to the higher score first, faster time second. A higher-scoring but slower
+    // run is still a record, and must not be described as beating a time it did not beat.
+    const timeDelta = previous === undefined ? 0 : previous.bestElapsedMs - run.elapsedMs;
 
     return (
       <p className="text-[13px] font-semibold text-accent-strong" data-testid="pr-line">
         {previous === undefined
           ? "First personal record."
-          : `New personal record. Beat ${formatElapsed(previous.bestElapsedMs)} by ${formatElapsed(
-              previous.bestElapsedMs - run.elapsedMs,
-            )}.`}
+          : timeDelta > 0
+            ? `New personal record. Beat ${formatElapsed(previous.bestElapsedMs)} by ${formatElapsed(
+                timeDelta,
+              )}.`
+            : `New personal record. ${formatScore(run.score.score)} points beats the old ${formatScore(
+                previous.bestScore,
+              )}.`}
       </p>
     );
   }

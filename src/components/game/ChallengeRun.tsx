@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useState } from "react";
 
 import { ChallengePrompt } from "@/components/game/ChallengePrompt";
 import { ResultCard } from "@/components/game/ResultCard";
@@ -26,13 +26,15 @@ type ChallengeRunProps = {
  */
 export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: ChallengeRunProps) {
   const run = useGameRun(challenge, mode, records, { onFinished });
-  const gridRef = useRef<HTMLDivElement | null>(null);
 
-  // Retry puts focus straight back on the grid, so a keyboard player never has to reach for the
-  // mouse between attempts.
+  // Retry remounts the grid. The grid keeps its keyboard anchor in refs, and a reset that left
+  // the component mounted would leave those refs pointing at the last run's selection; a fresh
+  // mount also re-fires the autofocus effect, so the player is straight back on the keys.
+  const [attempt, setAttempt] = useState(0);
+
   const retry = useCallback(() => {
     run.retry();
-    gridRef.current?.focus({ preventScroll: true });
+    setAttempt((current) => current + 1);
   }, [run]);
 
   return (
@@ -48,10 +50,10 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
 
       <div className="relative">
         <SpreadsheetGrid
+          key={attempt}
           grid={run.grid}
           onAction={run.dispatch}
           allowedActions={challenge.allowedActions}
-          focusRef={gridRef}
         />
 
         {run.result !== null && (
