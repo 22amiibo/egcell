@@ -71,7 +71,10 @@ export function formatCellValue(value: CellValue, cellFormat: CellFormat): strin
     case "number":
       return formatNumber(value.value, cellFormat);
     case "date":
-      return shortDate.format(new Date(value.iso));
+      // Raw ISO until the date format is applied, so "apply the date format" is a visible change.
+      return cellFormat.numberFormat === "date"
+        ? shortDate.format(new Date(value.iso))
+        : value.iso;
     case "formula":
       return formatCellValue(value.computed, cellFormat);
   }

@@ -1,8 +1,10 @@
 import { DATASET_THEMES } from "@/data/datasets/themes";
 import type { ChallengeDifficulty } from "@/domain/challenges/challengeTypes";
 import { generateVariant } from "@/domain/challenges/generateVariant";
+import { formattingTemplates } from "@/domain/challenges/templates/formatting";
 import { navigationTemplates } from "@/domain/challenges/templates/navigation";
 import { selectionTemplates } from "@/domain/challenges/templates/selection";
+import { sortFilterTemplates } from "@/domain/challenges/templates/sortFilter";
 import type { ChallengeTemplate, ChallengeVariant } from "@/domain/challenges/variantTypes";
 import type { ChallengeSeed } from "@/domain/random/seeds";
 
@@ -10,6 +12,8 @@ import type { ChallengeSeed } from "@/domain/random/seeds";
 export const generatedTemplates: ChallengeTemplate[] = [
   ...navigationTemplates,
   ...selectionTemplates,
+  ...formattingTemplates,
+  ...sortFilterTemplates,
 ];
 
 /**

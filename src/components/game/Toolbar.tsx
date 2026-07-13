@@ -88,6 +88,15 @@ export function Toolbar({ challenge, grid, onAction }: ToolbarProps) {
               onAction({ kind: "set-format", range: bounds, format: { numberFormat: "percent" } })
             }
           />
+          <ToolbarButton
+            label="Date"
+            title="Format as date"
+            disabled={bounds === null}
+            onClick={() =>
+              bounds &&
+              onAction({ kind: "set-format", range: bounds, format: { numberFormat: "date" } })
+            }
+          />
         </>
       )}
 

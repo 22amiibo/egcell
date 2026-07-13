@@ -59,6 +59,64 @@ test("a generated selection challenge is completable by mouse alone", async ({ p
   await expect(page.getByTestId("result-card")).toBeVisible();
 });
 
+test("a generated formatting challenge completes via column select and the toolbar", async ({
+  page,
+}) => {
+  const seed = "e2e-fmt";
+  const variant = generateChallenge("gen.formatting.currency", seed, 1);
+
+  expect(variant).not.toBeNull();
+
+  if (variant === null || variant.validation.kind !== "formatting") {
+    throw new Error("Expected a formatting variant.");
+  }
+
+  const col = variant.validation.range.start.col;
+
+  await page.goto(`/?template=gen.formatting.currency&seed=${seed}&difficulty=1`);
+
+  await expect(page.getByRole("heading", { name: variant.prompt })).toBeVisible();
+
+  // Selecting the whole column formats the header too, which costs nothing: only the figures
+  // are graded.
+  await page.getByRole("button", { name: `Select column ${columnLabel(col)}` }).click();
+  await page.getByRole("button", { name: "Format as currency" }).click();
+
+  await expect(page.getByTestId("result-card")).toBeVisible();
+});
+
+test("a generated sort challenge completes via a cell click and the toolbar", async ({ page }) => {
+  const seed = "e2e-sort";
+  const variant = generateChallenge("gen.sort-filter.sort-numeric", seed, 1);
+
+  expect(variant).not.toBeNull();
+
+  if (
+    variant === null ||
+    variant.validation.kind !== "sort-filter" ||
+    variant.validation.requiredSort === undefined
+  ) {
+    throw new Error("Expected a sort variant.");
+  }
+
+  const { col, direction } = variant.validation.requiredSort;
+  const firstDataRow = variant.initialGrid.usedRange.start.row + variant.initialGrid.headerRows;
+
+  await page.goto(`/?template=gen.sort-filter.sort-numeric&seed=${seed}&difficulty=1`);
+
+  await expect(page.getByRole("heading", { name: variant.prompt })).toBeVisible();
+
+  // Land in the sort column, then use the toolbar, exactly as a player would.
+  await page
+    .getByRole("button", { name: `${columnLabel(col)}${firstDataRow + 1}`, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: direction === "desc" ? "Sort high to low" : "Sort low to high" })
+    .click();
+
+  await expect(page.getByTestId("result-card")).toBeVisible();
+});
+
 test("the picker offers generated drills and a new draw changes the table but keeps the record key", async ({
   page,
 }) => {
