@@ -145,6 +145,13 @@ export function GameShell() {
           >
             Profile
           </Link>
+
+          <Link
+            href="/settings"
+            className="rounded border border-line px-2 py-1 text-[12px] font-medium text-muted transition-colors hover:bg-surface-raised hover:text-ink"
+          >
+            Settings
+          </Link>
         </div>
       </header>
 
