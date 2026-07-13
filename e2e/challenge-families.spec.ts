@@ -66,6 +66,7 @@ test("formatting: selecting the header row and bolding it completes the run", as
 
 test("formatting: the toolbar only offers what the challenge allows", async ({ page }) => {
   await page.goto("/");
+  await choose(page, "Select the Revenue column");
 
   // A selection challenge needs no tools at all.
   await expect(page.getByRole("toolbar")).toBeHidden();
@@ -117,6 +118,7 @@ test("switching challenge starts a fresh run rather than carrying the old one ov
   page,
 }) => {
   await page.goto("/");
+  await choose(page, "Select the Revenue column");
 
   await page.getByRole("button", { name: "Select column C" }).click();
   await expect(page.getByTestId("result-card")).toBeVisible();
@@ -128,6 +130,7 @@ test("switching challenge starts a fresh run rather than carrying the old one ov
 
 test("Next challenge advances through the set", async ({ page }) => {
   await page.goto("/");
+  await choose(page, "Select the Revenue column");
 
   await page.getByRole("button", { name: "Select column C" }).click();
   await page.getByRole("button", { name: "Next challenge" }).click();

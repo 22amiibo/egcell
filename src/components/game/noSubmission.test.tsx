@@ -7,9 +7,13 @@ import { GameShell } from "@/components/game/GameShell";
 const selectRevenueColumn = () =>
   userEvent.click(screen.getByRole("button", { name: "Select column C" }));
 
+const chooseRevenueChallenge = () =>
+  userEvent.selectOptions(screen.getByLabelText("Challenge"), "selection.revenue-column");
+
 describe("a completed run", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.history.replaceState(null, "", "/");
     vi.spyOn(globalThis, "fetch");
   });
 
@@ -20,6 +24,7 @@ describe("a completed run", () => {
   it("builds a leaderboard-shaped result and sends it precisely nowhere", async () => {
     render(<GameShell />);
 
+    await chooseRevenueChallenge();
     await selectRevenueColumn();
     await userEvent.click(screen.getByText("Details"));
 
@@ -35,6 +40,7 @@ describe("a completed run", () => {
     render(<GameShell />);
 
     // A wrong column, then the right one. Two moves.
+    await chooseRevenueChallenge();
     await userEvent.click(screen.getByRole("button", { name: "Select column D" }));
     await selectRevenueColumn();
 

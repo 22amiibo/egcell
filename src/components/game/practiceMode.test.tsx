@@ -5,14 +5,20 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { GameShell } from "@/components/game/GameShell";
 import { defaultChallenge } from "@/data/challenges";
 
-const selectRevenueColumn = () =>
-  userEvent.click(screen.getByRole("button", { name: "Select column C" }));
+const chooseRevenueChallenge = () =>
+  userEvent.selectOptions(screen.getByLabelText("Challenge"), "selection.revenue-column");
+
+const selectRevenueColumn = async () => {
+  await chooseRevenueChallenge();
+  await userEvent.click(screen.getByRole("button", { name: "Select column C" }));
+};
 
 const switchToPractice = () => userEvent.click(screen.getByRole("button", { name: "Practice" }));
 
 describe("practice mode", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.history.replaceState(null, "", "/");
   });
 
   it("starts in speed mode", () => {
@@ -58,6 +64,7 @@ describe("practice mode", () => {
     render(<GameShell />);
 
     await switchToPractice();
+    await chooseRevenueChallenge();
 
     await userEvent.click(screen.getByRole("button", { name: "Select column D" }));
     expect(screen.queryByTestId("result-card")).not.toBeInTheDocument();

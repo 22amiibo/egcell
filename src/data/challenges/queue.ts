@@ -11,6 +11,24 @@ import { SESSION_PLANS, type SessionMode } from "@/domain/sessions/sessionTypes"
  * like. A difficulty picker for sessions can come later; the record key already carries it.
  */
 export const SESSION_DIFFICULTY: ChallengeDifficulty = 2;
+export const NORMAL_SPEED_DIFFICULTY: ChallengeDifficulty = 2;
+export const NORMAL_SPEED_QUEUE_SIZE = 10;
+
+/** A generated sequence for ordinary Speed play, pinned entirely by the supplied session seed. */
+export function buildNormalSpeedQueue(run: string): TaskQueue {
+  const seed = queueSeed("main-speed", NORMAL_SPEED_DIFFICULTY, run);
+
+  return buildTaskQueue({
+    request: {
+      mode: "single",
+      seed,
+      difficulty: NORMAL_SPEED_DIFFICULTY,
+      taskCount: NORMAL_SPEED_QUEUE_SIZE,
+    },
+    templates: generatedTemplates,
+    themes: DATASET_THEMES,
+  });
+}
 
 /** The app-level binding of the pure queue builder to the shipped templates and themes. */
 export function buildSessionQueue(mode: SessionMode, run: string): TaskQueue {

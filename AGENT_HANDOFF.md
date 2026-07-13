@@ -4,6 +4,10 @@ Last updated: 2026-07-13
 
 ## What Was Done
 
+Normal Speed no longer starts from `defaultChallenge` or walks the fixed classic list. After hydration, `GameShell` chooses an explicit `sessionSeed` or calls the injectable `createNewSessionSeed()`, then `buildNormalSpeedQueue()` deterministically deals ten generated tasks. Next challenge walks that queue. The classic picker is unchanged.
+
+`createNewSessionSeed()` uses `crypto.randomUUID()` in supported browsers and a timestamp plus two random values only as a compatibility fallback. Sprint and timed sessions now use the same factory instead of local `Date.now()` strings. Explicit seeded retries still replay the same queue; daily seeds are untouched.
+
 The Challenge Variant System is complete through **Phase H**. Seeded generation now covers navigation, selection, formatting, sort/filter, and one deliberately non-interfering mixed template. Sprint and timed modes consume deterministic generated queues. Composite validators expose named subgoals, timed buzzer grading pays the existing completion-based partial score, and the session result breakdown identifies completed and unfinished steps.
 
 Phase H did not change `scoreRun`, leaf validators, or route grading. Mixed chains remain flat, use only existing supported grid actions, and validate final grid state in either operation order.
@@ -81,6 +85,8 @@ The rules that will govern every generated challenge, and that interim work must
 Everything from the previous handoff still applies (clock starts when the grid appears; no challenge may start complete; validators never branch on challenge id; Playwright needs `exact: true` and `localhost`; no `page.addInitScript` for storage; Vitest needs the localStorage shim; client-only state goes through `useSyncExternalStore`; `initialGrid` is shared and never mutated; the click after a drag is suppressed; the event digest is not security). New ones from this batch:
 
 - **Generated session queues are seed- and version-deterministic.** Tests and shared runs must pass the same `sessionSeed` to the page and `buildSessionQueue`; never hardcode task labels for a generated queue.
+- **Normal Speed is generated too.** Tests that need its exact deal must pass `sessionSeed` and compute it with `buildNormalSpeedQueue`; tests for a particular classic must select that classic explicitly.
+- **Never create entropy in the queue generator.** Freshness belongs in `createNewSessionSeed` at the hydrated UI/session boundary. Inject that factory in unit tests rather than asserting real randomness.
 - **Mixed chains stay flat and non-interfering.** Labels align by index with leaf specs, eligibility rejects label mismatches and incompatible final-state requirements, and the current generated chain is solvable in either order.
 - **The timed deadline needs both halves.** The per-task `setTimeout` AND the wall-clock check in `handleTaskFinished`. Removing either reopens the race where a completion after the deadline advances the queue.
 - **`vi.useFakeTimers` must fake only `setTimeout`/`clearTimeout`/`Date`.** The full fake set also fakes what React schedules its own work with, and every interaction deadlocks. `timedMode.test.tsx` documents the working recipe; it uses `fireEvent`, not `userEvent`, for the same reason.
@@ -119,4 +125,4 @@ npm run build
 npm run e2e
 ```
 
-All five pass as of this handoff: clean lint, 484 unit tests across 51 files, clean typecheck, a successful build, and 42 Chromium e2e tests. Manual QA passed at 1280×900 and 1366×768 in Ledger Noir and Paper Grid.
+All five pass as of this handoff: clean lint, 493 unit tests across 53 files, clean typecheck, a successful build, and 43 Chromium e2e tests. Manual QA passed at 1280×900 and 1366×768 in Ledger Noir and Paper Grid.

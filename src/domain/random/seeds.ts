@@ -5,6 +5,33 @@
  */
 export type ChallengeSeed = string;
 
+export type SessionSeedSource = {
+  /** `null` explicitly exercises the fallback; `undefined` reads the browser implementation. */
+  randomUUID?: (() => string) | null;
+  now?: () => number;
+  random?: () => number;
+};
+
+/**
+ * Creates entropy only at a browser/session boundary. Queue and challenge generation remain pure
+ * once handed this opaque string. The injectable source keeps tests deterministic.
+ */
+export function createNewSessionSeed(source: SessionSeedSource = {}): ChallengeSeed {
+  const browserRandomUUID = globalThis.crypto?.randomUUID?.bind(globalThis.crypto);
+  const randomUUID = source.randomUUID === undefined ? browserRandomUUID : source.randomUUID;
+
+  if (randomUUID !== null && randomUUID !== undefined) {
+    return randomUUID();
+  }
+
+  const now = source.now ?? Date.now;
+  const random = source.random ?? Math.random;
+
+  return `session:${now().toString(36)}:${random().toString(36).slice(2)}:${random()
+    .toString(36)
+    .slice(2)}`;
+}
+
 /** The seed a whole session queue is built from. `run` distinguishes one attempt from the next. */
 export function queueSeed(mode: string, difficulty: number, run: string): ChallengeSeed {
   return `q:${mode}:d${difficulty}:${run}`;

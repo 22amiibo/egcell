@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { GameShell } from "@/components/game/GameShell";
+import { buildNormalSpeedQueue } from "@/data/challenges/queue";
 
 async function chooseChallenge(title: string) {
   await userEvent.selectOptions(screen.getByLabelText("Challenge"), [
@@ -10,25 +11,31 @@ async function chooseChallenge(title: string) {
   ]);
 }
 
-const selectRevenueColumn = () =>
-  userEvent.click(screen.getByRole("button", { name: "Select column C" }));
+const selectRevenueColumn = async () => {
+  await chooseChallenge("Select the Revenue column");
+  await userEvent.click(screen.getByRole("button", { name: "Select column C" }));
+};
 
 describe("GameShell", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.history.replaceState(null, "", "/");
   });
 
   it("opens straight into the first challenge, with no result card", () => {
-    render(<GameShell />);
+    const queue = buildNormalSpeedQueue("shell-open");
 
-    expect(screen.getByRole("heading", { name: "Select the Revenue column." })).toBeVisible();
+    render(<GameShell createSessionSeed={() => "shell-open"} />);
+
+    expect(screen.getByRole("heading", { name: queue.tasks[0].variant.prompt })).toBeVisible();
     expect(screen.getByRole("grid", { name: "Spreadsheet" })).toBeVisible();
     expect(screen.getByTestId("live-stats-bar")).toBeVisible();
     expect(screen.queryByTestId("result-card")).not.toBeInTheDocument();
   });
 
-  it("counts keyboard-originated grid actions toward shortcut efficiency", () => {
+  it("counts keyboard-originated grid actions toward shortcut efficiency", async () => {
     render(<GameShell />);
+    await chooseChallenge("Select the Revenue column");
 
     const grid = screen.getByRole("grid", { name: "Spreadsheet" });
 
@@ -54,6 +61,7 @@ describe("GameShell", () => {
 
   it("does not end the run when the wrong column is selected", async () => {
     render(<GameShell />);
+    await chooseChallenge("Select the Revenue column");
 
     await userEvent.click(screen.getByRole("button", { name: "Select column D" }));
 
@@ -86,10 +94,12 @@ describe("GameShell", () => {
 describe("the toolbar", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.history.replaceState(null, "", "/");
   });
 
-  it("stays away from a selection challenge, which has no use for it", () => {
+  it("stays away from a selection challenge, which has no use for it", async () => {
     render(<GameShell />);
+    await chooseChallenge("Select the Revenue column");
 
     expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
   });
@@ -117,6 +127,7 @@ describe("the toolbar", () => {
 describe("playing each family through the real UI", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.history.replaceState(null, "", "/");
   });
 
   it("completes the navigation challenge by landing on the target cell", async () => {
@@ -177,6 +188,7 @@ describe("playing each family through the real UI", () => {
 describe("moving between challenges", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.history.replaceState(null, "", "/");
   });
 
   it("advances to the next challenge from the result card", async () => {

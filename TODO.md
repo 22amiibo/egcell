@@ -17,6 +17,8 @@ Then, on 2026-07-13, **Phase A of the Challenge Variant System**: the audit in `
 
 Challenge Variant System **Phases B-H** are also complete: seeded randomness and types, template registry migration, four generated dataset themes, generated single-family drills, seeded session queues, and generated mixed chains with named subgoal partial credit.
 
+Normal Speed now defaults to a fresh generated queue. Classic drills remain manually selectable, explicit `sessionSeed` links remain reproducible, and seed creation is isolated to the browser start boundary.
+
 ## Immediate
 
 - **Phase I — playtest tuning.** Cut weak variants, calibrate generated target times and difficulty, and tune queue pacing from real runs.

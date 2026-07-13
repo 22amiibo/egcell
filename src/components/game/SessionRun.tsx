@@ -16,6 +16,7 @@ import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
 import { SESSION_DIFFICULTY, buildSessionQueue } from "@/data/challenges/queue";
 import type { Challenge } from "@/domain/challenges/challengeTypes";
 import type { GridDensity, Settings } from "@/domain/settings/themes";
+import { createNewSessionSeed } from "@/domain/random/seeds";
 import { sessionRecordFromResult } from "@/domain/sessions/sessionRecords";
 import { buildSessionResult } from "@/domain/sessions/sessionResult";
 import {
@@ -51,6 +52,8 @@ type SessionRunProps = {
    * same queue; without one, every attempt draws a fresh queue, like a fresh Monkeytype test.
    */
   seedOverride?: string | null;
+  /** UI-boundary injection keeps normal-play seed assertions deterministic in tests. */
+  createSessionSeed?: () => string;
 };
 
 function toTaskResult(
@@ -249,6 +252,7 @@ export function SessionRun({
   sessionRecords,
   recordHistory,
   seedOverride,
+  createSessionSeed = createNewSessionSeed,
 }: SessionRunProps) {
   const plan = SESSION_PLANS[sessionMode];
   const { settings } = useSettings();
@@ -278,11 +282,7 @@ export function SessionRun({
 
   const tasksRef = useRef<SessionTaskResult[]>([]);
 
-  // Sessions only mount on a player's click, so a wall-clock seed never renders on the server.
-  const drawCounter = useRef(0);
-  const [runSeed, setRunSeed] = useState<string>(
-    () => seedOverride ?? `s${Date.now().toString(36)}`,
-  );
+  const [runSeed, setRunSeed] = useState<string>(() => seedOverride ?? createSessionSeed());
 
   const queue = useMemo(() => buildSessionQueue(sessionMode, runSeed), [sessionMode, runSeed]);
 
@@ -365,7 +365,6 @@ export function SessionRun({
 
   const retry = useCallback(() => {
     tasksRef.current = [];
-    drawCounter.current += 1;
 
     setTasks([]);
     setFinishedTaskStats([]);
@@ -373,9 +372,9 @@ export function SessionRun({
     setOutcome(null);
     setAttempt((current) => current + 1);
     // A pinned seed re-races the same queue; otherwise retry is a fresh draw.
-    setRunSeed(seedOverride ?? `s${Date.now().toString(36)}-${drawCounter.current}`);
+    setRunSeed(seedOverride ?? createSessionSeed());
     clock.restart();
-  }, [clock, seedOverride]);
+  }, [clock, createSessionSeed, seedOverride]);
 
   const completedCount = tasks.filter((task) => task.outcome === "completed").length;
   const taskNumber = plan.kind === "task-count" ? Math.min(taskIndex + 1, plan.taskCount) : taskIndex + 1;

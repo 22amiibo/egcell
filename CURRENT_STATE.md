@@ -4,11 +4,11 @@ Last updated: 2026-07-13
 
 ## Summary
 
-**The plan's eight phases, the gameplay-expansion batch, and Challenge Variant System Phases A-H are complete.** The game now has six play modes, 23 classic challenges, generated drills across five families, full keyboard control, a local profile, and player-chosen themes.
+**The plan's eight phases, the gameplay-expansion batch, and Challenge Variant System Phases A-H are complete.** The game now has six play modes, 23 classic challenges, generated drills across five families, full keyboard control, a local profile, and player-chosen themes. Normal Speed opens on a fresh generated ten-task queue rather than the fixed classic list.
 
 The Core Game Feel + Settings upgrade is complete through **Task 12 of 12**. Grid density, gridline strength, and large-target settings now drive stable per-run spreadsheet geometry, and the final automated plus manual design QA pass is complete.
 
-Open `/` and a run is already under way. Complete the challenge and it scores, banks a personal record, logs to the local history, and offers a retry or the next challenge.
+Open `/` and a run is already under way. The browser creates one fresh session seed, the deterministic queue builder deals the generated sequence, and Next challenge advances through it. Complete a challenge and it scores, banks a personal record, logs to the local history, and offers a retry or the next challenge. `?sessionSeed=<seed>` pins the exact normal or session queue.
 
 ## Core Game Feel Checkpoint (Tasks 1-12)
 
@@ -27,7 +27,7 @@ Open `/` and a run is already under way. Complete the challenge and it scores, b
 | `d61dbab` | Stable grid density, gridline, and large-target settings |
 | `623e4a7` | Final keyboard, motion, focus, theme, and layout QA |
 
-Latest verification: clean lint, 476 unit tests across 50 files, clean typecheck, successful production build, and 42 Chromium end-to-end tests. Manual QA passed at 1280×900 and 1366×768 in Ledger Noir and Paper Grid. The known inferred-workspace-root warning remains harmless.
+Latest verification: clean lint, 493 unit tests across 53 files, clean typecheck, successful production build, and 43 Chromium end-to-end tests. Manual QA passed at 1280×900 and 1366×768 in Ledger Noir and Paper Grid. The known inferred-workspace-root warning remains harmless.
 
 ## Play Modes
 
@@ -38,7 +38,7 @@ Latest verification: clean lint, 476 unit tests across 50 files, clean typecheck
 | Sprint 5 / Sprint 10 | Fixed task queue under one clock, skip allowed | Per sprint length |
 | 30s / 60s | Tasks keep coming until the countdown dies | Per duration |
 
-Session queues are seeded, family-balanced, repetition-avoiding generated queues. The same seed and queue version reproduce the same tasks; session records key on mode and difficulty and chase score, not elapsed time. Tasks inside a session never bank per-challenge records.
+Normal Speed, sprint, and timed queues are seeded, family-balanced, repetition-avoiding generated queues. Unseeded browser starts use `crypto.randomUUID()` (with a time/random fallback); the same explicit seed and queue version reproduce the same tasks. Session records key on mode and difficulty and chase score, not elapsed time. Tasks inside a session never bank per-challenge records.
 
 ## Challenges
 
@@ -59,6 +59,7 @@ The grid is fully playable without a mouse: arrows move, Shift+Arrow extends, Cm
 - Domain stays pure and React-free: `domain/grid` (+ `keyboardNav`), `domain/challenges`, `domain/validation` (+ `validateComposite`), `domain/scoring`, `domain/records`, `domain/sessions`, `domain/profile`, `domain/settings`, `domain/runs`.
 - Every validator still grades the grid's end state, never the route. The keyboard shipped without touching one.
 - Generated variants and queues are pure functions of their seeds. A template emits its grid and validation spec from the same generated dataset layout.
+- Fresh entropy exists only at the hydrated UI/session-start boundary in `createNewSessionSeed`; daily seed composition and all domain generation remain deterministic.
 - Composite validation reports each named subgoal while preserving the existing mean completion calculation and unchanged score pipeline.
 - Composite eligibility rejects misaligned labels and incompatible selection, navigation, formatting, or sort/filter requirements before a mixed variant can ship.
 - Client-only state (records, session records, history, settings, clocks) goes through `useSyncExternalStore`. Zero lint suppressions.
@@ -69,10 +70,10 @@ The grid is fully playable without a mouse: arrows move, Shift+Arrow extends, Cm
 All five gates pass:
 
 - `npm run lint` — clean.
-- `npm test` — 484 tests across 51 files.
+- `npm test` — 493 tests across 53 files.
 - `npm run typecheck` — clean.
 - `npm run build` — succeeds.
-- `npm run e2e` — 42 Chromium tests (~39s; one real 30-second timed run).
+- `npm run e2e` — 43 Chromium tests (~39s; one real 30-second timed run).
 
 ## What Does Not Exist Yet
 

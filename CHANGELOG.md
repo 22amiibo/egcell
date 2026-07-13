@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-07-13 (fresh normal-speed queues)
+
+- Replaced the fixed classic default and fixed next-challenge sequence with a generated ten-task Normal Speed queue.
+- Added a browser-only session seed factory using `crypto.randomUUID()` with a timestamp/random fallback, injected in tests rather than sampled there.
+- Kept `?sessionSeed=` as an exact deterministic queue override for Normal Speed, sprint/timed E2E, shared links, and rematches; daily seeds remain stable and separate.
+- Retained every classic challenge in the picker and left the deterministic queue generator unchanged.
+- Added seed-factory, queue-signature, UI boundary, explicit-seed, generated progression, and deterministic reload coverage.
+- All five gates pass: lint, 493 unit tests across 53 files, typecheck, production build, and 43 Chromium end-to-end tests.
+
 ## 2026-07-13 (challenge variant system, Phase H)
 
 - Added a deterministic generated mixed template with two-step chains and difficulty-5 three-step variants, composed only from the existing sort and formatting validators.

@@ -42,6 +42,7 @@ test.describe("keyboard-only play", () => {
 
   test("mouse selection still works after keyboard use", async ({ page }) => {
     await page.goto("/");
+    await page.getByLabel("Challenge").selectOption({ label: "Select the Revenue column" });
 
     await page.keyboard.press("ArrowDown");
     await page.getByRole("button", { name: "Select column C", exact: true }).click();

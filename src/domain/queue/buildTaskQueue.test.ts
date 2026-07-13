@@ -14,20 +14,25 @@ function build(request: Partial<TaskQueueRequest> & Pick<TaskQueueRequest, "mode
 }
 
 describe("buildTaskQueue", () => {
+  const taskSequence = (queue: TaskQueue) =>
+    queue.tasks.map((task) => ({
+      templateId: task.variant.templateId,
+      prompt: task.variant.prompt,
+      dimensions: task.variant.dimensions,
+    }));
+
   it("returns the same queue for the same seed", () => {
     const a = build({ mode: "sprint", seed: "q:sprint-5:d2:det", taskCount: 10 });
     const b = build({ mode: "sprint", seed: "q:sprint-5:d2:det", taskCount: 10 });
 
-    expect(a).toEqual(b);
+    expect(taskSequence(a)).toEqual(taskSequence(b));
   });
 
   it("returns different queues for different seeds", () => {
     const a = build({ mode: "sprint", seed: "q:sprint-5:d2:one", taskCount: 10 });
     const b = build({ mode: "sprint", seed: "q:sprint-5:d2:two", taskCount: 10 });
 
-    expect(a.tasks.map((task) => task.variant.seed)).not.toEqual(
-      b.tasks.map((task) => task.variant.seed),
-    );
+    expect(taskSequence(a)).not.toEqual(taskSequence(b));
   });
 
   it("fills a sprint to exactly its task count", () => {

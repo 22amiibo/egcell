@@ -101,6 +101,10 @@ describe("sprint mode", () => {
     render(<GameShell />);
 
     // Bank a single-challenge record first.
+    await userEvent.selectOptions(
+      screen.getByLabelText("Challenge"),
+      "selection.revenue-column",
+    );
     await userEvent.click(screen.getByRole("button", { name: "Select column C" }));
     expect(screen.getByTestId("best-time")).toHaveTextContent("best");
 

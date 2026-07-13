@@ -6,6 +6,7 @@ import { solveChallenge } from "./helpers/solveVariant";
 test.describe("the local profile", () => {
   test("a finished run shows up in the history and the totals", async ({ page }) => {
     await page.goto("/");
+    await page.getByLabel("Challenge").selectOption({ label: "Select the Revenue column" });
 
     // One quick completed run.
     await page.getByRole("button", { name: "Select column C", exact: true }).click();

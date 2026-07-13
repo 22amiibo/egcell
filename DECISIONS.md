@@ -1,5 +1,22 @@
 # Decisions
 
+## 2026-07-13: Freshness Is A UI Seed Decision, Not A Generator Behavior
+
+Decision: Normal Speed starts from a generated queue. The hydrated browser creates a new opaque session seed unless `?sessionSeed=` supplies one; the existing queue generator remains a pure deterministic function of that seed.
+
+Reasoning:
+
+- Starting from `defaultChallenge` and advancing through the classic list made ordinary play repeat the same challenge sequence forever.
+- Randomizing inside `buildTaskQueue` would break tests, shared links, rematches, and future daily challenges.
+- A small browser boundary gives normal play Monkeytype-style variety while preserving exact reproduction everywhere that needs it.
+
+Consequences:
+
+- `createNewSessionSeed()` uses `crypto.randomUUID()` with a timestamp/random fallback and is injectable in tests.
+- `?sessionSeed=abc` bypasses seed creation and reproduces the same Normal Speed, sprint, or timed queue.
+- Classic challenges remain available through the picker but are no longer the Normal Speed default.
+- `dailySeed()` stays stable and separate; domain generation never reads the clock or global randomness.
+
 > The five decisions below are **design decisions taken during Phase A of the Challenge Variant System**. No code implements them yet. Everything after them describes shipped behaviour.
 
 ## 2026-07-13: A Generated Variant Is A Challenge, Not A New Type
@@ -445,4 +462,3 @@ Consequences:
 
 - Phase 1 and Phase 2 should optimize for selection fidelity.
 - Other challenge families wait until this loop is verified.
-

@@ -7,7 +7,10 @@ import { ChallengeRun } from "@/components/game/ChallengeRun";
 import { SessionRun } from "@/components/game/SessionRun";
 import { challengeAfter, challenges, defaultChallenge } from "@/data/challenges";
 import { generateChallenge, generatedTemplates } from "@/data/challenges/generated";
-import { SESSION_DIFFICULTY } from "@/data/challenges/queue";
+import {
+  buildNormalSpeedQueue,
+  SESSION_DIFFICULTY,
+} from "@/data/challenges/queue";
 import type {
   Challenge,
   ChallengeDifficulty,
@@ -15,6 +18,7 @@ import type {
 } from "@/domain/challenges/challengeTypes";
 import type { ChallengeVariant } from "@/domain/challenges/variantTypes";
 import { recordKey } from "@/domain/records/personalRecords";
+import { createNewSessionSeed } from "@/domain/random/seeds";
 import type { SessionMode } from "@/domain/sessions/sessionTypes";
 import type { FinishedRun } from "@/hooks/useGameRun";
 import { useLocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
@@ -52,14 +56,18 @@ const GENERATED_DIFFICULTIES: ChallengeDifficulty[] = [1, 2, 3, 4, 5];
  * state is set from an effect. `?template=<id>&seed=<seed>&difficulty=<1-5>` opens a
  * deterministic generated challenge, which is what makes e2e able to know the grid in advance.
  */
-const paramsCache: { value: URLSearchParams | null } = { value: null };
+const paramsCache: { search: string | null; value: URLSearchParams | null } = {
+  search: null,
+  value: null,
+};
 
 function subscribeToNothing(): () => void {
   return () => {};
 }
 
 function getParamsSnapshot(): URLSearchParams | null {
-  if (paramsCache.value === null) {
+  if (paramsCache.value === null || paramsCache.search !== window.location.search) {
+    paramsCache.search = window.location.search;
     paramsCache.value = new URLSearchParams(window.location.search);
   }
 
@@ -77,18 +85,17 @@ function generatedTemplateIdOf(challenge: Challenge): string | null {
   return templateId !== undefined && templateId.startsWith("gen.") ? templateId : null;
 }
 
-export function GameShell() {
-  const params = useSyncExternalStore(
-    subscribeToNothing,
-    getParamsSnapshot,
-    getServerParamsSnapshot,
-  );
+type HydratedGameShellProps = {
+  params: URLSearchParams;
+  createSessionSeed: () => string;
+};
 
+function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps) {
   const urlChallenge = useMemo(() => {
     const templateId = params?.get("template");
     const seed = params?.get("seed");
 
-    if (params === null || templateId == null || seed == null) {
+    if (templateId == null || seed == null) {
       return null;
     }
 
@@ -100,9 +107,19 @@ export function GameShell() {
     return generateChallenge(templateId, seed, difficulty);
   }, [params]);
 
+  const [normalSessionSeed] = useState(
+    () => params.get("sessionSeed") ?? createSessionSeed(),
+  );
+  const normalQueue = useMemo(
+    () => buildNormalSpeedQueue(normalSessionSeed),
+    [normalSessionSeed],
+  );
+  const [normalTaskIndex, setNormalTaskIndex] = useState(0);
+
   // Null until the player picks something; the URL's challenge (if any) holds until then.
   const [picked, setPicked] = useState<Challenge | null>(null);
-  const challenge = picked ?? urlChallenge ?? defaultChallenge;
+  const normalChallenge = normalQueue.tasks[normalTaskIndex % normalQueue.tasks.length].variant;
+  const challenge = picked ?? urlChallenge ?? normalChallenge;
 
   const [genDifficulty, setGenDifficulty] = useState<ChallengeDifficulty>(2);
   const drawCounter = useRef(0);
@@ -164,8 +181,14 @@ export function GameShell() {
   }, []);
 
   const goToNext = useCallback(() => {
+    if (picked === null && urlChallenge === null) {
+      setNormalTaskIndex((current) => (current + 1) % normalQueue.tasks.length);
+
+      return;
+    }
+
     setPicked((current) => challengeAfter(current ?? defaultChallenge));
-  }, []);
+  }, [normalQueue.tasks.length, picked, urlChallenge]);
 
   const pick = useCallback(
     (id: string) => {
@@ -326,11 +349,31 @@ export function GameShell() {
               personalRecords={records}
               sessionRecords={sessionRecords}
               recordHistory={recordHistory}
-              seedOverride={params?.get("sessionSeed") ?? null}
+              seedOverride={params.get("sessionSeed")}
+              createSessionSeed={createSessionSeed}
             />
           ))}
         </div>
       </div>
     </main>
+  );
+}
+
+type GameShellProps = {
+  /** Injectable so UI tests can prove seed selection without relying on real randomness. */
+  createSessionSeed?: () => string;
+};
+
+export function GameShell({ createSessionSeed = createNewSessionSeed }: GameShellProps = {}) {
+  const params = useSyncExternalStore(
+    subscribeToNothing,
+    getParamsSnapshot,
+    getServerParamsSnapshot,
+  );
+
+  // The inner shell only mounts after hydration, so browser entropy is never created on the
+  // server and URL overrides are known before the seed boundary runs.
+  return params === null ? null : (
+    <HydratedGameShell params={params} createSessionSeed={createSessionSeed} />
   );
 }
