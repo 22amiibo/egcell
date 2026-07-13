@@ -1,5 +1,7 @@
 # Excel Speed Trainer Implementation Plan
 
+> **Status (2026-07-13):** every phase below is complete, and a user-directed gameplay expansion batch has landed on top of it: keyboard controls, sprint and fixed-time session modes, a result-screen upgrade, 23 challenges, local run history/profile, a polish pass, and theme settings. This file is a historical record of the original plan; the batch is summarized in `CHANGELOG.md` and the live picture is `CURRENT_STATE.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a clean first playable Excel Speed Trainer web app with one real speed challenge, deterministic validation, scoring, retry, and local personal records.

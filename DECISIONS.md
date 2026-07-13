@@ -1,5 +1,102 @@
 # Decisions
 
+## 2026-07-13: Cmd And Ctrl Are Both Jump Modifiers, With No Platform Sniffing
+
+Decision: Cmd+Arrow and Ctrl+Arrow (and Cmd/Ctrl+A, Cmd/Ctrl+B) behave identically. Only Ctrl+Space and Shift+Space are single-modifier, because Cmd+Space belongs to Spotlight and never reaches the page.
+
+Reasoning:
+
+- Web spreadsheets accept both because platform sniffing is the flakiest code in any keyboard layer, and a Mac user with a PC keyboard exists.
+- Nothing is lost: no Excel binding distinguishes Cmd+Arrow from Ctrl+Arrow in a way this game cares about.
+
+Consequences:
+
+- No user-agent checks anywhere. Tests fire `metaKey` and `ctrlKey` interchangeably and both must pass.
+
+## 2026-07-13: Session Queues Are Deterministic Slices Of The Challenge List
+
+Decision: Task N of a sprint or timed session is always `challenges[N % length]`. No shuffling.
+
+Reasoning:
+
+- A sprint personal record is only meaningful if every attempt faces the same tasks in the same order. Random draws would make a "record" partly a lucky queue.
+- Monkeytype randomises words, but its unit of skill is the keystroke, not the task. Here a lucky draw of three navigation tasks would beat an unlucky draw of three sort tasks on time alone.
+
+Consequences:
+
+- The first eight challenges are pinned at the head of the list in their exact order. Reordering the list is a breaking change to what Sprint 5 means, and the registry comment says so.
+- Variety inside sessions comes from growing the pool, and later from a second dataset, not from shuffling.
+
+## 2026-07-13: Sessions Bank Their Own Records, Tasks Inside Them Bank Nothing
+
+Decision: Sprint and timed records live in their own storage bucket keyed by mode. A task completed inside a session never updates that challenge's single-run record. Run history and settings likewise live in their own buckets.
+
+Reasoning:
+
+- A task inside a sprint is played under different pressure than a single run; letting it set single-run PRs would pollute both books.
+- Separate buckets mean a corrupt or outgrown shape in one store can never take down another, and each store validates what it reads.
+
+Consequences:
+
+- Four localStorage keys: personal records, session records, run history, settings. All versioned `v1`.
+- `useGameRun` grew a `recordPersonalBest` option; sessions pass false.
+
+## 2026-07-13: The Timed Deadline Is A Timeout Plus A Wall-Clock Check
+
+Decision: A fixed-time session ends when the per-task timeout fires, or when any task completes with `Date.now()` already past the deadline, whichever happens first.
+
+Reasoning:
+
+- `setTimeout` is a lower bound, not a guarantee. A completion can land after the true deadline but before the delayed timer fires, and with only the timer the queue would advance into a task the clock had no room for, corrupting completion percent.
+- Found by an adversarial review pass and reproduced with fake timers before fixing.
+
+Consequences:
+
+- A buzzer-beater completion a few milliseconds past the deadline still counts as completed and ends the session, which is generous by milliseconds and consistent.
+- The interrupted task is graded exactly as the grid stands, so partial formatting pays its partial credit. That is also the documented limit of partial progress in timed mode: finer-grained subgoals would need validators to report per-step progress, and none do.
+
+## 2026-07-13: Mixed Challenges Use A Flat Composite Spec
+
+Decision: `ValidationSpec` gained a `composite` kind holding a list of leaf specs, every one of which must pass. A composite can never contain another composite.
+
+Reasoning:
+
+- Two-step tasks ("sort and bold") need grading, but a recursive tree of specs is architecture nobody asked for. Flat parts keep grading two or three plain checks.
+- Progress is the mean of the parts, so the score pipeline needed no changes.
+
+Consequences:
+
+- The dispatcher's exhaustive switch gained one case; no leaf validator changed.
+- The registry's allowed-actions test checks every part of a composite individually.
+
+## 2026-07-13: A Theme Is A Full Token Reassignment, Applied Before First Paint
+
+Decision: Theme presets reassign all nine design tokens as CSS variables on the document root. An inline boot script in the layout applies a saved theme before first paint; a module-singleton settings store applies live changes.
+
+Reasoning:
+
+- Every component already styles itself through the tokens, so swapping tokens restyles everything with zero component changes, which is what makes a preset a design choice rather than a tint.
+- Without the boot script, a light-theme player sees a dark flash on every load. The script is generated from the same preset data the settings page uses, so the two cannot drift.
+- The store is a module singleton because the applier (layout) and the picker (settings page) must share state; per-component stores would not notify each other.
+
+Consequences:
+
+- `<html>` carries `suppressHydrationWarning`, on that one element only, because the boot script styles it before hydration.
+- Sixteen presets ship; a test pins that every preset fills every token with a well-formed color, since a missing token would silently inherit the previous theme.
+
+## 2026-07-13: Grid Cells Take Primitives, Not An Address Object
+
+Decision: `CellView` receives `row` and `col` as numbers instead of a `{ row, col }` object.
+
+Reasoning:
+
+- The cell is memoized and props are compared shallowly. A per-render address object defeated the memo, which was invisible under mouse play but meant keyboard play re-rendered all 96 cells on every keystroke.
+
+Consequences:
+
+- Only cells whose data actually changed re-render during keyboard play.
+- Handlers build the address at event time, which allocates only on interaction.
+
 ## 2026-07-12: Validators Grade The Grid's End State, Never The Route
 
 Decision: Every validator compares what the grid looks like when the player stops. None of them inspect how the player got there.

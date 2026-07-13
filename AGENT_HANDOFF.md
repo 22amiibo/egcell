@@ -1,27 +1,25 @@
 # Agent Handoff
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## What Was Done
 
-**Every phase of `IMPLEMENTATION_PLAN.md`, 0 through 8.** The game is playable, in two modes, across four challenge families.
+The original plan (phases 0-8) plus the 2026-07-13 gameplay expansion batch. Six play modes, 23 challenges, full keyboard control, a local profile, and 16 player-chosen themes.
 
-Open `/` and a run is already under way. The clock is going. Complete the challenge and it scores, banks a personal record, and offers a retry or the next challenge.
+Seventeen commits on `main`. The batch, one commit per section:
 
-Nine commits on `main`, one per phase:
-
-| Commit | Phase |
+| Commit | Section |
 | --- | --- |
-| `1de4388` | 0 and 1: scaffold, grid domain model, first challenge |
-| `f3e387e` | 2: grid reducer, selection validation |
-| `807245c` | 3: scoring, local personal records |
-| `b88d1b6` | 4: the playable game surface |
-| `7d1a5b2` | 5: main-speed e2e suite, docs |
-| `67c3190` | 6: four challenge families, drag-to-select, toolbar |
-| `323d8d2` | 7: practice mode |
-| `ca08d35` | 8: run result and event digest |
+| `c72590b` | Keyboard grid controls |
+| `887b8f3` | Task-count sprint mode (Sprint 5 / Sprint 10) |
+| `454f80d` | Fixed-time mode (30s / 60s) |
+| `339cd59` | Result screen and run breakdown |
+| `9fa413a` | Challenge variety (8 → 23, composite spec) |
+| `b0c5d66` | Local run history and profile stats |
+| `2340204` | Polish pass: six defects fixed |
+| `31bb450` | Settings with 16 theme presets |
 
-No remote, so nothing has been pushed.
+Docs commit follows. No remote, so nothing has been pushed.
 
 ## Required Reading Before Coding
 
@@ -30,45 +28,44 @@ No remote, so nothing has been pushed.
 3. `CURRENT_STATE.md`
 4. `DECISIONS.md`
 
-`IMPLEMENTATION_PLAN.md` is now a record of what was built rather than a plan of what to build. Every phase is marked complete.
+`IMPLEMENTATION_PLAN.md` is a historical record; the batch above was user-directed post-plan work, summarized in `CHANGELOG.md`.
 
 ## Next Step
 
-The plan is finished, so this is a judgement call. In order of value:
-
-1. **Play it and decide whether it is fun.** The loop works and every gate is green, but nobody has judged whether chasing the time actually feels good. That answer matters more than anything below.
-2. **Keyboard interaction.** This is the largest gap. The grid is pointer-only, and several practice notes already describe Excel keyboard routes a player cannot take here. Arrow keys, Ctrl+arrow to jump to the edge of a data region, Shift+arrow to extend a selection, Ctrl+Space for a column, Ctrl+B for bold. **No validator needs to change**: every one of them grades the grid's end state rather than the route, precisely so this could be added later.
-3. **Deploy to Vercel.** The build passes and there are no environment variables.
-4. **A second dataset.** All eight challenges share one Revenue grid, so it can be memorised. `createRevenueGrid` already takes options.
+1. **Playtest the sessions.** Sprint and timed modes are built to spec, but nobody has felt whether a 5-task chain or a 30-second burst is the fun one. That answer outranks everything below.
+2. **Deploy to Vercel.** Build passes, no env vars.
+3. **A second dataset**, then a seeded generator. Every challenge shares one Revenue grid and it can be memorised.
 
 ## Things That Will Bite You
 
-- **The clock starts when the grid appears, not on the first click.** Deliberate. In this game the action is the answer, so a clock that started on the first action would put every correct run at roughly zero elapsed time and pin the speed multiplier at its cap. Do not "fix" this.
-- **No challenge may start already complete.** A challenge whose starting grid satisfies its own validator finishes the instant the player touches anything. It is the easiest way to ship an unplayable challenge, which is why the bold and currency challenges start from a grid with that formatting stripped out. A registry test enforces it.
-- **Validators must never branch on a challenge id.** They read the `ValidationSpec`. A test pins this by relabelling a challenge and checking it still validates.
-- **Playwright's accessible-name matching is substring by default.** `{ name: "C1" }` also matches C10, C11, C12; `{ name: "Select row 1" }` also matches rows 10 to 12. Use `exact: true`. This has bitten twice.
-- **Playwright must target `localhost`, not `127.0.0.1`.** Next's dev server treats `127.0.0.1` as cross-origin and blocks its own client chunks. The page still renders, so it looks like an app bug: a frozen clock and dead buttons, because nothing hydrates.
-- **Do not clear `localStorage` with `page.addInitScript`.** It re-runs on every navigation, so it wipes the record mid-test in anything that reloads. Each Playwright test already gets a fresh context.
-- **`window.localStorage` is undefined under Vitest** on Node 26, which ships an experimental `localStorage` global that shadows jsdom's. `vitest.setup.ts` installs a shim.
-- **Client-only state goes through `useSyncExternalStore`,** never a mount effect. React Compiler's `react-hooks/set-state-in-effect` rule is on and there are zero suppressions in the codebase. Keep it that way.
-- **`challenge.initialGrid` is a single shared object.** The reducer is pure and never mutates it, which is what makes retry safe. A mutating path would break this quietly.
-- **The click after a drag is suppressed on purpose.** Without that, it would collapse the range the player just dragged back down to one cell.
-- **The event digest is not security.** It is client-computed with a published algorithm and no secret. Read its docstring before building anything on it.
+Everything from the previous handoff still applies (clock starts when the grid appears; no challenge may start complete; validators never branch on challenge id; Playwright needs `exact: true` and `localhost`; no `page.addInitScript` for storage; Vitest needs the localStorage shim; client-only state goes through `useSyncExternalStore`; `initialGrid` is shared and never mutated; the click after a drag is suppressed; the event digest is not security). New ones from this batch:
 
-## Adding A Challenge Family
+- **The first eight challenges are pinned, in order, at the head of `challenges`.** Session queues are deterministic slices of that list. Reordering it silently changes what Sprint 5 means and invalidates every sprint record.
+- **The timed deadline needs both halves.** The per-task `setTimeout` AND the wall-clock check in `handleTaskFinished`. Removing either reopens the race where a completion after the deadline advances the queue.
+- **`vi.useFakeTimers` must fake only `setTimeout`/`clearTimeout`/`Date`.** The full fake set also fakes what React schedules its own work with, and every interaction deadlocks. `timedMode.test.tsx` documents the working recipe; it uses `fireEvent`, not `userEvent`, for the same reason.
+- **Keyboard e2e must wait for grid focus** (`toBeFocused()`) after switching challenges. The grid takes focus in an effect; keystrokes sent before that lands go to the select. This flaked once under parallel workers before the waits went in.
+- **Playwright asserts text with `toContainText`,** not jest-dom's `toHaveTextContent`. The latter type-checks against the wrong expect and fails `tsc`.
+- **`CellView` takes `row`/`col` primitives on purpose.** Recombining them into an address prop re-renders the whole grid per keystroke; the memo relies on shallow-equal primitives.
+- **The settings store is a module singleton on purpose.** The theme applier in the layout and the picker on the settings page must share one store. The per-component store pattern used by records would leave them out of sync.
+- **`suppressHydrationWarning` is on `<html>` only,** because the theme boot script styles it pre-hydration. Do not spread it further.
+- **Keyboard formatting shortcuts are gated by `allowedActions`.** Movement and selection keys are never gated: they are how the player gets around.
+- **`finishNow()` grades whatever is on the grid.** Skips and buzzer grading both ride it. It banks no personal record by design.
 
-1. Add a variant to `ValidationSpec` in `domain/challenges/challengeTypes.ts`.
-2. Write the validator in `domain/validation/` and add a case to the switch in `validateChallenge.ts`. The switch is exhaustive, so TypeScript will fail the build until you do.
-3. Add `GridAction` kinds and `gridReducer` cases if the family needs interactions the grid cannot yet perform.
-4. Add the challenge to `data/challenges/index.ts`, listing the actions it needs in `allowedActions`. The toolbar follows automatically.
-5. Unit test the validator's pass and fail states. The registry tests will already be checking that it does not start complete.
+## Adding Things
+
+- **A challenge:** add to `data/challenges/index.ts` *after* the pinned first eight. Registry tests enforce uniqueness, a practice note, no-shortcut prompts, and that it does not start complete.
+- **A challenge family:** new `LeafValidationSpec` variant, validator, dispatcher case (exhaustive switch fails the build until added), reducer actions if the grid cannot do it yet.
+- **A mixed challenge:** compose leaf specs in a `composite`. Never nest composites; the type forbids it.
+- **A theme:** append to `THEME_PRESETS`. The test suite checks the token set is complete and well-formed; the boot script and settings page both derive from the same array.
+- **A session mode:** extend `SessionMode` and `SESSION_PLANS`; records, queue, and UI key off the plan shape.
 
 ## Known Issues
 
 None blocking.
 
-- `npm install` left install scripts unapproved for `sharp` and `unrs-resolver` under npm 11's `allowScripts` policy. Neither blocks any gate.
-- Next warns that it inferred the workspace root as `/Users/noahmartz`, because of a stray `package-lock.json` there. It is only a warning. Setting `turbopack.root` to silence it broke Next's React Client Manifest and was reverted. Either leave it, or delete the stray lockfile in the home directory.
+- `npm install` leaves `sharp`/`unrs-resolver` install scripts unapproved under npm 11. No gate cares.
+- Next warns about the inferred workspace root (stray lockfile in `/Users/noahmartz`). Do not set `turbopack.root`; it broke the React Client Manifest once already.
+- The e2e suite takes ~38s, dominated by one honest real-time 30-second timed run.
 
 ## Verification Commands
 
@@ -80,4 +77,4 @@ npm run build
 npm run e2e
 ```
 
-All five pass as of this handoff: clean lint, 189 unit tests across 15 files, clean typecheck, a successful build, and 17 Chromium e2e tests.
+All five pass as of this handoff: clean lint, 297 unit tests across 28 files, clean typecheck, a successful build, and 34 Chromium e2e tests.

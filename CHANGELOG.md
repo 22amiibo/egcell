@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-07-13 (gameplay expansion batch)
+
+Eight commits on top of the finished plan, one per section:
+
+- **Keyboard grid controls.** Arrows, Shift-extend, Cmd/Ctrl jumps to the data edge honouring hidden rows, Ctrl+Space / Shift+Space / Cmd+A selections, Cmd/Ctrl+B bold toggle, Ctrl+Shift+4/5 number formats, challenge-gated like the toolbar. Grid autofocuses on mount and retry. Practice notes updated to describe routes that actually work here.
+- **Task-count sprint mode.** Sprint 5 and Sprint 10 run a deterministic queue under one session clock, auto-advance, allow skips with partial credit, and bank their own records per length.
+- **Fixed-time mode.** 30s and 60s countdowns; the queue stops only when the clock does; the interrupted task is graded as it stands. Records per duration.
+- **Result screen.** New PR badge on every record run; correctness and accuracy join the two-second read; session cards carry a per-task breakdown behind a disclosure.
+- **Challenge variety.** 8 grew to 23 across all families plus two mixed challenges on a new flat `composite` spec, with a threshold-filter toolbar button to match. The original eight keep their exact head position, because session queues slice the list.
+- **Run history and profile.** `/profile` shows recent runs, totals, and per-mode bests; totals survive the 50-row cap. Local only.
+- **Polish.** Six defects fixed, three found by a review pass: the timed-deadline race (a completion after the wall-clock deadline but before the pending timer advanced the queue), stale keyboard anchor after retry, per-keystroke full-grid re-renders, two lying PR lines, and a latent countdown re-arm.
+- **Settings.** 16 theme presets reassigning all nine design tokens as CSS variables, applied pre-paint by a boot script, chosen per device at `/settings`.
+
+297 unit tests across 28 files, 34 e2e. All five gates pass.
+
 ## 2026-07-12 (phases 6 to 8)
 
 **All eight phases of the plan are complete.**

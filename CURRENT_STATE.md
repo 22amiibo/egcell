@@ -1,100 +1,76 @@
 # Current State
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Summary
 
-**All eight phases of `IMPLEMENTATION_PLAN.md` are complete.** The game is playable, in two modes, across four challenge families.
+**The plan's eight phases plus a full gameplay-expansion batch are complete.** The game now has six play modes, 23 challenges, full keyboard control, a local profile, and player-chosen themes.
 
-Open `/` and a run is already under way. The clock is going. Complete the challenge and it scores, banks a personal record, and offers a retry or the next challenge. Records survive a reload.
+Open `/` and a run is already under way. Complete the challenge and it scores, banks a personal record, logs to the local history, and offers a retry or the next challenge.
 
-## What Exists
+## Play Modes
 
-### Tooling
+| Mode | What it is | Records |
+| --- | --- | --- |
+| Speed | One challenge, chase the time | Per challenge |
+| Practice | Same, with route notes after the run | Per challenge, separate book |
+| Sprint 5 / Sprint 10 | Fixed task queue under one clock, skip allowed | Per sprint length |
+| 30s / 60s | Tasks keep coming until the countdown dies | Per duration |
 
-Next.js 16 App Router, React 19, TypeScript 5 (strict), Tailwind CSS v4. Vitest + jsdom + Testing Library. Playwright + Chromium. ESLint 9 flat config, including React Compiler's hook rules, with no suppressions anywhere in the codebase.
+Session queues are deterministic slices of the challenge list, so a sprint PR always compares like with like. Tasks inside a session never bank per-challenge records; the session banks one record of its own.
 
-### Challenges
+## Challenges
 
-Eight, in `src/data/challenges/index.ts`, playable in order or picked from the top bar:
+23, in `src/data/challenges/index.ts`: 5 navigation, 6 selection, 5 formatting, 5 sort/filter, 2 mixed. Mixed challenges use a `composite` validation spec, a flat list of leaf specs that must all pass. All run on the one Revenue grid; challenges that grade formatting start from a variant with that formatting stripped, and a registry test proves no challenge starts already complete.
 
-| Family | Challenge |
-| --- | --- |
-| selection | Select the Revenue column |
-| navigation | Go to the last Revenue cell |
-| selection | Select the header row |
-| selection | Select the whole table |
-| formatting | Bold the header row |
-| formatting | Format Revenue as currency |
-| sort-filter | Sort Revenue high to low |
-| sort-filter | Show only the East region |
+The first eight challenges stay first in the list **in their exact order**, because session queues are slices of it. Reordering them changes what Sprint 5 means.
 
-All eight run on the same Revenue grid: 12 rows by 8 columns, one header row, `Region | Rep | Revenue | Units | Status` in columns 0-4, six data rows, used range `{0,0}` to `{6,4}`. The bold and currency challenges start from a variant with that formatting removed, or they would begin already complete.
+## Keyboard
 
-### Domain (no React, heavily unit tested)
+The grid is fully playable without a mouse: arrows move, Shift+Arrow extends, Cmd/Ctrl+Arrow jumps to the edge of the data region (riding runs of data, crossing blanks, honouring hidden rows), Cmd/Ctrl+Shift+Arrow extends the jump, Ctrl+Space selects the column, Shift+Space the row, Cmd/Ctrl+A the table, Cmd/Ctrl+B toggles bold, Ctrl+Shift+4/5 apply currency/percent. Formatting shortcuts are gated by the challenge's `allowedActions`, exactly as the toolbar is. Cmd and Ctrl are both accepted; nothing sniffs the platform. The grid takes focus on mount and again on retry.
 
-- `domain/grid`: `gridTypes`, `range`, `cellValues`, `selectors`, `gridReducer`. The reducer is pure and handles selection, formatting, sorting, and filtering. It returns the same object for an action that changes nothing.
-- `domain/challenges`: `challengeTypes`. `ValidationSpec` is a discriminated union over the four families.
-- `domain/validation`: `validateChallenge` (an exhaustive dispatcher), plus `validateSelection`, `validateNavigation`, `validateFormatting`, `validateSortFilter`. Every validator grades the grid's end state, never the route the player took.
-- `domain/scoring`: `scoreRun`.
-- `domain/records`: personal records, pure, with storage injected.
-- `domain/runs`: `runTypes`, `runResult`, `eventDigest`.
+## Profile and Settings
 
-### Application
+- `/profile`: recent runs (capped at 50), total runs, total challenges completed, and best score/time per mode. Totals are folded in before the cap trims, so nothing earned is lost.
+- `/settings`: 16 theme presets, dark to light to high-contrast to terminal. A preset reassigns all nine design tokens as CSS variables on the document root; a boot script applies a saved theme before first paint. Local-only.
 
-- `hooks/useGameRun`, `hooks/useLocalPersonalRecords`.
-- `components/game`: `GameShell`, `ChallengeRun`, `ChallengePrompt`, `TimerDisplay`, `Toolbar`, `ResultCard`, `PracticeNotes`, `RetryButton`, `StatRow`.
-- `components/grid`: `SpreadsheetGrid`, `ColumnHeader`, `RowHeader`, `CellView`, `SelectionOverlay`, `gridMetrics`.
-- `lib`: `storage`, `format`.
+## Architecture Notes
+
+- Domain stays pure and React-free: `domain/grid` (+ `keyboardNav`), `domain/challenges`, `domain/validation` (+ `validateComposite`), `domain/scoring`, `domain/records`, `domain/sessions`, `domain/profile`, `domain/settings`, `domain/runs`.
+- Every validator still grades the grid's end state, never the route. The keyboard shipped without touching one.
+- Client-only state (records, session records, history, settings, clocks) goes through `useSyncExternalStore`. Zero lint suppressions.
+- `useGameRun` gained `recordPersonalBest`, `onFinished`, and `finishNow()` for sessions; the timed deadline is a per-task timeout **plus** a wall-clock check at completion, because setTimeout is a lower bound.
 
 ## What Works
 
 All five gates pass:
 
 - `npm run lint` — clean.
-- `npm test` — 189 tests across 15 files.
+- `npm test` — 297 tests across 28 files.
 - `npm run typecheck` — clean.
 - `npm run build` — succeeds.
-- `npm run e2e` — 17 Chromium tests.
-
-Behaviour worth knowing is real, because a test pins it:
-
-- The clock starts when the grid appears, not on the first click.
-- A wrong move never ends a run. The player can always recover.
-- Sorting moves the whole row with the sorted value, and never touches the header.
-- Filtering removes rows from the page, and a later sort recomputes which rows are hidden.
-- Drag-to-select works with a real mouse, and the click that follows a drag does not collapse the range.
-- The toolbar only offers the actions the current challenge allows. A selection challenge shows no toolbar.
-- No hint is reachable during an active run, in either mode.
-- A practice record can never be mistaken for a speed record.
-- No challenge starts already complete.
-- A completed run calls `fetch` zero times.
+- `npm run e2e` — 34 Chromium tests (~38s; one real 30-second timed run).
 
 ## What Does Not Exist Yet
 
-- **No keyboard interaction.** The grid is pointer-only. This is the biggest gap: several practice notes describe an Excel keyboard route the player cannot actually take here.
-- No formula family. `CellValue` has a `formula` variant and `formatCellValue` renders it, but nothing creates one and there is no parser.
-- No fixed-time mode. `TimingPolicy` allows it and scoring carries `completionPercent` for it, but nothing uses it.
-- No leaderboard, no accounts, no server. By design.
-- No deployment.
-- Only one dataset. Every challenge uses the same Revenue grid.
+- Only one dataset. Every challenge reads the same Revenue table, so it can be memorised.
+- No formula family. `CellValue` supports it; nothing creates one.
+- Fixed-time partial credit is the validator's `completionPercent` at the buzzer. Finer-grained subgoals would need validators to report per-step progress, which none do.
+- No deployment, no accounts, no server, no real leaderboard. By design.
 
 ## Known Issues
 
 None blocking.
 
-- The Git root is `/Users/noahmartz/Desktop/egcell`. Nine commits on `main`, one per phase. No remote, so nothing has been pushed.
-- `npm install` left install scripts unapproved for `sharp` and `unrs-resolver` under npm 11's `allowScripts` policy. Neither blocks any gate.
-- Next warns that it inferred the workspace root as `/Users/noahmartz`, because of a stray `package-lock.json` there. It is only a warning. Setting `turbopack.root` to silence it broke Next's React Client Manifest and was reverted. Either leave it, or delete the stray lockfile in the home directory.
+- `npm install` leaves install scripts unapproved for `sharp` and `unrs-resolver` under npm 11. No gate cares.
+- Next warns it inferred the workspace root as `/Users/noahmartz` (stray lockfile there). Warning only; do not set `turbopack.root`, it broke the React Client Manifest once already.
+- `<html>` carries `suppressHydrationWarning` because the theme boot script styles it before hydration. That is the one element it is suppressed on.
 
 ## Next Best Step
 
-The plan is finished, so this is a judgement call rather than a step the plan dictates. In order of value:
-
-1. **Keyboard interaction.** Arrow keys, Ctrl+arrow to jump to the edge of a data region, Shift+arrow to extend a selection, Ctrl+Space for a column, Ctrl+B for bold. This is what the product is ultimately about, the practice notes already promise it, and every validator grades end state rather than route, so no validator has to change.
-2. **Deploy to Vercel.** `npm run build` passes and there are no environment variables. See the deployment plan in `IMPLEMENTATION_PLAN.md`.
-3. **A second dataset.** Every challenge shares one grid, so a player can memorise it. `createRevenueGrid` already takes options; a seeded generator is the natural next move.
-4. **Play it and see if it is fun.** The loop works, but nobody has judged whether chasing the time actually feels good. That answer should drive whatever comes next, more than any item above.
+1. **Playtest the sessions.** Sprint and timed modes exist as designed, but nobody has felt whether a 5-task chain or a 30-second burst is the fun one.
+2. **Deploy to Vercel.** Build passes, no env vars.
+3. **A second dataset**, then a seeded generator, so the table cannot be memorised.
 
 ## Verification Commands
 

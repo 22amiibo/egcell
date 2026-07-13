@@ -2,41 +2,37 @@
 
 ## Done
 
-Every phase of `IMPLEMENTATION_PLAN.md`, 0 through 8.
+Every phase of `IMPLEMENTATION_PLAN.md` (0-8), then the 2026-07-13 gameplay expansion batch:
 
-- Scaffold, tooling, and the dark shell.
-- Grid domain model, range helpers, selectors.
-- Pure grid reducer: selection, formatting, sorting, filtering.
-- Spec-keyed validators for all four families.
-- Scoring and local personal records.
-- The playable game: grid, drag-to-select, toolbar, prompt, timer, result card, retry.
-- Eight challenges and a challenge picker.
-- Practice mode with post-run route notes.
-- Versioned run result and event digest for a future leaderboard.
-- 189 unit tests, 17 Chromium e2e tests.
+- Full keyboard control of the grid, challenge-gated formatting shortcuts included.
+- Sprint 5 / Sprint 10 task-count sessions with skip and per-length records.
+- 30s / 60s fixed-time sessions with countdown, buzzer grading, per-duration records.
+- Result cards with a New PR badge and per-task session breakdowns.
+- 23 challenges across five families, including two mixed (composite) challenges.
+- Local run history and profile stats at `/profile`.
+- 16 theme presets at `/settings`, applied before first paint.
+- 297 unit tests, 34 e2e tests.
 
 ## Immediate
 
-- **Play it.** Nobody has judged whether chasing the time actually feels good. That answer should shape everything below.
-- **Keyboard interaction.** The grid is pointer-only, and this is the largest gap in the product. Arrow keys, Ctrl+arrow to jump to the edge of a data region, Shift+arrow to extend, Ctrl+Space for a column, Ctrl+B for bold. Several practice notes already promise routes the player cannot take. No validator needs to change: they all grade end state, not route.
-- **Deploy to Vercel.** The build passes and there are no environment variables. Steps are in `IMPLEMENTATION_PLAN.md`.
+- **Playtest the sessions.** Which mode is the fun one: single, sprint, or timed? That answer decides everything below. Nobody has judged feel.
+- **Deploy to Vercel.** Build passes, no env vars. Steps in `IMPLEMENTATION_PLAN.md`.
+- **A second dataset.** All 23 challenges share the one Revenue grid, so positions can be memorised; the find-the-value navigation challenge is already weaker for it. `createRevenueGrid` takes options; a seeded generator is the natural shape.
 
 ## Soon
 
-- A second dataset. Every challenge shares one Revenue grid, so it can be memorised. `createRevenueGrid` already takes options; a seeded generator is the natural next step.
-- More challenges per family, once a second dataset exists.
-- Fixed-time mode. `TimingPolicy` allows it and scoring already carries `completionPercent` for it.
-- Show the personal best on the grid surface during a run, so the player is chasing something visible.
+- More challenges per family once a second dataset exists, so variety comes from data as well as task.
+- Per-task target times shown during sessions, so the player knows the pace to beat.
+- Show the personal best on the run surface during a run, so the chase is visible.
+- Idle/pause handling for the single-run clock (a tabbed-away run posts a slow time today).
 
 ## Later
 
-- Simple formula challenges. `CellValue` has a `formula` variant and the formatter renders it, but nothing creates one and there is no parser.
+- Simple formula challenges. `CellValue` has a `formula` variant; there is no parser.
 - Official daily challenge shape.
-- Profile and account planning.
-- Real leaderboard backend, with server-side revalidation of the deterministic validators.
-- Replay viewer, built on the run result's event list.
-- Measured anti-cheat. Not before there is something to cheat at.
-- Themes, once the design tokens have settled.
+- Replay viewer on the run result's event list.
+- Accounts, then a real leaderboard backend with server-side revalidation of the deterministic validators.
+- Measured anti-cheat, not before there is something to cheat at.
 - Sound.
 
 ## Explicitly Not Early
@@ -44,14 +40,9 @@ Every phase of `IMPLEMENTATION_PLAN.md`, 0 through 8.
 - AI coach.
 - Monetization.
 - Mobile app.
-- Excel import/export.
-- Google Sheets integration.
-- Microsoft Excel integration.
-- Classroom mode.
-- Enterprise/team mode.
-- Heavy onboarding.
-- Forced signup.
-- Full global leaderboard before the core loop is proven fun.
-- Full anti-cheat before the core loop is proven fun.
+- Excel/Google Sheets import or integration.
+- Classroom / enterprise modes.
+- Heavy onboarding or forced signup.
+- Full global leaderboard or anti-cheat before the loop is proven fun.
 - Complex achievements.
-- Theme marketplace.
+- Theme marketplace (themes are presets, chosen locally; that is the ceiling for now).
