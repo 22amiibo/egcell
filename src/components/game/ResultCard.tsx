@@ -88,6 +88,8 @@ export function ResultCard({ challenge, mode, run, onRetry, onNext }: ResultCard
           <StatRow label="Base points" value={formatScore(challenge.scoring.basePoints)} />
           <StatRow label="Challenge" value={`${challenge.id} ${challenge.version}`} />
           <StatRow label="Seed" value={challenge.seed} />
+          <StatRow label="Moves" value={run.submission.replayEvents.length} />
+          <StatRow label="Run digest" value={run.submission.eventDigest} />
         </div>
       </details>
 

@@ -7,6 +7,7 @@ import { gridReducer } from "@/domain/grid/gridReducer";
 import type { GridAction, GridState } from "@/domain/grid/gridTypes";
 import { isPersonalRecordEligible } from "@/domain/records/personalRecords";
 import type { PersonalRecord } from "@/domain/records/recordTypes";
+import { buildRunResult, type RunResult } from "@/domain/runs/runResult";
 import type { RunEvent, RunState, RunStatus } from "@/domain/runs/runTypes";
 import { scoreRun } from "@/domain/scoring/scoreRun";
 import type { ScoreResult } from "@/domain/scoring/scoringTypes";
@@ -20,6 +21,11 @@ export type FinishedRun = {
   elapsedMs: number;
   previousBest: PersonalRecord | undefined;
   isNewRecord: boolean;
+  /**
+   * The leaderboard-shaped summary of this run. Built for every completed run and sent nowhere.
+   * Having the UI read it keeps the shape honest: it cannot rot into a type nothing produces.
+   */
+  submission: RunResult;
 };
 
 export type GameRun = {
@@ -184,7 +190,28 @@ export function useGameRun(
         isNewRecord = submission.isNewRecord;
       }
 
-      const finished: FinishedRun = { validation, score, elapsedMs, previousBest, isNewRecord };
+      const submission = buildRunResult({
+        challengeId: challenge.id,
+        challengeVersion: challenge.version,
+        seed: challenge.seed,
+        mode,
+        score: score.score,
+        correctness: validation.correctness,
+        completionPercent: validation.completionPercent,
+        accuracy: validation.accuracy,
+        startedAtMs: runStartedAt,
+        finishedAtMs: now,
+        events: eventsRef.current,
+      });
+
+      const finished: FinishedRun = {
+        validation,
+        score,
+        elapsedMs,
+        previousBest,
+        isNewRecord,
+        submission,
+      };
 
       resultRef.current = finished;
       setResult(finished);
