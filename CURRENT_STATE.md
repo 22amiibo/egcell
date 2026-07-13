@@ -6,11 +6,11 @@ Last updated: 2026-07-13
 
 **The plan's eight phases plus a full gameplay-expansion batch are complete.** The game now has six play modes, 23 challenges, full keyboard control, a local profile, and player-chosen themes.
 
-The Core Game Feel + Settings upgrade is complete through **Task 10 of 12**. Tasks 8-10 upgraded results for replay motivation, added an honest local-only leaderboard shell, and added mastery progression to the profile. Continue with Task 11, grid density and spreadsheet-native polish.
+The Core Game Feel + Settings upgrade is complete through **Task 12 of 12**. Grid density, gridline strength, and large-target settings now drive stable per-run spreadsheet geometry, and the final automated plus manual design QA pass is complete.
 
 Open `/` and a run is already under way. Complete the challenge and it scores, banks a personal record, logs to the local history, and offers a retry or the next challenge.
 
-## Core Game Feel Checkpoint (Tasks 1-10)
+## Core Game Feel Checkpoint (Tasks 1-12)
 
 | Commit | Task |
 | --- | --- |
@@ -24,8 +24,10 @@ Open `/` and a run is already under way. Complete the challenge and it scores, b
 | `fb2a543` | Replay-focused single and session results |
 | `9e0384b` | Local-only leaderboard shell and route |
 | `bf2fad0` | Skill mastery and profile progression |
+| `d61dbab` | Stable grid density, gridline, and large-target settings |
+| `623e4a7` | Final keyboard, motion, focus, theme, and layout QA |
 
-Latest verification: clean lint, 471 unit tests across 49 files, clean typecheck, successful production build, and 39 Chromium end-to-end tests. The known inferred-workspace-root warning remains harmless.
+Latest verification: clean lint, 476 unit tests across 50 files, clean typecheck, successful production build, and 42 Chromium end-to-end tests. Manual QA passed at 1280×900 and 1366×768 in Ledger Noir and Paper Grid. The known inferred-workspace-root warning remains harmless.
 
 ## Play Modes
 
@@ -66,10 +68,10 @@ The grid is fully playable without a mouse: arrows move, Shift+Arrow extends, Cm
 All five gates pass:
 
 - `npm run lint` — clean.
-- `npm test` — 297 tests across 28 files.
+- `npm test` — 476 tests across 50 files.
 - `npm run typecheck` — clean.
 - `npm run build` — succeeds.
-- `npm run e2e` — 34 Chromium tests (~38s; one real 30-second timed run).
+- `npm run e2e` — 42 Chromium tests (~39s; one real 30-second timed run).
 
 ## What Does Not Exist Yet
 

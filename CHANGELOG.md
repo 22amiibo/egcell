@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-13 (core game feel, Tasks 11-12)
+
+- Connected compact, comfortable, and large grid density to one shared geometry model used by cells, row and column headers, and the selection overlay. Gridline strength and the large-target accessibility floor now apply to live single runs and sessions.
+- Snapshot grid presentation before a run or session starts so settings changes cannot move targets mid-run. A hydration gate ensures a saved non-default presentation is loaded before the first clock and grid mount.
+- Added final browser design checks for arena dominance, all eight keyboard-reachable settings categories, full-motion versus reduced-motion feedback, retry focus, and same-document theme changes.
+- Manually checked Ledger Noir and Paper Grid at 1280×900 and 1366×768: no rail overlap or horizontal overflow at the standard desktop viewport, the grid remains dominant, feedback stays restrained, and Retry remains obvious.
+- All five gates pass: lint, 476 unit tests across 50 files, typecheck, production build, and 42 Chromium end-to-end tests.
+
 ## 2026-07-13 (core game feel, Tasks 8-10)
 
 - Upgraded single and session results with EPM, PB delta, shortcut efficiency, average and fastest task pace, slowest-task retry guidance, and focused retry copy. Technical digests remain behind disclosures and Retry retains focus.

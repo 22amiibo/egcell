@@ -4,7 +4,7 @@ Last updated: 2026-07-13
 
 ## What Was Done
 
-The Core Game Feel + Settings upgrade is complete through **Task 10 of 12**. The latest checkpoint commits are:
+The Core Game Feel + Settings upgrade is complete through **Task 12 of 12**. The checkpoint commits are:
 
 | Commit | Task |
 | --- | --- |
@@ -15,10 +15,12 @@ The Core Game Feel + Settings upgrade is complete through **Task 10 of 12**. The
 | `fb2a543` | Task 8 — replay-focused results |
 | `9e0384b` | Task 9 — local leaderboard shell |
 | `bf2fad0` | Task 10 — mastery and profile progression |
+| `d61dbab` | Task 11 — grid density and spreadsheet-native polish |
+| `623e4a7` | Task 12 — final visual and automated QA |
 
 Tasks 1-3 immediately precede them at `97711ca`, `57ee973`, and `ca475a0`.
 
-The original plan (phases 0-8), the 2026-07-13 gameplay expansion batch, and Core Game Feel Tasks 1-10. Six play modes, 23 challenges, full keyboard control, replay-focused results, local mastery and leaderboard shells, and 13 original player-chosen themes.
+The original plan (phases 0-8), the 2026-07-13 gameplay expansion batch, and all 12 Core Game Feel tasks are complete. Six play modes, 23 challenges, full keyboard control, replay-focused results, local mastery and leaderboard shells, stable grid presentation settings, and 13 original player-chosen themes.
 
 The earlier gameplay batch, one commit per section:
 
@@ -46,7 +48,7 @@ Docs commit follows. No remote, so nothing has been pushed.
 
 ## Next Step
 
-**Task 11 — Apply Grid Density And Spreadsheet-Native Polish.** Follow the read-only plan at `src/app/games/excel-speed-design-implementation-plan.md`: test first, connect stable pre-run grid dimensions to density, gridline, and large-target settings, run all five gates, and commit one green task. Then complete Task 12 final QA and documentation.
+There is no remaining task in the Core Game Feel + Settings upgrade. Keep the Challenge Variant System as its separate workstream and resume it only from that workstream's current handoff. Otherwise, the highest-value next actions are session playtesting and deployment.
 
 Do not stage or overwrite the parallel workstream in `src/domain/challenges/challengeTypes.ts`, `src/domain/validation/validatorTypes.ts`, or `src/app/games/`.
 
@@ -81,6 +83,7 @@ Everything from the previous handoff still applies (clock starts when the grid a
 - **Playwright asserts text with `toContainText`,** not jest-dom's `toHaveTextContent`. The latter type-checks against the wrong expect and fails `tsc`.
 - **`CellView` takes `row`/`col` primitives on purpose.** Recombining them into an address prop re-renders the whole grid per keystroke; the memo relies on shallow-equal primitives.
 - **The settings store is a module singleton on purpose.** The theme applier in the layout and the picker on the settings page must share one store. The per-component store pattern used by records would leave them out of sync.
+- **The game waits for the client settings snapshot before mounting the first run.** Removing the `isHydrated` gate freezes server-default grid dimensions on a hard reload, even when compact density or large targets were saved.
 - **`suppressHydrationWarning` is on `<html>` only,** because the theme boot script styles it pre-hydration. Do not spread it further.
 - **Keyboard formatting shortcuts are gated by `allowedActions`.** Movement and selection keys are never gated: they are how the player gets around.
 - **`finishNow()` grades whatever is on the grid.** Skips and buzzer grading both ride it. It banks no personal record by design.
@@ -111,4 +114,4 @@ npm run build
 npm run e2e
 ```
 
-All five pass as of this handoff: clean lint, 471 unit tests across 49 files, clean typecheck, a successful build, and 39 Chromium e2e tests.
+All five pass as of this handoff: clean lint, 476 unit tests across 50 files, clean typecheck, a successful build, and 42 Chromium e2e tests. Manual QA passed at 1280×900 and 1366×768 in Ledger Noir and Paper Grid.
