@@ -7,6 +7,13 @@ export type ValidationMessage = {
   text: string;
 };
 
+/** One step of a mixed chain, graded on its own. This is what partial credit is made of. */
+export type SubgoalResult = {
+  label: string;
+  isComplete: boolean;
+  completionPercent: number;
+};
+
 export type ValidationResult = {
   isComplete: boolean;
   /** 0 to 1. Squared by scoring, so partial credit is punished hard. */
@@ -16,6 +23,8 @@ export type ValidationResult = {
   /** 0 to 1. Pinned at 1 until invalid-action tracking exists. */
   accuracy: number;
   messages: ValidationMessage[];
+  /** Present only for composite specs: the per-step breakdown behind the mean. */
+  subgoals?: SubgoalResult[];
 };
 
 export type ValidationInput = {

@@ -131,4 +131,24 @@ describe("checkVariant", () => {
 
     expect(issues).toContain("by-name-ambiguous");
   });
+
+  it("rejects a composite whose labels do not align with its parts", () => {
+    const { variant, dataset } = goodDraw();
+    const selection = variant.validation;
+
+    if (selection.kind !== "selection") {
+      throw new Error("Expected a selection spec.");
+    }
+
+    const broken: ChallengeVariant = {
+      ...variant,
+      validation: {
+        kind: "composite",
+        parts: [selection, selection],
+        partLabels: ["Only one label"],
+      },
+    };
+
+    expect(issuesOf(broken, dataset)).toContain("composite-label-count");
+  });
 });

@@ -8,7 +8,6 @@ import {
   type ValidationInput,
   type ValidationResult,
   failed,
-  passed,
 } from "@/domain/validation/validatorTypes";
 
 function validatePart(input: ValidationInput, part: LeafValidationSpec): ValidationResult {
@@ -35,9 +34,21 @@ export const validateComposite: ChallengeValidator<"composite"> = (input, spec) 
   }
 
   const results = spec.parts.map((part) => validatePart(input, part));
+  const subgoals = results.map((result, index) => ({
+    label: spec.partLabels?.[index] ?? `Step ${index + 1}`,
+    isComplete: result.isComplete,
+    completionPercent: result.completionPercent,
+  }));
 
   if (results.every((result) => result.isComplete)) {
-    return passed("Every part of the task is done.");
+    return {
+      isComplete: true,
+      correctness: 1,
+      completionPercent: 1,
+      accuracy: results.reduce((sum, result) => sum + result.accuracy, 0) / results.length,
+      messages: [{ kind: "success", text: "Every part of the task is done." }],
+      subgoals,
+    };
   }
 
   const completionPercent =
@@ -50,7 +61,8 @@ export const validateComposite: ChallengeValidator<"composite"> = (input, spec) 
     isComplete: false,
     correctness,
     completionPercent,
-    accuracy: 1,
+    accuracy: results.reduce((sum, result) => sum + result.accuracy, 0) / results.length,
     messages: firstUnfinished.messages,
+    subgoals,
   };
 };

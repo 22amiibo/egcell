@@ -68,6 +68,7 @@ function toTaskResult(
     correctness: finished.validation.correctness,
     completionPercent: finished.validation.completionPercent,
     accuracy: finished.validation.accuracy,
+    subgoals: finished.validation.subgoals,
   };
 }
 

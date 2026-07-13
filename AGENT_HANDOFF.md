@@ -4,6 +4,10 @@ Last updated: 2026-07-13
 
 ## What Was Done
 
+The Challenge Variant System is complete through **Phase H**. Seeded generation now covers navigation, selection, formatting, sort/filter, and one deliberately non-interfering mixed template. Sprint and timed modes consume deterministic generated queues. Composite validators expose named subgoals, timed buzzer grading pays the existing completion-based partial score, and the session result breakdown identifies completed and unfinished steps.
+
+Phase H did not change `scoreRun`, leaf validators, or route grading. Mixed chains remain flat, use only existing supported grid actions, and validate final grid state in either operation order.
+
 The Core Game Feel + Settings upgrade is complete through **Task 12 of 12**. The checkpoint commits are:
 
 | Commit | Task |
@@ -48,11 +52,11 @@ Docs commit follows. No remote, so nothing has been pushed.
 
 ## Next Step
 
-There is no remaining task in the Core Game Feel + Settings upgrade. Keep the Challenge Variant System as its separate workstream and resume it only from that workstream's current handoff. Otherwise, the highest-value next actions are session playtesting and deployment.
+There is no remaining task in the Core Game Feel + Settings upgrade. The Challenge Variant System's next step is **Phase I playtest tuning**. Otherwise, the highest-value next action is deployment.
 
 Do not stage or overwrite the parallel workstream in `src/domain/challenges/challengeTypes.ts`, `src/domain/validation/validatorTypes.ts`, or `src/app/games/`.
 
-The Challenge Variant System remains a separate workstream. Its architecture notes below are retained for that work, but they are not the next step for this upgrade.
+The Challenge Variant System remains a separate workstream. Its architecture notes below are retained for Phase I.
 
 Off that path, unblocked, still worth doing:
 
@@ -76,7 +80,8 @@ The rules that will govern every generated challenge, and that interim work must
 
 Everything from the previous handoff still applies (clock starts when the grid appears; no challenge may start complete; validators never branch on challenge id; Playwright needs `exact: true` and `localhost`; no `page.addInitScript` for storage; Vitest needs the localStorage shim; client-only state goes through `useSyncExternalStore`; `initialGrid` is shared and never mutated; the click after a drag is suppressed; the event digest is not security). New ones from this batch:
 
-- **The first eight challenges are pinned, in order, at the head of `challenges`.** Session queues are deterministic slices of that list. Reordering it silently changes what Sprint 5 means and invalidates every sprint record.
+- **Generated session queues are seed- and version-deterministic.** Tests and shared runs must pass the same `sessionSeed` to the page and `buildSessionQueue`; never hardcode task labels for a generated queue.
+- **Mixed chains stay flat and non-interfering.** Labels align by index with leaf specs, eligibility rejects a mismatch, and the current generated chain is solvable in either order.
 - **The timed deadline needs both halves.** The per-task `setTimeout` AND the wall-clock check in `handleTaskFinished`. Removing either reopens the race where a completion after the deadline advances the queue.
 - **`vi.useFakeTimers` must fake only `setTimeout`/`clearTimeout`/`Date`.** The full fake set also fakes what React schedules its own work with, and every interaction deadlocks. `timedMode.test.tsx` documents the working recipe; it uses `fireEvent`, not `userEvent`, for the same reason.
 - **Keyboard e2e must wait for grid focus** (`toBeFocused()`) after switching challenges. The grid takes focus in an effect; keystrokes sent before that lands go to the select. This flaked once under parallel workers before the waits went in.
@@ -114,4 +119,4 @@ npm run build
 npm run e2e
 ```
 
-All five pass as of this handoff: clean lint, 476 unit tests across 50 files, clean typecheck, a successful build, and 42 Chromium e2e tests. Manual QA passed at 1280×900 and 1366×768 in Ledger Noir and Paper Grid.
+All five pass as of this handoff: clean lint, 484 unit tests across 51 files, clean typecheck, a successful build, and 42 Chromium e2e tests. Manual QA passed at 1280×900 and 1366×768 in Ledger Noir and Paper Grid.

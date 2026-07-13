@@ -4,7 +4,7 @@ Last updated: 2026-07-13
 
 ## Summary
 
-**The plan's eight phases plus a full gameplay-expansion batch are complete.** The game now has six play modes, 23 challenges, full keyboard control, a local profile, and player-chosen themes.
+**The plan's eight phases, the gameplay-expansion batch, and Challenge Variant System Phases A-H are complete.** The game now has six play modes, 23 classic challenges, generated drills across five families, full keyboard control, a local profile, and player-chosen themes.
 
 The Core Game Feel + Settings upgrade is complete through **Task 12 of 12**. Grid density, gridline strength, and large-target settings now drive stable per-run spreadsheet geometry, and the final automated plus manual design QA pass is complete.
 
@@ -38,13 +38,11 @@ Latest verification: clean lint, 476 unit tests across 50 files, clean typecheck
 | Sprint 5 / Sprint 10 | Fixed task queue under one clock, skip allowed | Per sprint length |
 | 30s / 60s | Tasks keep coming until the countdown dies | Per duration |
 
-Session queues are deterministic slices of the challenge list, so a sprint PR always compares like with like. Tasks inside a session never bank per-challenge records; the session banks one record of its own.
+Session queues are seeded, family-balanced, repetition-avoiding generated queues. The same seed and queue version reproduce the same tasks; session records key on mode and difficulty and chase score, not elapsed time. Tasks inside a session never bank per-challenge records.
 
 ## Challenges
 
-23, in `src/data/challenges/index.ts`: 5 navigation, 6 selection, 5 formatting, 5 sort/filter, 2 mixed. Mixed challenges use a `composite` validation spec, a flat list of leaf specs that must all pass. All run on the one Revenue grid; challenges that grade formatting start from a variant with that formatting stripped, and a registry test proves no challenge starts already complete.
-
-The first eight challenges stay first in the list **in their exact order**, because session queues are slices of it. Reordering them changes what Sprint 5 means.
+The 23 classics remain in `src/data/challenges/index.ts`. Seeded templates now generate navigation, selection, formatting, sort/filter, and mixed variants from four dataset themes. A generated mixed drill composes two or three existing leaf validators on one dataset; its steps are intentionally order-independent and report named subgoals.
 
 ## Keyboard
 
@@ -60,6 +58,8 @@ The grid is fully playable without a mouse: arrows move, Shift+Arrow extends, Cm
 
 - Domain stays pure and React-free: `domain/grid` (+ `keyboardNav`), `domain/challenges`, `domain/validation` (+ `validateComposite`), `domain/scoring`, `domain/records`, `domain/sessions`, `domain/profile`, `domain/settings`, `domain/runs`.
 - Every validator still grades the grid's end state, never the route. The keyboard shipped without touching one.
+- Generated variants and queues are pure functions of their seeds. A template emits its grid and validation spec from the same generated dataset layout.
+- Composite validation reports each named subgoal while preserving the existing mean completion calculation and unchanged score pipeline.
 - Client-only state (records, session records, history, settings, clocks) goes through `useSyncExternalStore`. Zero lint suppressions.
 - `useGameRun` gained `recordPersonalBest`, `onFinished`, and `finishNow()` for sessions; the timed deadline is a per-task timeout **plus** a wall-clock check at completion, because setTimeout is a lower bound.
 
@@ -68,18 +68,16 @@ The grid is fully playable without a mouse: arrows move, Shift+Arrow extends, Cm
 All five gates pass:
 
 - `npm run lint` — clean.
-- `npm test` — 476 tests across 50 files.
+- `npm test` — 484 tests across 51 files.
 - `npm run typecheck` — clean.
 - `npm run build` — succeeds.
 - `npm run e2e` — 42 Chromium tests (~39s; one real 30-second timed run).
 
 ## What Does Not Exist Yet
 
-- Only one dataset. Every challenge reads the same Revenue table, so it can be memorised.
 - No formula family. `CellValue` supports it; nothing creates one.
-- Fixed-time partial credit is the validator's `completionPercent` at the buzzer. Finer-grained subgoals would need validators to report per-step progress, which none do.
 - No deployment, no accounts, no server, no real leaderboard. By design.
-- No challenge generation of any kind. See the audit below.
+- Generated mixed content is deliberately narrow: one non-interfering sort-and-format template. Phase I still needs playtest tuning before the family grows.
 
 ## Challenge System Audit (2026-07-13, Phase A)
 
@@ -129,7 +127,7 @@ None blocking.
 
 ## Next Best Step
 
-**Phase B of the Challenge Variant System** in `IMPLEMENTATION_PLAN.md`: seeded RNG and core variant types. Phase A (audit and architecture) is done — it is the audit section above plus `ARCHITECTURE.md` § Challenge Variant Architecture. No code has changed.
+**Phase I of the Challenge Variant System** in `IMPLEMENTATION_PLAN.md`: playtest and tune generated difficulty, target times, prompt clarity, and queue pacing. Phases B-H are implemented.
 
 Open, unblocked, and off that path:
 

@@ -2,6 +2,7 @@ import { DATASET_THEMES } from "@/data/datasets/themes";
 import type { ChallengeDifficulty } from "@/domain/challenges/challengeTypes";
 import { generateVariant } from "@/domain/challenges/generateVariant";
 import { formattingTemplates } from "@/domain/challenges/templates/formatting";
+import { mixedTemplates } from "@/domain/challenges/templates/mixed";
 import { navigationTemplates } from "@/domain/challenges/templates/navigation";
 import { selectionTemplates } from "@/domain/challenges/templates/selection";
 import { sortFilterTemplates } from "@/domain/challenges/templates/sortFilter";
@@ -14,6 +15,7 @@ export const generatedTemplates: ChallengeTemplate[] = [
   ...selectionTemplates,
   ...formattingTemplates,
   ...sortFilterTemplates,
+  ...mixedTemplates,
 ];
 
 /**

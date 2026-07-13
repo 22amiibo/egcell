@@ -185,14 +185,25 @@ export function SessionResultCard({
           {result.tasks.map((task, index) => (
             <li
               key={`${task.challengeId}:${index}`}
-              className="flex items-baseline justify-between gap-4 text-[13px]"
+              className="text-[13px]"
             >
-              <span className={task.outcome === "completed" ? "text-ink" : "text-muted"}>
-                {index + 1}. {task.title}
-              </span>
-              <span className="shrink-0 tabular-nums text-muted">
-                {outcomeLabel(task)} · {formatScore(task.score)} pts
-              </span>
+              <div className="flex items-baseline justify-between gap-4">
+                <span className={task.outcome === "completed" ? "text-ink" : "text-muted"}>
+                  {index + 1}. {task.title}
+                </span>
+                <span className="shrink-0 tabular-nums text-muted">
+                  {outcomeLabel(task)} · {formatScore(task.score)} pts
+                </span>
+              </div>
+              {task.subgoals !== undefined && (
+                <ul className="mt-1 ml-4 flex flex-col gap-0.5 text-[12px] text-muted">
+                  {task.subgoals.map((subgoal, subgoalIndex) => (
+                    <li key={`${subgoal.label}:${subgoalIndex}`}>
+                      {subgoal.label} — {subgoal.isComplete ? "done" : "unfinished"}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </ol>

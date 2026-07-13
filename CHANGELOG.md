@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-13 (challenge variant system, Phase H)
+
+- Added a deterministic generated mixed template with two-step chains and difficulty-5 three-step variants, composed only from the existing sort and formatting validators.
+- Composite validation now reports named per-step subgoals while keeping completion as the mean of leaf-validator results and leaving `scoreRun` unchanged.
+- Carried subgoal results through skipped and expired session tasks so timed buzzer grading awards existing partial credit and the result breakdown names completed and unfinished steps.
+- Added eligibility protection for misaligned subgoal labels plus domain, component, and timed-mode coverage for independent steps, partial credit, either-order completion, and result rendering.
+- All five gates pass: lint, 484 unit tests across 51 files, typecheck, production build, and 42 Chromium end-to-end tests.
+
 ## 2026-07-13 (core game feel, Tasks 11-12)
 
 - Connected compact, comfortable, and large grid density to one shared geometry model used by cells, row and column headers, and the selection overlay. Gridline strength and the large-target accessibility floor now apply to live single runs and sessions.

@@ -105,6 +105,18 @@ function solvePart(challenge: Challenge, part: LeafValidationSpec) {
   }
 }
 
+export function solveChallengePartDom(challenge: Challenge, partIndex: number) {
+  const spec = challenge.validation;
+  const parts = spec.kind === "composite" ? spec.parts : [spec];
+  const part = parts[partIndex];
+
+  if (part === undefined) {
+    throw new Error(`Challenge ${challenge.id} has no part ${partIndex}.`);
+  }
+
+  solvePart(challenge, part);
+}
+
 export function solveChallengeDom(challenge: Challenge) {
   const spec = challenge.validation;
   const parts = spec.kind === "composite" ? spec.parts : [spec];

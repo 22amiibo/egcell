@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GameShell } from "@/components/game/GameShell";
 import { buildSessionQueue } from "@/data/challenges/queue";
-import { solveChallengeDom } from "@/test/solveVariantDom";
+import { solveChallengeDom, solveChallengePartDom } from "@/test/solveVariantDom";
 
 /**
  * Fake timers stand in for the 30-second clock, so these tests cover the full timed lifecycle in
@@ -11,7 +11,13 @@ import { solveChallengeDom } from "@/test/solveVariantDom";
  * also fake the primitives React schedules its own work with. Interactions use `fireEvent`, which
  * is synchronous and has no timer interplay at all — including the queue solver.
  */
-const SEED = "timed-component-seed";
+const SEED = Array.from({ length: 200 }, (_, index) => `timed-mixed-${index}`).find((seed) =>
+  buildSessionQueue("timed-30", seed).tasks[0]?.variant.validation.kind === "composite"
+);
+
+if (SEED === undefined) {
+  throw new Error("No deterministic timed seed starts with a mixed challenge.");
+}
 
 const timedQueue = () => buildSessionQueue("timed-30", SEED);
 
@@ -69,6 +75,31 @@ describe("timed mode", () => {
     expect(screen.getByTestId("session-pr-line")).toHaveTextContent(
       "First personal record for this mode.",
     );
+  });
+
+  it("banks partial credit and names unfinished subgoals when the buzzer interrupts a chain", () => {
+    render(<GameShell />);
+
+    click("30s");
+
+    const first = timedQueue().tasks[0].variant;
+
+    expect(first.validation.kind).toBe("composite");
+    solveChallengePartDom(first, 0);
+
+    letClockRunOut();
+
+    expect(screen.getByTestId("session-result-card")).toBeVisible();
+    expect(screen.getByTestId("session-score")).not.toHaveTextContent("0 points");
+
+    fireEvent.click(screen.getByText("Task breakdown"));
+
+    if (first.validation.kind !== "composite") {
+      throw new Error("Expected a composite challenge.");
+    }
+
+    expect(screen.getByText(`${first.validation.partLabels?.[0]} — done`)).toBeVisible();
+    expect(screen.getByText(`${first.validation.partLabels?.[1]} — unfinished`)).toBeVisible();
   });
 
   it("keeps the queue going after a skip instead of ending the session", () => {

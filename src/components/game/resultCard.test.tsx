@@ -278,4 +278,37 @@ describe("the session result card", () => {
     // The per-task breakdown is there, behind the disclosure.
     expect(screen.getByText(`1. ${defaultChallenge.title}`)).not.toBeVisible();
   });
+
+  it("names completed and unfinished subgoals in the task breakdown", () => {
+    render(
+      <SessionResultCard
+        result={{
+          ...sessionResult(),
+          mode: "timed-30",
+          tasksCompleted: 0,
+          taskCount: 1,
+          completionPercent: 0.5,
+          tasks: [
+            {
+              ...sessionResult().tasks[0],
+              outcome: "expired",
+              completionPercent: 0.5,
+              subgoals: [
+                { label: "Sort Revenue", isComplete: true, completionPercent: 1 },
+                { label: "Bold the headers", isComplete: false, completionPercent: 0 },
+              ],
+            },
+          ],
+        }}
+        previousBest={undefined}
+        isNewRecord={false}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    screen.getByText("Task breakdown").click();
+
+    expect(screen.getByText("Sort Revenue — done")).toBeVisible();
+    expect(screen.getByText("Bold the headers — unfinished")).toBeVisible();
+  });
 });

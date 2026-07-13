@@ -1,3 +1,5 @@
+import type { SubgoalResult } from "@/domain/validation/validatorTypes";
+
 /**
  * A session is a run of several challenges under one clock: a sprint of a fixed number of tasks,
  * or a timed mode where tasks keep coming until the clock runs out. Single-challenge play does not
@@ -47,6 +49,8 @@ export type SessionTaskResult = {
   correctness: number;
   completionPercent: number;
   accuracy: number;
+  /** Mixed-chain steps, retained when a skip or buzzer grades only part of the task. */
+  subgoals?: SubgoalResult[];
 };
 
 export type SessionResult = {

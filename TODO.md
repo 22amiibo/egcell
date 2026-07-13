@@ -15,9 +15,11 @@ Every phase of `IMPLEMENTATION_PLAN.md` (0-8), then the 2026-07-13 gameplay expa
 
 Then, on 2026-07-13, **Phase A of the Challenge Variant System**: the audit in `CURRENT_STATE.md`, the design in `ARCHITECTURE.md`, the phased plan in `IMPLEMENTATION_PLAN.md`, and five decisions in `DECISIONS.md`. Docs only; no code changed.
 
+Challenge Variant System **Phases B-H** are also complete: seeded randomness and types, template registry migration, four generated dataset themes, generated single-family drills, seeded session queues, and generated mixed chains with named subgoal partial credit.
+
 ## Immediate
 
-- **Phase B — seeded RNG and core variant types.** `IMPLEMENTATION_PLAN.md` § Challenge Variant System. Nothing player-visible; it is what everything after it stands on.
+- **Phase I — playtest tuning.** Cut weak variants, calibrate generated target times and difficulty, and tune queue pacing from real runs.
 - **Playtest the sessions.** Still unanswered and still important: which mode is the fun one — single, sprint, or timed? The answer should shape Phase I and could reorder everything before it.
 - **Deploy to Vercel.** Build passes, no env vars. Steps in `IMPLEMENTATION_PLAN.md`.
 
@@ -25,13 +27,7 @@ Then, on 2026-07-13, **Phase A of the Challenge Variant System**: the audit in `
 
 Detail per phase in `IMPLEMENTATION_PLAN.md`. Do not skip ahead: each phase's tests are what make the next one safe.
 
-- **B** — seeded RNG, seed composition, template/variant/difficulty types.
-- **C** — template and family registries; the 23 existing challenges migrate as fixed templates, records intact.
-- **D** — dataset theme generator; four themes; the grid-invariant fuzz test.
-- **E** — generated navigation and selection variants; the eligibility gate.
-- **F** — generated formatting and sort/filter variants.
-- **G** — seeded, family-balanced, repetition-avoiding task queues for sprint and timed modes.
-- **H** — mixed chains with subgoal partial credit.
+- **B-H — complete.** Seeded generation, datasets, four single families, queues, and mixed-chain subgoals are shipped.
 - **I** — playtest tuning: cut the boring variants, calibrate difficulty and target times.
 
 ## Soon

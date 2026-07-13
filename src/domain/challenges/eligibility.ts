@@ -135,6 +135,16 @@ export function checkVariant(input: EligibilityInput): EligibilityIssue[] {
   if (variant.validation.kind === "composite") {
     const sortFilterParts = specs.filter((spec) => spec.kind === "sort-filter").length;
 
+    if (
+      variant.validation.partLabels !== undefined &&
+      variant.validation.partLabels.length !== specs.length
+    ) {
+      issues.push({
+        check: "composite-label-count",
+        detail: `${variant.validation.partLabels.length} labels cannot describe ${specs.length} parts.`,
+      });
+    }
+
     if (sortFilterParts > 1) {
       issues.push({
         check: "composite-multiple-sort-filter",

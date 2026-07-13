@@ -62,6 +62,11 @@ export type ValidationSpec =
       kind: "composite";
       /** Every part must pass. Progress is the mean of the parts' completion. */
       parts: LeafValidationSpec[];
+      /**
+       * One short player-facing name per part, aligned by index. The result surfaces name the
+       * unfinished step with these; without them a step is just "Step N".
+       */
+      partLabels?: string[];
     };
 
 export type ChallengeScoringConfig = {

@@ -1041,9 +1041,11 @@ Two rules hold across every phase below:
 
 **Commit:** `Run sprint and timed modes on seeded task queues`
 
-## Phase H: Mixed Chains And Partial Credit
+## Phase H: Mixed Chains And Partial Credit — COMPLETE (2026-07-13)
 
 **Goal:** Two- and three-step chains, with subgoal progress that timed mode can pay out on.
+
+**Done:** one deterministic, order-independent generated mixed template; named subgoal validation; session result propagation and breakdown; timed buzzer partial-credit integration. `scoreRun` and every leaf validator remain unchanged.
 
 **Files:**
 
@@ -1109,4 +1111,3 @@ Designed in `ARCHITECTURE.md`, deliberately not planned above, because the grid 
 | Simple formulas | `CellValue` has a `formula` variant, but nothing creates or evaluates one; no parser |
 
 Each needs a reducer phase of its own before a template phase. Do not start one to add variety; variety comes from the four families that already work.
-

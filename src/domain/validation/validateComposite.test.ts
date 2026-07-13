@@ -60,6 +60,50 @@ const CURRENCY_REVENUE: GridAction = {
 };
 
 describe("composite validation", () => {
+  it("reports each labeled subgoal independently", () => {
+    const labeled: Challenge = {
+      ...mixedSortAndBoldChallenge,
+      validation: {
+        kind: "composite",
+        parts:
+          mixedSortAndBoldChallenge.validation.kind === "composite"
+            ? mixedSortAndBoldChallenge.validation.parts
+            : [],
+        partLabels: ["Sort Revenue", "Bold the headers"],
+      },
+    };
+
+    const sortOnly = play(labeled, SORT);
+
+    expect(sortOnly.subgoals).toEqual([
+      { label: "Sort Revenue", isComplete: true, completionPercent: 1 },
+      { label: "Bold the headers", isComplete: false, completionPercent: 0 },
+    ]);
+    expect(sortOnly.completionPercent).toBeCloseTo(0.5);
+  });
+
+  it("keeps the subgoal breakdown when every part passes", () => {
+    const labeled: Challenge = {
+      ...mixedSortAndBoldChallenge,
+      validation: {
+        kind: "composite",
+        parts:
+          mixedSortAndBoldChallenge.validation.kind === "composite"
+            ? mixedSortAndBoldChallenge.validation.parts
+            : [],
+        partLabels: ["Sort Revenue", "Bold the headers"],
+      },
+    };
+
+    const result = play(labeled, BOLD_HEADER, SORT);
+
+    expect(result.isComplete).toBe(true);
+    expect(result.subgoals).toEqual([
+      { label: "Sort Revenue", isComplete: true, completionPercent: 1 },
+      { label: "Bold the headers", isComplete: true, completionPercent: 1 },
+    ]);
+  });
+
   it("does not complete on half the work, but shows the progress", () => {
     const sortOnly = play(mixedSortAndBoldChallenge, SORT);
 
