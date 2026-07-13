@@ -10,6 +10,7 @@ import type {
   ChallengeVariant,
   VariantDimensions,
 } from "@/domain/challenges/variantTypes";
+import type { DatasetTheme } from "@/domain/datasets/datasetTypes";
 import type { GridActionKind } from "@/domain/grid/gridTypes";
 import { createRng } from "@/domain/random/rng";
 import type { ChallengeSeed } from "@/domain/random/seeds";
@@ -112,12 +113,14 @@ export function materializeTemplate(
   template: ChallengeTemplate,
   seed: ChallengeSeed,
   difficulty: ChallengeDifficulty,
+  themes: DatasetTheme[] = [],
 ): ChallengeVariant | null {
   const generated = template.generate({
     rng: createRng(seed),
     seed,
     difficulty,
     preset: DIFFICULTY_PRESETS[difficulty],
+    themes,
   });
 
   return generated?.variant ?? null;

@@ -1,12 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { ChallengeRun } from "@/components/game/ChallengeRun";
 import { SessionRun } from "@/components/game/SessionRun";
 import { challengeAfter, challenges, defaultChallenge } from "@/data/challenges";
-import type { Challenge, ChallengeMode } from "@/domain/challenges/challengeTypes";
+import { generateChallenge, generatedTemplates } from "@/data/challenges/generated";
+import type {
+  Challenge,
+  ChallengeDifficulty,
+  ChallengeMode,
+} from "@/domain/challenges/challengeTypes";
+import type { ChallengeVariant } from "@/domain/challenges/variantTypes";
 import { recordKey } from "@/domain/records/personalRecords";
 import type { SessionMode } from "@/domain/sessions/sessionTypes";
 import type { FinishedRun } from "@/hooks/useGameRun";
@@ -36,8 +42,69 @@ function selectionKey(selection: PlaySelection): string {
   return `${selection.kind}:${selection.mode}`;
 }
 
+const GENERATED_DIFFICULTIES: ChallengeDifficulty[] = [1, 2, 3, 4, 5];
+
+/**
+ * The URL's search params, read once per page load through the same external-store pattern the
+ * record stores use: the server snapshot is null, the browser fills it in after hydration, and no
+ * state is set from an effect. `?template=<id>&seed=<seed>&difficulty=<1-5>` opens a
+ * deterministic generated challenge, which is what makes e2e able to know the grid in advance.
+ */
+const paramsCache: { value: URLSearchParams | null } = { value: null };
+
+function subscribeToNothing(): () => void {
+  return () => {};
+}
+
+function getParamsSnapshot(): URLSearchParams | null {
+  if (paramsCache.value === null) {
+    paramsCache.value = new URLSearchParams(window.location.search);
+  }
+
+  return paramsCache.value;
+}
+
+function getServerParamsSnapshot(): null {
+  return null;
+}
+
+/** The seeded template behind a picked challenge, or null for a classic. */
+function generatedTemplateIdOf(challenge: Challenge): string | null {
+  const templateId = (challenge as Partial<ChallengeVariant>).templateId;
+
+  return templateId !== undefined && templateId.startsWith("gen.") ? templateId : null;
+}
+
 export function GameShell() {
-  const [challenge, setChallenge] = useState<Challenge>(defaultChallenge);
+  const params = useSyncExternalStore(
+    subscribeToNothing,
+    getParamsSnapshot,
+    getServerParamsSnapshot,
+  );
+
+  const urlChallenge = useMemo(() => {
+    const templateId = params?.get("template");
+    const seed = params?.get("seed");
+
+    if (params === null || templateId == null || seed == null) {
+      return null;
+    }
+
+    const parsed = Number(params.get("difficulty") ?? "2");
+    const difficulty = GENERATED_DIFFICULTIES.includes(parsed as ChallengeDifficulty)
+      ? (parsed as ChallengeDifficulty)
+      : 2;
+
+    return generateChallenge(templateId, seed, difficulty);
+  }, [params]);
+
+  // Null until the player picks something; the URL's challenge (if any) holds until then.
+  const [picked, setPicked] = useState<Challenge | null>(null);
+  const challenge = picked ?? urlChallenge ?? defaultChallenge;
+
+  const [genDifficulty, setGenDifficulty] = useState<ChallengeDifficulty>(2);
+  const drawCounter = useRef(0);
+
   const [play, setPlay] = useState<PlaySelection>(PLAY_OPTIONS[0].selection);
   const records = useLocalPersonalRecords();
   const sessionRecords = useLocalSessionRecords();
@@ -80,17 +147,50 @@ export function GameShell() {
     }
   }
 
-  const goToNext = useCallback(() => {
-    setChallenge((current) => challengeAfter(current));
-  }, []);
+  // A fresh seed per draw: the id (template + difficulty) stays stable so the record chase
+  // survives, while the table underneath changes every time, like Monkeytype's words.
+  const makeGenerated = useCallback((templateId: string, difficulty: ChallengeDifficulty) => {
+    drawCounter.current += 1;
 
-  const pick = useCallback((id: string) => {
-    const picked = challenges.find((candidate) => candidate.id === id);
+    const seed = `ui:${Date.now().toString(36)}:${drawCounter.current}`;
+    const variant = generateChallenge(templateId, seed, difficulty);
 
-    if (picked !== undefined) {
-      setChallenge(picked);
+    if (variant !== null) {
+      setPicked(variant);
     }
   }, []);
+
+  const goToNext = useCallback(() => {
+    setPicked((current) => challengeAfter(current ?? defaultChallenge));
+  }, []);
+
+  const pick = useCallback(
+    (id: string) => {
+      const classic = challenges.find((candidate) => candidate.id === id);
+
+      if (classic !== undefined) {
+        setPicked(classic);
+
+        return;
+      }
+
+      makeGenerated(id, genDifficulty);
+    },
+    [makeGenerated, genDifficulty],
+  );
+
+  const generatedId = generatedTemplateIdOf(challenge);
+
+  const changeDifficulty = useCallback(
+    (difficulty: ChallengeDifficulty) => {
+      setGenDifficulty(difficulty);
+
+      if (generatedId !== null) {
+        makeGenerated(generatedId, difficulty);
+      }
+    },
+    [generatedId, makeGenerated],
+  );
 
   return (
     <main className="flex min-h-screen flex-col">
@@ -105,17 +205,56 @@ export function GameShell() {
               <span className="sr-only">Challenge</span>
               <select
                 aria-label="Challenge"
-                value={challenge.id}
+                value={generatedId ?? challenge.id}
                 onChange={(event) => pick(event.target.value)}
                 className="rounded border border-line bg-surface px-2 py-1 text-[12px] text-ink"
               >
-                {challenges.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.title}
-                  </option>
-                ))}
+                <optgroup label="Classic">
+                  {challenges.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.title}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Generated">
+                  {generatedTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.label}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             </label>
+          )}
+
+          {play.kind === "single" && generatedId !== null && (
+            <>
+              <label className="flex items-center gap-2">
+                <span className="sr-only">Difficulty</span>
+                <select
+                  aria-label="Difficulty"
+                  value={challenge.difficulty}
+                  onChange={(event) =>
+                    changeDifficulty(Number(event.target.value) as ChallengeDifficulty)
+                  }
+                  className="rounded border border-line bg-surface px-2 py-1 text-[12px] text-ink"
+                >
+                  {GENERATED_DIFFICULTIES.map((difficulty) => (
+                    <option key={difficulty} value={difficulty}>
+                      Difficulty {difficulty}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <button
+                type="button"
+                onClick={() => makeGenerated(generatedId, challenge.difficulty)}
+                className="rounded border border-line px-2 py-1 text-[12px] font-medium text-muted transition-colors hover:bg-surface-raised hover:text-ink"
+              >
+                New draw
+              </button>
+            </>
           )}
 
           <div role="group" aria-label="Mode" className="flex items-center gap-1">
@@ -163,7 +302,7 @@ export function GameShell() {
           */}
           {play.kind === "single" ? (
             <ChallengeRun
-              key={`${challenge.id}:${play.mode}`}
+              key={`${challenge.id}:${challenge.seed}:${play.mode}`}
               challenge={challenge}
               mode={play.mode}
               records={records}

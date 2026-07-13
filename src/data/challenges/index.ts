@@ -1,3 +1,4 @@
+import { generatedTemplates } from "@/data/challenges/generated";
 import type { Challenge } from "@/domain/challenges/challengeTypes";
 import {
   createTemplateRegistry,
@@ -705,14 +706,18 @@ const fixedChallenges: Challenge[] = [
 
 export const challengeTemplates: ChallengeTemplate[] = fixedChallenges.map(fixedTemplate);
 
-export const templateRegistry: TemplateRegistry = createTemplateRegistry(challengeTemplates);
+/** One registry over everything: the 23 fixed classics and every seeded template. */
+export const templateRegistry: TemplateRegistry = createTemplateRegistry([
+  ...challengeTemplates,
+  ...generatedTemplates,
+]);
 
 /**
- * The playable list, derived from the registry through the same materialization path every
- * generated variant will use. Ids and seeds are byte-identical to the literals above, so every
+ * The playable classic list, derived from its templates through the same materialization path
+ * every generated variant uses. Ids and seeds are byte-identical to the literals above, so every
  * existing personal record still resolves.
  */
-export const challenges: ChallengeVariant[] = templateRegistry.all().map((template, index) => {
+export const challenges: ChallengeVariant[] = challengeTemplates.map((template, index) => {
   const source = fixedChallenges[index];
   const variant = materializeTemplate(template, source.seed, source.difficulty);
 

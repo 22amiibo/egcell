@@ -4,7 +4,7 @@ import type {
   ChallengeFamily,
 } from "@/domain/challenges/challengeTypes";
 import type { DifficultyPreset } from "@/domain/challenges/difficulty";
-import type { ColumnRole } from "@/domain/datasets/datasetTypes";
+import type { ColumnRole, DatasetTheme, GeneratedGrid } from "@/domain/datasets/datasetTypes";
 import type { NumberFormat, SortDirection } from "@/domain/grid/gridTypes";
 import type { Rng } from "@/domain/random/rng";
 import type { ChallengeSeed } from "@/domain/random/seeds";
@@ -52,10 +52,14 @@ export type GenerationContext = {
   seed: ChallengeSeed;
   difficulty: ChallengeDifficulty;
   preset: DifficultyPreset;
+  /** The themes this generation may draw a dataset from. Injected, so the domain stays pure. */
+  themes: DatasetTheme[];
 };
 
 export type GeneratedChallenge = {
   variant: ChallengeVariant;
+  /** The layout the dataset generator chose. Eligibility checks read it; fixed templates omit it. */
+  dataset?: GeneratedGrid;
 };
 
 /**
