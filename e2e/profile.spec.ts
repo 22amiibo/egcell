@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
 
+import { buildSessionQueue } from "../src/data/challenges/queue";
+import { solveChallenge } from "./helpers/solveVariant";
+
 test.describe("the local profile", () => {
   test("a finished run shows up in the history and the totals", async ({ page }) => {
     await page.goto("/");
@@ -26,15 +29,15 @@ test.describe("the local profile", () => {
   });
 
   test("a sprint lands in the history as one run of five tasks", async ({ page }) => {
-    await page.goto("/");
+    const seed = "e2e-profile";
+    const queue = buildSessionQueue("sprint-5", seed);
+
+    await page.goto(`/?sessionSeed=${seed}`);
     await page.getByRole("button", { name: "Sprint 5", exact: true }).click();
 
-    await page.getByRole("button", { name: "Select column C", exact: true }).click();
-    await page.getByRole("button", { name: "C7", exact: true }).click();
-    await page.getByRole("button", { name: "Select row 1", exact: true }).click();
-    await page.keyboard.press("ControlOrMeta+a");
-    await page.getByRole("button", { name: "Select row 1", exact: true }).click();
-    await page.getByRole("button", { name: "Bold", exact: true }).click();
+    for (const task of queue.tasks) {
+      await solveChallenge(page, task.variant);
+    }
 
     await expect(page.getByTestId("session-result-card")).toBeVisible();
 

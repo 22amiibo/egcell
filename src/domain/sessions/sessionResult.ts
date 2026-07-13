@@ -1,19 +1,9 @@
-import type { Challenge } from "@/domain/challenges/challengeTypes";
 import {
   SESSION_PLANS,
   type SessionMode,
   type SessionResult,
   type SessionTaskResult,
 } from "@/domain/sessions/sessionTypes";
-
-/**
- * Task N of a session is always the same challenge, wrapping around the pool. A deterministic
- * queue is what makes a sprint personal record honest: every attempt at Sprint 5 faces the same
- * five tasks in the same order, so a faster time means a faster player, not an easier draw.
- */
-export function taskChallengeAt(pool: Challenge[], index: number): Challenge {
-  return pool[index % pool.length];
-}
 
 export type BuildSessionResultInput = {
   mode: SessionMode;

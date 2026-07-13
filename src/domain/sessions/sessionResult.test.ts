@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { challenges } from "@/data/challenges";
-import { buildSessionResult, taskChallengeAt } from "@/domain/sessions/sessionResult";
+import { buildSessionResult } from "@/domain/sessions/sessionResult";
 import type { SessionTaskResult } from "@/domain/sessions/sessionTypes";
 
 function task(overrides: Partial<SessionTaskResult> = {}): SessionTaskResult {
@@ -18,21 +17,6 @@ function task(overrides: Partial<SessionTaskResult> = {}): SessionTaskResult {
     ...overrides,
   };
 }
-
-describe("taskChallengeAt", () => {
-  it("walks the pool in order and wraps at the end", () => {
-    expect(taskChallengeAt(challenges, 0)).toBe(challenges[0]);
-    expect(taskChallengeAt(challenges, challenges.length - 1)).toBe(
-      challenges[challenges.length - 1],
-    );
-    expect(taskChallengeAt(challenges, challenges.length)).toBe(challenges[0]);
-    expect(taskChallengeAt(challenges, challenges.length + 2)).toBe(challenges[2]);
-  });
-
-  it("is deterministic: the same index always yields the same challenge", () => {
-    expect(taskChallengeAt(challenges, 3)).toBe(taskChallengeAt(challenges, 3));
-  });
-});
 
 describe("buildSessionResult", () => {
   it("sums scores and counts completed tasks", () => {

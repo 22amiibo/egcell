@@ -7,6 +7,7 @@ import { ChallengeRun } from "@/components/game/ChallengeRun";
 import { SessionRun } from "@/components/game/SessionRun";
 import { challengeAfter, challenges, defaultChallenge } from "@/data/challenges";
 import { generateChallenge, generatedTemplates } from "@/data/challenges/generated";
+import { SESSION_DIFFICULTY } from "@/data/challenges/queue";
 import type {
   Challenge,
   ChallengeDifficulty,
@@ -140,7 +141,7 @@ export function GameShell() {
       bestLabel = `best ${formatElapsed(record.bestElapsedMs)}`;
     }
   } else {
-    const record = sessionRecords.records[play.mode];
+    const record = sessionRecords.getBest(play.mode, SESSION_DIFFICULTY);
 
     if (record !== undefined) {
       bestLabel = `best ${formatScore(record.bestScore)} pts`;
@@ -316,6 +317,7 @@ export function GameShell() {
               personalRecords={records}
               sessionRecords={sessionRecords}
               recordHistory={recordHistory}
+              seedOverride={params?.get("sessionSeed") ?? null}
             />
           )}
         </div>

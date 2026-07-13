@@ -1,3 +1,4 @@
+import type { ChallengeDifficulty } from "@/domain/challenges/challengeTypes";
 import {
   SESSION_MODES,
   type SessionMode,
@@ -5,10 +6,15 @@ import {
 } from "@/domain/sessions/sessionTypes";
 import type { JsonStorage } from "@/lib/storage";
 
-export const SESSION_RECORDS_KEY = "excel-speed-trainer:v1:session-records";
+/**
+ * v2: seeded queues replaced deterministic list slices, so v1 session records measure a different
+ * game and are deliberately left behind under the old key. Per-challenge records are untouched.
+ */
+export const SESSION_RECORDS_KEY = "excel-speed-trainer:v2:session-records";
 
 export type SessionRecord = {
   mode: SessionMode;
+  difficulty: ChallengeDifficulty;
   bestScore: number;
   bestElapsedMs: number;
   bestTasksCompleted: number;
@@ -16,12 +22,20 @@ export type SessionRecord = {
   achievedAt: string;
 };
 
-/** Keyed by mode, so Sprint 5 and Sprint 10 can never share a record. */
-export type SessionRecordStore = Partial<Record<SessionMode, SessionRecord>>;
+/** Sprint 5 at difficulty 2 and Sprint 5 at difficulty 3 are different races. */
+export function sessionRecordKey(mode: SessionMode, difficulty: ChallengeDifficulty): string {
+  return `${mode}:d${difficulty}`;
+}
+
+/** Keyed by `sessionRecordKey`, so lengths and difficulties never share a record. */
+export type SessionRecordStore = Record<string, SessionRecord>;
 
 /**
  * Higher score wins. Ties break toward more tasks completed, then toward the faster total time,
  * then toward the incumbent, so an identical replay does not churn the achievedAt stamp.
+ *
+ * Score, never elapsed time: scoring normalises each task against its own target, which is what
+ * makes records comparable across seeded draws. A session time record would be a queue lottery.
  */
 export function betterSessionRecord(
   existing: SessionRecord | undefined,
@@ -46,9 +60,13 @@ export function betterSessionRecord(
   return existing;
 }
 
-export function sessionRecordFromResult(result: SessionResult): SessionRecord {
+export function sessionRecordFromResult(
+  result: SessionResult,
+  difficulty: ChallengeDifficulty,
+): SessionRecord {
   return {
     mode: result.mode,
+    difficulty,
     bestScore: result.totalScore,
     bestElapsedMs: result.totalElapsedMs,
     bestTasksCompleted: result.tasksCompleted,
@@ -60,7 +78,9 @@ export function updateSessionRecords(
   store: SessionRecordStore,
   candidate: SessionRecord,
 ): SessionRecordStore {
-  return { ...store, [candidate.mode]: betterSessionRecord(store[candidate.mode], candidate) };
+  const key = sessionRecordKey(candidate.mode, candidate.difficulty);
+
+  return { ...store, [key]: betterSessionRecord(store[key], candidate) };
 }
 
 function isSessionRecord(value: unknown): value is SessionRecord {
@@ -73,6 +93,8 @@ function isSessionRecord(value: unknown): value is SessionRecord {
   return (
     typeof candidate.mode === "string" &&
     (SESSION_MODES as string[]).includes(candidate.mode) &&
+    typeof candidate.difficulty === "number" &&
+    [1, 2, 3, 4, 5].includes(candidate.difficulty) &&
     typeof candidate.bestScore === "number" &&
     typeof candidate.bestElapsedMs === "number" &&
     typeof candidate.bestTasksCompleted === "number" &&
@@ -92,7 +114,7 @@ export function readSessionRecords(storage: JsonStorage): SessionRecordStore {
 
   for (const value of Object.values(raw)) {
     if (isSessionRecord(value)) {
-      store[value.mode] = value;
+      store[sessionRecordKey(value.mode, value.difficulty)] = value;
     }
   }
 

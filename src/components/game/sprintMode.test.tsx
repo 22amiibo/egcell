@@ -1,60 +1,62 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { GameShell } from "@/components/game/GameShell";
+import { buildSessionQueue } from "@/data/challenges/queue";
+import { solveChallengeDom } from "@/test/solveVariantDom";
+
+/**
+ * The shell reads a session seed from the URL once per page load. Setting it before the first
+ * render pins the queue, so these tests can compute exactly which generated tasks the sprint will
+ * deal and drive each one through the DOM.
+ */
+const SEED = "sprint-component-seed";
+
+const sprintQueue = () => buildSessionQueue("sprint-5", SEED);
 
 const startSprintFive = () => userEvent.click(screen.getByRole("button", { name: "Sprint 5" }));
 
-/** The five deterministic Sprint 5 tasks, each done by its fastest route. */
-async function completeAllFiveTasks() {
-  // 1. Select the Revenue column.
-  await userEvent.click(screen.getByRole("button", { name: "Select column C" }));
-
-  // 2. Go to the last Revenue cell.
-  await userEvent.click(screen.getByRole("button", { name: "C7" }));
-
-  // 3. Select the header row.
-  await userEvent.click(screen.getByRole("button", { name: "Select row 1" }));
-
-  // 4. Select the whole table.
-  fireEvent.keyDown(screen.getByRole("grid"), { key: "a", metaKey: true });
-
-  // 5. Bold the header row.
-  await userEvent.click(screen.getByRole("button", { name: "Select row 1" }));
-  await userEvent.click(screen.getByRole("button", { name: "Bold" }));
+function completeAllFiveTasks() {
+  for (const task of sprintQueue().tasks) {
+    solveChallengeDom(task.variant);
+  }
 }
 
 describe("sprint mode", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.history.replaceState(null, "", `/?sessionSeed=${SEED}`);
   });
 
-  it("starts at task 1 of 5 with no challenge picker", async () => {
+  it("starts at task 1 of 5 with no challenge picker, on the seeded queue's first task", async () => {
     render(<GameShell />);
 
     await startSprintFive();
 
     expect(screen.getByText(/task 1 of 5/)).toBeVisible();
     expect(screen.queryByLabelText("Challenge")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Select the Revenue column." })).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: sprintQueue().tasks[0].variant.prompt }),
+    ).toBeVisible();
   });
 
   it("advances through the queue as tasks complete, then shows the session result", async () => {
     render(<GameShell />);
 
     await startSprintFive();
-    await userEvent.click(screen.getByRole("button", { name: "Select column C" }));
+
+    const queue = sprintQueue();
+
+    solveChallengeDom(queue.tasks[0].variant);
 
     // No per-task result card: the next task is already up.
     expect(screen.queryByTestId("result-card")).not.toBeInTheDocument();
     expect(screen.getByText(/task 2 of 5/)).toBeVisible();
 
-    await userEvent.click(screen.getByRole("button", { name: "C7" }));
-    await userEvent.click(screen.getByRole("button", { name: "Select row 1" }));
-    fireEvent.keyDown(screen.getByRole("grid"), { key: "a", metaKey: true });
-    await userEvent.click(screen.getByRole("button", { name: "Select row 1" }));
-    await userEvent.click(screen.getByRole("button", { name: "Bold" }));
+    for (const task of queue.tasks.slice(1)) {
+      solveChallengeDom(task.variant);
+    }
 
     expect(screen.getByTestId("session-result-card")).toBeVisible();
     expect(screen.getByTestId("session-tasks")).toHaveTextContent("5 of 5");
@@ -77,11 +79,11 @@ describe("sprint mode", () => {
     expect(screen.getByTestId("session-score")).toHaveTextContent("0 points");
   });
 
-  it("restarts the whole sprint from task 1 on retry", async () => {
+  it("restarts the sprint from task 1 on retry, re-racing the same pinned queue", async () => {
     render(<GameShell />);
 
     await startSprintFive();
-    await completeAllFiveTasks();
+    completeAllFiveTasks();
 
     expect(screen.getByTestId("session-result-card")).toBeVisible();
 
@@ -89,7 +91,10 @@ describe("sprint mode", () => {
 
     expect(screen.queryByTestId("session-result-card")).not.toBeInTheDocument();
     expect(screen.getByText(/task 1 of 5/)).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Select the Revenue column." })).toBeVisible();
+    // The seed is pinned by the URL, so retry faces the same first task.
+    expect(
+      screen.getByRole("heading", { name: sprintQueue().tasks[0].variant.prompt }),
+    ).toBeVisible();
   });
 
   it("keeps the sprint record apart from single-challenge records", async () => {
@@ -104,7 +109,7 @@ describe("sprint mode", () => {
     // A fresh sprint book: the single-challenge record must not leak in.
     expect(screen.getByTestId("best-time")).toHaveTextContent("no record yet");
 
-    await completeAllFiveTasks();
+    completeAllFiveTasks();
 
     expect(screen.getByTestId("best-time")).toHaveTextContent("pts");
 

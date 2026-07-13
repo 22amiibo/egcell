@@ -2,16 +2,23 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GameShell } from "@/components/game/GameShell";
+import { buildSessionQueue } from "@/data/challenges/queue";
+import { solveChallengeDom } from "@/test/solveVariantDom";
 
 /**
  * Fake timers stand in for the 30-second clock, so these tests cover the full timed lifecycle in
  * milliseconds of real time. Only `setTimeout` and `Date` are faked: faking the full set would
  * also fake the primitives React schedules its own work with. Interactions use `fireEvent`, which
- * is synchronous and has no timer interplay at all.
+ * is synchronous and has no timer interplay at all — including the queue solver.
  */
+const SEED = "timed-component-seed";
+
+const timedQueue = () => buildSessionQueue("timed-30", SEED);
+
 describe("timed mode", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.history.replaceState(null, "", `/?sessionSeed=${SEED}`);
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
   });
 
@@ -47,9 +54,11 @@ describe("timed mode", () => {
 
     click("30s");
 
-    // Two quick completions, then the buzzer lands mid-third-task.
-    click("Select column C");
-    click("C7");
+    // Two quick completions from the seeded queue, then the buzzer lands mid-third-task.
+    const queue = timedQueue();
+
+    solveChallengeDom(queue.tasks[0].variant);
+    solveChallengeDom(queue.tasks[1].variant);
 
     letClockRunOut();
 
@@ -92,7 +101,7 @@ describe("timed mode", () => {
     vi.setSystemTime(Date.now() + 1_500);
 
     // The player completes the task in that gap. The session must end, not advance to task 2.
-    click("Select column C");
+    solveChallengeDom(timedQueue().tasks[0].variant);
 
     expect(screen.getByTestId("session-result-card")).toBeVisible();
     expect(screen.getByText("Time's up")).toBeVisible();
@@ -103,7 +112,7 @@ describe("timed mode", () => {
     render(<GameShell />);
 
     click("30s");
-    click("Select column C");
+    solveChallengeDom(timedQueue().tasks[0].variant);
 
     letClockRunOut();
 

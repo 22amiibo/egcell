@@ -159,6 +159,7 @@ describe("the record line", () => {
         result={sessionResult()}
         previousBest={{
           mode: "sprint-5",
+          difficulty: 2,
           bestScore: 4200,
           bestElapsedMs: 45_000,
           bestTasksCompleted: 5,

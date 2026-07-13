@@ -1,15 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { SessionResultCard } from "@/components/game/SessionResultCard";
 import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { Toolbar } from "@/components/game/Toolbar";
 import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
-import { challenges } from "@/data/challenges";
+import { SESSION_DIFFICULTY, buildSessionQueue } from "@/data/challenges/queue";
 import type { Challenge } from "@/domain/challenges/challengeTypes";
 import { sessionRecordFromResult } from "@/domain/sessions/sessionRecords";
-import { buildSessionResult, taskChallengeAt } from "@/domain/sessions/sessionResult";
+import { buildSessionResult } from "@/domain/sessions/sessionResult";
 import {
   SESSION_PLANS,
   sessionModeLabel,
@@ -30,6 +30,11 @@ type SessionRunProps = {
   sessionRecords: LocalSessionRecords;
   /** Lets the shell log the finished session to the local run history. */
   recordHistory?: (entry: NewRunEntry) => void;
+  /**
+   * Pins the queue seed, for tests and shared runs. With an override, retry re-races the exact
+   * same queue; without one, every attempt draws a fresh queue, like a fresh Monkeytype test.
+   */
+  seedOverride?: string | null;
 };
 
 function toTaskResult(
@@ -150,6 +155,7 @@ export function SessionRun({
   personalRecords,
   sessionRecords,
   recordHistory,
+  seedOverride,
 }: SessionRunProps) {
   const plan = SESSION_PLANS[sessionMode];
 
@@ -170,7 +176,16 @@ export function SessionRun({
 
   const tasksRef = useRef<SessionTaskResult[]>([]);
 
-  const challenge = taskChallengeAt(challenges, taskIndex);
+  // Sessions only mount on a player's click, so a wall-clock seed never renders on the server.
+  const drawCounter = useRef(0);
+  const [runSeed, setRunSeed] = useState<string>(
+    () => seedOverride ?? `s${Date.now().toString(36)}`,
+  );
+
+  const queue = useMemo(() => buildSessionQueue(sessionMode, runSeed), [sessionMode, runSeed]);
+
+  // The overshoot is generous, but a superhuman prefix consumer wraps rather than crashes.
+  const challenge: Challenge = queue.tasks[taskIndex % queue.tasks.length].variant;
 
   const durationMs = plan.kind === "fixed-time" ? plan.durationSeconds * 1000 : null;
   const deadlineAtMs =
@@ -190,7 +205,7 @@ export function SessionRun({
         totalElapsedMs: now - clock.startedAt(),
         finishedAtMs: now,
       });
-      const submission = submitSessionRecord(sessionRecordFromResult(result));
+      const submission = submitSessionRecord(sessionRecordFromResult(result, SESSION_DIFFICULTY));
 
       recordHistory?.({
         modeKey: sessionMode,
@@ -239,13 +254,16 @@ export function SessionRun({
 
   const retry = useCallback(() => {
     tasksRef.current = [];
+    drawCounter.current += 1;
 
     setTasks([]);
     setTaskIndex(0);
     setOutcome(null);
     setAttempt((current) => current + 1);
+    // A pinned seed re-races the same queue; otherwise retry is a fresh draw.
+    setRunSeed(seedOverride ?? `s${Date.now().toString(36)}-${drawCounter.current}`);
     clock.restart();
-  }, [clock]);
+  }, [clock, seedOverride]);
 
   const completedCount = tasks.filter((task) => task.outcome === "completed").length;
   const taskNumber = plan.kind === "task-count" ? Math.min(taskIndex + 1, plan.taskCount) : taskIndex + 1;

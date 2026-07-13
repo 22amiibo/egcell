@@ -2,8 +2,10 @@
 
 import { useCallback, useState, useSyncExternalStore } from "react";
 
+import type { ChallengeDifficulty } from "@/domain/challenges/challengeTypes";
 import {
   readSessionRecords,
+  sessionRecordKey,
   updateSessionRecords,
   writeSessionRecords,
   type SessionRecord,
@@ -20,7 +22,7 @@ export type SessionRecordSubmission = {
 
 export type LocalSessionRecords = {
   records: SessionRecordStore;
-  getBest: (mode: SessionMode) => SessionRecord | undefined;
+  getBest: (mode: SessionMode, difficulty: ChallengeDifficulty) => SessionRecord | undefined;
   submit: (candidate: SessionRecord) => SessionRecordSubmission;
 };
 
@@ -64,14 +66,15 @@ function createSessionRecordsStore() {
 
     submit(candidate: SessionRecord): SessionRecordSubmission {
       const current = getSnapshot();
-      const previousBest = current[candidate.mode];
+      const key = sessionRecordKey(candidate.mode, candidate.difficulty);
+      const previousBest = current[key];
       const next = updateSessionRecords(current, candidate);
 
       snapshot = next;
       writeSessionRecords(storage, next);
       listeners.forEach((listener) => listener());
 
-      const currentBest = next[candidate.mode] as SessionRecord;
+      const currentBest = next[key] as SessionRecord;
 
       return { previousBest, currentBest, isNewRecord: currentBest === candidate };
     },
@@ -87,7 +90,11 @@ export function useLocalSessionRecords(): LocalSessionRecords {
     store.getServerSnapshot,
   );
 
-  const getBest = useCallback((mode: SessionMode) => records[mode], [records]);
+  const getBest = useCallback(
+    (mode: SessionMode, difficulty: ChallengeDifficulty) =>
+      records[sessionRecordKey(mode, difficulty)],
+    [records],
+  );
 
   const submit = useCallback((candidate: SessionRecord) => store.submit(candidate), [store]);
 

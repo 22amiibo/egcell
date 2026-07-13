@@ -13,6 +13,7 @@ import { createMemoryJsonStorage } from "@/lib/storage";
 function record(overrides: Partial<SessionRecord> = {}): SessionRecord {
   return {
     mode: "sprint-5",
+    difficulty: 2,
     bestScore: 4000,
     bestElapsedMs: 40_000,
     bestTasksCompleted: 5,
@@ -61,14 +62,14 @@ describe("session record storage", () => {
     let store = updateSessionRecords({}, record({ mode: "sprint-5", bestScore: 4000 }));
     store = updateSessionRecords(store, record({ mode: "sprint-10", bestScore: 9000 }));
 
-    expect(store["sprint-5"]?.bestScore).toBe(4000);
-    expect(store["sprint-10"]?.bestScore).toBe(9000);
+    expect(store["sprint-5:d2"]?.bestScore).toBe(4000);
+    expect(store["sprint-10:d2"]?.bestScore).toBe(9000);
 
     // A weaker sprint-10 run must not disturb sprint-5.
     store = updateSessionRecords(store, record({ mode: "sprint-10", bestScore: 100 }));
 
-    expect(store["sprint-10"]?.bestScore).toBe(9000);
-    expect(store["sprint-5"]?.bestScore).toBe(4000);
+    expect(store["sprint-10:d2"]?.bestScore).toBe(9000);
+    expect(store["sprint-5:d2"]?.bestScore).toBe(4000);
   });
 
   it("round-trips through storage", () => {
@@ -98,9 +99,9 @@ describe("session record storage", () => {
 
     const store = readSessionRecords(storage);
 
-    expect(store["sprint-5"]).toBeDefined();
-    expect(store["sprint-10"]).toBeUndefined();
-    expect(store["timed-30"]).toBeUndefined();
+    expect(store["sprint-5:d2"]).toBeDefined();
+    expect(store["sprint-10:d2"]).toBeUndefined();
+    expect(store["timed-30:d2"]).toBeUndefined();
   });
 
   it("returns an empty store when the stored value is not an object", () => {
