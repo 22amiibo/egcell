@@ -9,13 +9,18 @@ type TimerDisplayProps = {
   startedAt: number | null;
   /** Set once the run is over, which stops the clock on the final time. */
   frozenElapsedMs: number | null;
+  /**
+   * When set, the display counts down from this many milliseconds instead of counting up, for
+   * fixed-time modes. It never shows less than zero.
+   */
+  countdownFromMs?: number;
 };
 
 /**
  * The clock keeps its elapsed time in its own state and animates itself, so a ticking timer
  * re-renders this one span rather than the whole grid underneath it.
  */
-export function TimerDisplay({ startedAt, frozenElapsedMs }: TimerDisplayProps) {
+export function TimerDisplay({ startedAt, frozenElapsedMs, countdownFromMs }: TimerDisplayProps) {
   const [elapsedMs, setElapsedMs] = useState(0);
 
   useEffect(() => {
@@ -33,11 +38,12 @@ export function TimerDisplay({ startedAt, frozenElapsedMs }: TimerDisplayProps) 
     return () => cancelAnimationFrame(frame);
   }, [startedAt, frozenElapsedMs]);
 
-  const shown = frozenElapsedMs ?? elapsedMs;
+  const elapsed = frozenElapsedMs ?? elapsedMs;
+  const shown = countdownFromMs === undefined ? elapsed : Math.max(countdownFromMs - elapsed, 0);
 
   return (
     <span
-      aria-label="Elapsed time"
+      aria-label={countdownFromMs === undefined ? "Elapsed time" : "Time remaining"}
       data-testid="timer"
       className="text-2xl font-semibold tabular-nums text-ink"
     >

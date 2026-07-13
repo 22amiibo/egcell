@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { SessionResultCard } from "@/components/game/SessionResultCard";
 import { TimerDisplay } from "@/components/game/TimerDisplay";
@@ -51,6 +51,8 @@ type SessionTaskProps = {
   challenge: Challenge;
   records: LocalPersonalRecords;
   onFinished: (finished: FinishedRun, outcome: TaskOutcome) => void;
+  /** Epoch milliseconds when the session clock runs out, or null for sprints. */
+  deadlineAtMs: number | null;
   /** True once the session is over: the grid freezes and the skip control goes away. */
   frozen: boolean;
 };
@@ -60,10 +62,26 @@ type SessionTaskProps = {
  * per-task result card, because the session advances instead, and no per-challenge personal
  * record, because the session banks one record for the whole run.
  */
-function SessionTask({ challenge, records, onFinished, frozen }: SessionTaskProps) {
-  const handleFinished = useCallback(
-    (finished: FinishedRun) => onFinished(finished, "completed"),
+function SessionTask({ challenge, records, onFinished, deadlineAtMs, frozen }: SessionTaskProps) {
+  // A task reports its result exactly once, whichever of completion, skip, or the session
+  // deadline gets there first.
+  const reportedRef = useRef(false);
+
+  const report = useCallback(
+    (finished: FinishedRun, outcome: TaskOutcome) => {
+      if (reportedRef.current) {
+        return;
+      }
+
+      reportedRef.current = true;
+      onFinished(finished, outcome);
+    },
     [onFinished],
+  );
+
+  const handleFinished = useCallback(
+    (finished: FinishedRun) => report(finished, "completed"),
+    [report],
   );
 
   const run = useGameRun(challenge, "main-speed", records, {
@@ -71,13 +89,33 @@ function SessionTask({ challenge, records, onFinished, frozen }: SessionTaskProp
     onFinished: handleFinished,
   });
 
+  const { finishNow } = run;
+
   // Skipping still grades the grid, so a half-formatted range pays its partial credit rather
   // than vanishing. A skip that turns out to be complete counts as completed.
   const skip = useCallback(() => {
-    const finished = run.finishNow();
+    const finished = finishNow();
 
-    onFinished(finished, finished.validation.isComplete ? "completed" : "skipped");
-  }, [run, onFinished]);
+    report(finished, finished.validation.isComplete ? "completed" : "skipped");
+  }, [finishNow, report]);
+
+  // The session deadline lands mid-task. Whatever is on the grid at that moment is graded as is.
+  useEffect(() => {
+    if (deadlineAtMs === null || frozen) {
+      return;
+    }
+
+    const timer = setTimeout(
+      () => {
+        const finished = finishNow();
+
+        report(finished, finished.validation.isComplete ? "completed" : "expired");
+      },
+      Math.max(deadlineAtMs - Date.now(), 0),
+    );
+
+    return () => clearTimeout(timer);
+  }, [deadlineAtMs, frozen, finishNow, report]);
 
   return (
     <div className="flex w-full flex-col items-center gap-5">
@@ -115,7 +153,7 @@ export function SessionRun({ sessionMode, personalRecords, sessionRecords }: Ses
   );
 
   const [taskIndex, setTaskIndex] = useState(0);
-  const [, setTasks] = useState<SessionTaskResult[]>([]);
+  const [tasks, setTasks] = useState<SessionTaskResult[]>([]);
   const [outcome, setOutcome] = useState<{
     result: SessionResult;
     submission: SessionRecordSubmission;
@@ -125,6 +163,10 @@ export function SessionRun({ sessionMode, personalRecords, sessionRecords }: Ses
   const tasksRef = useRef<SessionTaskResult[]>([]);
 
   const challenge = taskChallengeAt(challenges, taskIndex);
+
+  const durationMs = plan.kind === "fixed-time" ? plan.durationSeconds * 1000 : null;
+  const deadlineAtMs =
+    durationMs !== null && sessionStartedAt !== null ? sessionStartedAt + durationMs : null;
 
   const finishSession = useCallback(
     (allTasks: SessionTaskResult[]) => {
@@ -149,7 +191,11 @@ export function SessionRun({ sessionMode, personalRecords, sessionRecords }: Ses
       tasksRef.current = next;
       setTasks(next);
 
-      if (plan.kind === "task-count" && next.length >= plan.taskCount) {
+      const sprintDone = plan.kind === "task-count" && next.length >= plan.taskCount;
+      // In a timed run the queue only stops when the clock does.
+      const timeUp = plan.kind === "fixed-time" && taskOutcome === "expired";
+
+      if (sprintDone || timeUp) {
         finishSession(next);
       } else {
         setTaskIndex(next.length);
@@ -168,8 +214,16 @@ export function SessionRun({ sessionMode, personalRecords, sessionRecords }: Ses
     clock.restart();
   }, [clock]);
 
-  const taskNumber =
-    plan.kind === "task-count" ? Math.min(taskIndex + 1, plan.taskCount) : taskIndex + 1;
+  const completedCount = tasks.filter((task) => task.outcome === "completed").length;
+  const taskNumber = plan.kind === "task-count" ? Math.min(taskIndex + 1, plan.taskCount) : taskIndex + 1;
+
+  // A finished timed run froze at the buzzer, so the countdown shows zero rather than overshoot.
+  const frozenElapsedMs =
+    outcome === null
+      ? null
+      : durationMs === null
+        ? outcome.result.totalElapsedMs
+        : Math.min(outcome.result.totalElapsedMs, durationMs);
 
   return (
     <div className="flex flex-col items-center gap-5">
@@ -177,13 +231,16 @@ export function SessionRun({ sessionMode, personalRecords, sessionRecords }: Ses
         <div className="flex flex-col gap-1">
           <span className="text-[11px] font-medium tracking-widest text-muted uppercase">
             {sessionModeLabel(sessionMode)}
-            {plan.kind === "task-count" && ` · task ${taskNumber} of ${plan.taskCount}`}
+            {plan.kind === "task-count"
+              ? ` · task ${taskNumber} of ${plan.taskCount}`
+              : ` · task ${taskNumber} · ${completedCount} done`}
           </span>
           <h1 className="text-xl font-semibold tracking-tight text-ink">{challenge.prompt}</h1>
         </div>
         <TimerDisplay
           startedAt={sessionStartedAt}
-          frozenElapsedMs={outcome?.result.totalElapsedMs ?? null}
+          frozenElapsedMs={frozenElapsedMs}
+          countdownFromMs={durationMs ?? undefined}
         />
       </div>
 
@@ -197,6 +254,7 @@ export function SessionRun({ sessionMode, personalRecords, sessionRecords }: Ses
           challenge={challenge}
           records={personalRecords}
           onFinished={handleTaskFinished}
+          deadlineAtMs={deadlineAtMs}
           frozen={outcome !== null}
         />
 

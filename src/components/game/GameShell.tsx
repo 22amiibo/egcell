@@ -25,6 +25,8 @@ const PLAY_OPTIONS: Array<{ key: string; label: string; selection: PlaySelection
   { key: "practice", label: "Practice", selection: { kind: "single", mode: "practice" } },
   { key: "sprint-5", label: "Sprint 5", selection: { kind: "session", mode: "sprint-5" } },
   { key: "sprint-10", label: "Sprint 10", selection: { kind: "session", mode: "sprint-10" } },
+  { key: "timed-30", label: "30s", selection: { kind: "session", mode: "timed-30" } },
+  { key: "timed-60", label: "60s", selection: { kind: "session", mode: "timed-60" } },
 ];
 
 function selectionKey(selection: PlaySelection): string {
