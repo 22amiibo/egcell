@@ -1,5 +1,5 @@
 import type { CellAddress, GridCell, GridState, RangeAddress } from "@/domain/grid/gridTypes";
-import { cellKey, normalizeRange } from "@/domain/grid/range";
+import { cellKey, isAddressInRange, normalizeRange } from "@/domain/grid/range";
 
 export function getCell(grid: GridState, address: CellAddress): GridCell | undefined {
   return grid.cells[cellKey(address)];
@@ -35,4 +35,44 @@ export function rowRangeWithinUsedRange(grid: GridState, row: number): RangeAddr
     start: { row, col: used.start.col },
     end: { row, col: used.end.col },
   };
+}
+
+/**
+ * The rectangle a selection paints on screen.
+ *
+ * A column selection paints the whole column and a row selection paints the whole row, which is
+ * what Excel does and what the player expects to see. Validation clips a column to the used range
+ * separately, so what is highlighted and what is graded can differ on purpose.
+ */
+export function selectionBounds(grid: GridState): RangeAddress | null {
+  const selection = grid.selection;
+
+  switch (selection.kind) {
+    case "none":
+      return null;
+
+    case "cell":
+      return { start: selection.cell, end: selection.cell };
+
+    case "range":
+      return normalizeRange(selection.range);
+
+    case "row":
+      return {
+        start: { row: selection.row, col: 0 },
+        end: { row: selection.row, col: grid.colCount - 1 },
+      };
+
+    case "column":
+      return {
+        start: { row: 0, col: selection.col },
+        end: { row: grid.rowCount - 1, col: selection.col },
+      };
+  }
+}
+
+export function isCellSelected(grid: GridState, address: CellAddress): boolean {
+  const bounds = selectionBounds(grid);
+
+  return bounds !== null && isAddressInRange(address, bounds);
 }
