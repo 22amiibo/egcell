@@ -104,7 +104,7 @@ export function SettingsPanel() {
                 <PresetCard
                   key={preset.id}
                   preset={preset}
-                  isActive={settings.themeId === preset.id}
+                  isActive={settings.appearance.themeId === preset.id}
                   onPick={setThemeId}
                 />
               ))}

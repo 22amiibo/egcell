@@ -107,10 +107,14 @@ describe("themeById", () => {
 describe("settings storage", () => {
   it("round-trips a chosen theme", () => {
     const storage = createMemoryJsonStorage();
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      appearance: { ...DEFAULT_SETTINGS.appearance, themeId: "quarter-close" },
+    };
 
-    writeSettings(storage, { themeId: "quarter-close" });
+    writeSettings(storage, settings);
 
-    expect(readSettings(storage)).toEqual({ themeId: "quarter-close" });
+    expect(readSettings(storage)).toEqual(settings);
   });
 
   it("falls back to the default for malformed or unknown stored values", () => {

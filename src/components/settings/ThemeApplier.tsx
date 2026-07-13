@@ -16,7 +16,7 @@ export function ThemeApplier() {
 
   useEffect(() => {
     const root = document.documentElement;
-    const theme = themeById(settings.themeId);
+    const theme = themeById(settings.appearance.themeId);
 
     for (const [property, value] of Object.entries(themeCssVars(theme.tokens))) {
       root.style.setProperty(property, value);
@@ -24,7 +24,7 @@ export function ThemeApplier() {
 
     root.style.colorScheme = theme.tokens.colorScheme;
     root.dataset.theme = theme.id;
-  }, [settings.themeId]);
+  }, [settings.appearance.themeId]);
 
   return null;
 }

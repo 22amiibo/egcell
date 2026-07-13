@@ -38,12 +38,23 @@ function createSettingsStore() {
       return DEFAULT_SETTINGS;
     },
 
-    setThemeId(themeId: string): void {
-      const next: Settings = { themeId: themeById(themeId).id };
+    setSettings(update: Settings | ((current: Settings) => Settings)): void {
+      const current = getSnapshot();
+      const next = typeof update === "function" ? update(current) : update;
 
       snapshot = next;
       writeSettings(storage, next);
       listeners.forEach((listener) => listener());
+    },
+
+    setThemeId(themeId: string): void {
+      this.setSettings((current) => ({
+        ...current,
+        appearance: {
+          ...current.appearance,
+          themeId: themeById(themeId).id,
+        },
+      }));
     },
   };
 }
@@ -57,6 +68,7 @@ const settingsStore = createSettingsStore();
 
 export type LocalSettings = {
   settings: Settings;
+  setSettings: (update: Settings | ((current: Settings) => Settings)) => void;
   setThemeId: (themeId: string) => void;
 };
 
@@ -68,6 +80,10 @@ export function useSettings(): LocalSettings {
   );
 
   const setThemeId = useCallback((themeId: string) => settingsStore.setThemeId(themeId), []);
+  const setSettings = useCallback(
+    (update: Settings | ((current: Settings) => Settings)) => settingsStore.setSettings(update),
+    [],
+  );
 
-  return { settings, setThemeId };
+  return { settings, setSettings, setThemeId };
 }

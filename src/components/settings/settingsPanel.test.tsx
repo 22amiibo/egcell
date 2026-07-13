@@ -42,8 +42,8 @@ describe("the settings panel", () => {
     expect(root.style.getPropertyValue("--color-accent")).toBe(quarterClose.tokens.accent);
     expect(root.dataset.theme).toBe("quarter-close");
 
-    expect(JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "{}")).toEqual({
-      themeId: "quarter-close",
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "{}")).toMatchObject({
+      appearance: { themeId: "quarter-close" },
     });
 
     expect(screen.getByRole("button", { name: /Quarter Close/ })).toHaveAttribute(

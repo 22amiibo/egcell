@@ -27,7 +27,8 @@ const themeBootScript = `(function () {
     )};
     var raw = window.localStorage.getItem(${JSON.stringify(SETTINGS_KEY)});
     if (!raw) return;
-    var themeId = JSON.parse(raw).themeId;
+    var settings = JSON.parse(raw);
+    var themeId = settings.appearance ? settings.appearance.themeId : settings.themeId;
     var theme = themes[themeId];
     if (!theme) return;
     var root = document.documentElement;

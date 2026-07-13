@@ -435,27 +435,279 @@ export function themeCssVars(tokens: ThemeTokens): Record<string, string> {
 
 export const SETTINGS_KEY = "excel-speed-trainer:v1:settings";
 
+export type GridDensity = "compact" | "comfortable" | "large";
+export type MousePolicy = "allowed" | "penalized" | "disabled";
+export type HotkeyStrictness = "encouraged" | "strict" | "ranked";
+export type PromptPosition = "top" | "left" | "bottom";
+export type DefaultMode =
+  | "main-speed"
+  | "practice"
+  | "sprint-5"
+  | "sprint-10"
+  | "timed-30"
+  | "timed-60";
+
 export type Settings = {
-  themeId: string;
+  appearance: {
+    themeId: string;
+    accentMode: "steady" | "pace" | "combo";
+    fontFamily: "system" | "mono" | "dyslexia";
+    reducedChrome: boolean;
+  };
+  grid: {
+    density: GridDensity;
+    showFormulaBar: boolean;
+    showHeaders: boolean;
+    gridlineStrength: "soft" | "standard" | "strong";
+    promptPosition: PromptPosition;
+  };
+  gameplay: {
+    instantRestart: boolean;
+    restartKeybind: "tab" | "command-r" | "control-r" | "escape";
+    defaultMode: DefaultMode;
+    skipBehavior: "practice-only" | "allowed" | "disabled";
+  };
+  scoring: {
+    mousePolicy: MousePolicy;
+    hotkeyStrictness: HotkeyStrictness;
+    mistakePenalty: "light" | "standard" | "strict";
+  };
+  feedback: {
+    liveStats: boolean;
+    combo: boolean;
+    shortcutFlash: boolean;
+    mistakeStyle: "subtle" | "clear" | "minimal";
+  };
+  sound: {
+    enabled: boolean;
+    volume: number;
+    movement: boolean;
+    success: boolean;
+    error: boolean;
+    combo: boolean;
+    runComplete: boolean;
+  };
+  accessibility: {
+    reducedMotion: boolean;
+    highContrast: boolean;
+    largeTargets: boolean;
+  };
+  privacy: {
+    leaderboardOptIn: boolean;
+    anonymousName: string;
+    rankedMode: boolean;
+  };
 };
 
-export const DEFAULT_SETTINGS: Settings = { themeId: DEFAULT_THEME_ID };
+export type ExpandedSettings = Settings;
 
-/** Unknown theme ids fall back to the default rather than breaking the page. */
+export const DEFAULT_SETTINGS: Settings = {
+  appearance: {
+    themeId: DEFAULT_THEME_ID,
+    accentMode: "steady",
+    fontFamily: "system",
+    reducedChrome: false,
+  },
+  grid: {
+    density: "comfortable",
+    showFormulaBar: true,
+    showHeaders: true,
+    gridlineStrength: "standard",
+    promptPosition: "top",
+  },
+  gameplay: {
+    instantRestart: true,
+    restartKeybind: "tab",
+    defaultMode: "main-speed",
+    skipBehavior: "practice-only",
+  },
+  scoring: {
+    mousePolicy: "allowed",
+    hotkeyStrictness: "encouraged",
+    mistakePenalty: "standard",
+  },
+  feedback: {
+    liveStats: true,
+    combo: true,
+    shortcutFlash: true,
+    mistakeStyle: "subtle",
+  },
+  sound: {
+    enabled: false,
+    volume: 35,
+    movement: true,
+    success: true,
+    error: true,
+    combo: true,
+    runComplete: true,
+  },
+  accessibility: {
+    reducedMotion: false,
+    highContrast: false,
+    largeTargets: false,
+  },
+  privacy: {
+    leaderboardOptIn: false,
+    anonymousName: "Local player",
+    rankedMode: false,
+  },
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function section(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
+}
+
+function bool(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function text(value: unknown, fallback: string, maxLength = 48): string {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim().slice(0, maxLength)
+    : fallback;
+}
+
+function oneOf<const T extends readonly string[]>(
+  value: unknown,
+  values: T,
+  fallback: T[number],
+): T[number] {
+  return typeof value === "string" && values.includes(value) ? (value as T[number]) : fallback;
+}
+
+export function coerceSettings(value: unknown): Settings {
+  if (!isRecord(value)) {
+    return DEFAULT_SETTINGS;
+  }
+
+  const legacyThemeId = typeof value.themeId === "string" ? value.themeId : null;
+  const appearance = section(value.appearance);
+  const grid = section(value.grid);
+  const gameplay = section(value.gameplay);
+  const scoring = section(value.scoring);
+  const feedback = section(value.feedback);
+  const sound = section(value.sound);
+  const accessibility = section(value.accessibility);
+  const privacy = section(value.privacy);
+  const rawThemeId = legacyThemeId ?? appearance.themeId;
+  const themeId = typeof rawThemeId === "string" ? themeById(rawThemeId).id : DEFAULT_THEME_ID;
+
+  return {
+    appearance: {
+      themeId,
+      accentMode: oneOf(
+        appearance.accentMode,
+        ["steady", "pace", "combo"] as const,
+        DEFAULT_SETTINGS.appearance.accentMode,
+      ),
+      fontFamily: oneOf(
+        appearance.fontFamily,
+        ["system", "mono", "dyslexia"] as const,
+        DEFAULT_SETTINGS.appearance.fontFamily,
+      ),
+      reducedChrome: bool(appearance.reducedChrome, DEFAULT_SETTINGS.appearance.reducedChrome),
+    },
+    grid: {
+      density: oneOf(
+        grid.density,
+        ["compact", "comfortable", "large"] as const,
+        DEFAULT_SETTINGS.grid.density,
+      ),
+      showFormulaBar: bool(grid.showFormulaBar, DEFAULT_SETTINGS.grid.showFormulaBar),
+      showHeaders: bool(grid.showHeaders, DEFAULT_SETTINGS.grid.showHeaders),
+      gridlineStrength: oneOf(
+        grid.gridlineStrength,
+        ["soft", "standard", "strong"] as const,
+        DEFAULT_SETTINGS.grid.gridlineStrength,
+      ),
+      promptPosition: oneOf(
+        grid.promptPosition,
+        ["top", "left", "bottom"] as const,
+        DEFAULT_SETTINGS.grid.promptPosition,
+      ),
+    },
+    gameplay: {
+      instantRestart: bool(gameplay.instantRestart, DEFAULT_SETTINGS.gameplay.instantRestart),
+      restartKeybind: oneOf(
+        gameplay.restartKeybind,
+        ["tab", "command-r", "control-r", "escape"] as const,
+        DEFAULT_SETTINGS.gameplay.restartKeybind,
+      ),
+      defaultMode: oneOf(
+        gameplay.defaultMode,
+        ["main-speed", "practice", "sprint-5", "sprint-10", "timed-30", "timed-60"] as const,
+        DEFAULT_SETTINGS.gameplay.defaultMode,
+      ),
+      skipBehavior: oneOf(
+        gameplay.skipBehavior,
+        ["practice-only", "allowed", "disabled"] as const,
+        DEFAULT_SETTINGS.gameplay.skipBehavior,
+      ),
+    },
+    scoring: {
+      mousePolicy: oneOf(
+        scoring.mousePolicy,
+        ["allowed", "penalized", "disabled"] as const,
+        DEFAULT_SETTINGS.scoring.mousePolicy,
+      ),
+      hotkeyStrictness: oneOf(
+        scoring.hotkeyStrictness,
+        ["encouraged", "strict", "ranked"] as const,
+        DEFAULT_SETTINGS.scoring.hotkeyStrictness,
+      ),
+      mistakePenalty: oneOf(
+        scoring.mistakePenalty,
+        ["light", "standard", "strict"] as const,
+        DEFAULT_SETTINGS.scoring.mistakePenalty,
+      ),
+    },
+    feedback: {
+      liveStats: bool(feedback.liveStats, DEFAULT_SETTINGS.feedback.liveStats),
+      combo: bool(feedback.combo, DEFAULT_SETTINGS.feedback.combo),
+      shortcutFlash: bool(feedback.shortcutFlash, DEFAULT_SETTINGS.feedback.shortcutFlash),
+      mistakeStyle: oneOf(
+        feedback.mistakeStyle,
+        ["subtle", "clear", "minimal"] as const,
+        DEFAULT_SETTINGS.feedback.mistakeStyle,
+      ),
+    },
+    sound: {
+      enabled: bool(sound.enabled, DEFAULT_SETTINGS.sound.enabled),
+      volume:
+        typeof sound.volume === "number" && Number.isFinite(sound.volume)
+          ? Math.min(100, Math.max(0, Math.round(sound.volume)))
+          : DEFAULT_SETTINGS.sound.volume,
+      movement: bool(sound.movement, DEFAULT_SETTINGS.sound.movement),
+      success: bool(sound.success, DEFAULT_SETTINGS.sound.success),
+      error: bool(sound.error, DEFAULT_SETTINGS.sound.error),
+      combo: bool(sound.combo, DEFAULT_SETTINGS.sound.combo),
+      runComplete: bool(sound.runComplete, DEFAULT_SETTINGS.sound.runComplete),
+    },
+    accessibility: {
+      reducedMotion: bool(
+        accessibility.reducedMotion,
+        DEFAULT_SETTINGS.accessibility.reducedMotion,
+      ),
+      highContrast: bool(accessibility.highContrast, DEFAULT_SETTINGS.accessibility.highContrast),
+      largeTargets: bool(accessibility.largeTargets, DEFAULT_SETTINGS.accessibility.largeTargets),
+    },
+    privacy: {
+      leaderboardOptIn: bool(
+        privacy.leaderboardOptIn,
+        DEFAULT_SETTINGS.privacy.leaderboardOptIn,
+      ),
+      anonymousName: text(privacy.anonymousName, DEFAULT_SETTINGS.privacy.anonymousName),
+      rankedMode: bool(privacy.rankedMode, DEFAULT_SETTINGS.privacy.rankedMode),
+    },
+  };
+}
+
 export function readSettings(storage: JsonStorage): Settings {
-  const raw = storage.read<unknown>(SETTINGS_KEY, null);
-
-  if (typeof raw !== "object" || raw === null) {
-    return DEFAULT_SETTINGS;
-  }
-
-  const candidate = raw as Partial<Settings>;
-
-  if (typeof candidate.themeId !== "string") {
-    return DEFAULT_SETTINGS;
-  }
-
-  return { themeId: themeById(candidate.themeId).id };
+  return coerceSettings(storage.read<unknown>(SETTINGS_KEY, null));
 }
 
 export function writeSettings(storage: JsonStorage, settings: Settings): void {
