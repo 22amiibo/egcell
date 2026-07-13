@@ -1,5 +1,12 @@
 import type { Challenge } from "@/domain/challenges/challengeTypes";
 import {
+  createTemplateRegistry,
+  fixedTemplate,
+  materializeTemplate,
+  type TemplateRegistry,
+} from "@/domain/challenges/templateRegistry";
+import type { ChallengeTemplate, ChallengeVariant } from "@/domain/challenges/variantTypes";
+import {
   EAST_ROW_COUNT,
   FIRST_DATA_ROW,
   HEADER_ROW,
@@ -666,8 +673,11 @@ export const mixedFilterEastCurrencyChallenge: Challenge = {
  * The order the game plays them in. The first eight are the original set and they stay first,
  * because session queues are deterministic slices of this list and reordering them would change
  * what Sprint 5 means overnight.
+ *
+ * These 23 are the last hand-written challenge literals. New content arrives as seeded templates;
+ * these are wrapped as fixed templates below so the whole game flows through one registry.
  */
-export const challenges: Challenge[] = [
+const fixedChallenges: Challenge[] = [
   selectionRevenueColumnChallenge,
   navigationLastRevenueCellChallenge,
   selectionHeaderRowChallenge,
@@ -693,8 +703,28 @@ export const challenges: Challenge[] = [
   mixedFilterEastCurrencyChallenge,
 ];
 
+export const challengeTemplates: ChallengeTemplate[] = fixedChallenges.map(fixedTemplate);
+
+export const templateRegistry: TemplateRegistry = createTemplateRegistry(challengeTemplates);
+
+/**
+ * The playable list, derived from the registry through the same materialization path every
+ * generated variant will use. Ids and seeds are byte-identical to the literals above, so every
+ * existing personal record still resolves.
+ */
+export const challenges: ChallengeVariant[] = templateRegistry.all().map((template, index) => {
+  const source = fixedChallenges[index];
+  const variant = materializeTemplate(template, source.seed, source.difficulty);
+
+  if (variant === null) {
+    throw new Error(`Fixed template ${template.id} failed to materialize.`);
+  }
+
+  return variant;
+});
+
 /** The challenge the game opens into. */
-export const defaultChallenge: Challenge = selectionRevenueColumnChallenge;
+export const defaultChallenge: Challenge = challenges[0];
 
 export function challengeAfter(challenge: Challenge): Challenge {
   const index = challenges.findIndex((candidate) => candidate.id === challenge.id);

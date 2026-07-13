@@ -1,10 +1,41 @@
 import { describe, expect, it } from "vitest";
 
-import { challengeAfter, challenges, defaultChallenge } from "@/data/challenges";
+import { challengeAfter, challenges, defaultChallenge, templateRegistry } from "@/data/challenges";
 import type { Challenge } from "@/domain/challenges/challengeTypes";
-import type { GridActionKind } from "@/domain/grid/gridTypes";
+import { SPEC_KIND_ACTIONS } from "@/domain/challenges/templateRegistry";
 import type { RunState } from "@/domain/runs/runTypes";
 import { validateChallenge } from "@/domain/validation/validateChallenge";
+
+/**
+ * The exact playable order. Session queues today are deterministic slices of this list, so this
+ * sequence is pinned byte for byte: reordering it silently changes what Sprint 5 means, and a
+ * registry refactor that shuffled it would invalidate every sprint record.
+ */
+const PINNED_CHALLENGE_IDS = [
+  "selection.revenue-column",
+  "navigation.last-revenue-cell",
+  "selection.header-row",
+  "selection.whole-table",
+  "formatting.bold-header",
+  "formatting.currency-revenue",
+  "sort-filter.revenue-high-to-low",
+  "sort-filter.east-region",
+  "navigation.first-region-cell",
+  "navigation.last-status-cell",
+  "navigation.dara-units",
+  "selection.units-column",
+  "selection.first-data-row",
+  "selection.revenue-units-data",
+  "formatting.bold-region-column",
+  "formatting.unbold-header",
+  "formatting.bold-first-data-row",
+  "sort-filter.units-low-to-high",
+  "sort-filter.rep-a-to-z",
+  "sort-filter.status-complete",
+  "sort-filter.units-above-bruno",
+  "mixed.sort-and-bold",
+  "mixed.filter-east-currency",
+];
 
 function runFor(challenge: Challenge): RunState {
   return {
@@ -28,6 +59,21 @@ describe("the challenge registry", () => {
     expect(challenges).toContain(defaultChallenge);
   });
 
+  it("keeps the playable order pinned, byte for byte", () => {
+    expect(challenges.map((challenge) => challenge.id)).toEqual(PINNED_CHALLENGE_IDS);
+  });
+
+  it("derives every playable challenge from a registry template with the same identity", () => {
+    for (const challenge of challenges) {
+      const template = templateRegistry.byId(challenge.id);
+
+      expect(template).toBeDefined();
+      expect(template?.version).toBe(challenge.version);
+      expect(template?.family).toBe(challenge.family);
+      expect(template?.kind).toBe("fixed");
+    }
+  });
+
   it.each(eachChallenge)("%s does not start already complete", (_id, challenge) => {
     // A challenge whose starting grid already satisfies its own validator would finish the instant
     // the player touched anything, at roughly zero elapsed time. It is unplayable, and it is the
@@ -44,16 +90,6 @@ describe("the challenge registry", () => {
   it.each(eachChallenge)(
     "%s allows the actions its own solution needs",
     (_id, challenge) => {
-      const needed: Record<
-        Exclude<Challenge["validation"]["kind"], "composite">,
-        GridActionKind[]
-      > = {
-        selection: ["select-cell", "select-range", "select-row", "select-column"],
-        navigation: ["select-cell"],
-        formatting: ["set-format"],
-        "sort-filter": ["sort-column", "filter-column"],
-      };
-
       // A composite must be solvable part by part, so every part's family needs an action.
       const parts =
         challenge.validation.kind === "composite"
@@ -62,7 +98,9 @@ describe("the challenge registry", () => {
 
       for (const part of parts) {
         expect(
-          needed[part.kind].some((action) => challenge.allowedActions.includes(action)),
+          SPEC_KIND_ACTIONS[part.kind].some((action) =>
+            challenge.allowedActions.includes(action),
+          ),
         ).toBe(true);
       }
     },
