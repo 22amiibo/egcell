@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useState } from "react";
 
 import { ChallengeRun } from "@/components/game/ChallengeRun";
@@ -8,7 +9,9 @@ import { challengeAfter, challenges, defaultChallenge } from "@/data/challenges"
 import type { Challenge, ChallengeMode } from "@/domain/challenges/challengeTypes";
 import { recordKey } from "@/domain/records/personalRecords";
 import type { SessionMode } from "@/domain/sessions/sessionTypes";
+import type { FinishedRun } from "@/hooks/useGameRun";
 import { useLocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
+import { useLocalRunHistory } from "@/hooks/useLocalRunHistory";
 import { useLocalSessionRecords } from "@/hooks/useLocalSessionRecords";
 import { formatElapsed, formatScore } from "@/lib/format";
 
@@ -38,6 +41,25 @@ export function GameShell() {
   const [play, setPlay] = useState<PlaySelection>(PLAY_OPTIONS[0].selection);
   const records = useLocalPersonalRecords();
   const sessionRecords = useLocalSessionRecords();
+  const history = useLocalRunHistory();
+
+  const { record: recordHistory } = history;
+
+  // Every finished single run lands in the local run history, practice included.
+  const recordSingleRun = useCallback(
+    (finished: FinishedRun) => {
+      recordHistory({
+        modeKey: play.kind === "single" ? play.mode : "main-speed",
+        label: challenge.title,
+        score: finished.score.score,
+        elapsedMs: finished.elapsedMs,
+        completed: true,
+        tasksCompleted: 1,
+        isNewRecord: finished.isNewRecord,
+      });
+    },
+    [recordHistory, challenge, play],
+  );
 
   // Records are keyed by mode, so a practice best can never be mistaken for a speed best, and
   // each session length keeps its own book. A single-challenge best reads as a time, a session
@@ -116,6 +138,13 @@ export function GameShell() {
           </div>
 
           <span data-testid="best-time">{bestLabel}</span>
+
+          <Link
+            href="/profile"
+            className="rounded border border-line px-2 py-1 text-[12px] font-medium text-muted transition-colors hover:bg-surface-raised hover:text-ink"
+          >
+            Profile
+          </Link>
         </div>
       </header>
 
@@ -132,6 +161,7 @@ export function GameShell() {
               mode={play.mode}
               records={records}
               onNext={goToNext}
+              onFinished={recordSingleRun}
             />
           ) : (
             <SessionRun
@@ -139,6 +169,7 @@ export function GameShell() {
               sessionMode={play.mode}
               personalRecords={records}
               sessionRecords={sessionRecords}
+              recordHistory={recordHistory}
             />
           )}
         </div>

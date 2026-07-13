@@ -8,7 +8,7 @@ import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { Toolbar } from "@/components/game/Toolbar";
 import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
 import type { Challenge, ChallengeMode } from "@/domain/challenges/challengeTypes";
-import { useGameRun } from "@/hooks/useGameRun";
+import { useGameRun, type FinishedRun } from "@/hooks/useGameRun";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
 
 type ChallengeRunProps = {
@@ -16,14 +16,16 @@ type ChallengeRunProps = {
   mode: ChallengeMode;
   records: LocalPersonalRecords;
   onNext: () => void;
+  /** Fired once per completed run, so the shell can log it to the local history. */
+  onFinished?: (finished: FinishedRun) => void;
 };
 
 /**
  * One run of one challenge. `GameShell` keys this by challenge id, so switching challenges mounts a
  * fresh run rather than carrying the old clock and grid across.
  */
-export function ChallengeRun({ challenge, mode, records, onNext }: ChallengeRunProps) {
-  const run = useGameRun(challenge, mode, records);
+export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: ChallengeRunProps) {
+  const run = useGameRun(challenge, mode, records, { onFinished });
   const gridRef = useRef<HTMLDivElement | null>(null);
 
   // Retry puts focus straight back on the grid, so a keyboard player never has to reach for the

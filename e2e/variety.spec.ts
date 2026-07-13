@@ -3,6 +3,9 @@ import { expect, test, type Page } from "@playwright/test";
 async function pickChallenge(page: Page, title: string) {
   await page.goto("/");
   await page.getByLabel("Challenge").selectOption({ label: title });
+  // The remounted grid takes focus in an effect. Keystrokes sent before that lands go to the
+  // select instead, so wait for the handover rather than racing it.
+  await expect(page.getByRole("grid", { name: "Spreadsheet" })).toBeFocused();
 }
 
 /** A representative of each new group, played by its intended route. */

@@ -8,6 +8,7 @@ test.describe("keyboard-only play", () => {
   test("completes the navigation challenge with keys alone", async ({ page }) => {
     await page.goto("/");
     await page.getByLabel("Challenge").selectOption({ label: "Go to the last Revenue cell" });
+    await expect(page.getByRole("grid", { name: "Spreadsheet" })).toBeFocused();
 
     // A1 -> B1 -> C1, then jump to the bottom of the Revenue data.
     await page.keyboard.press("ArrowRight");
@@ -20,6 +21,7 @@ test.describe("keyboard-only play", () => {
   test("bolds the header row with keys alone", async ({ page }) => {
     await page.goto("/");
     await page.getByLabel("Challenge").selectOption({ label: "Bold the header row" });
+    await expect(page.getByRole("grid", { name: "Spreadsheet" })).toBeFocused();
 
     // Shift+Space selects row 1, the modifier plus B bolds it.
     await page.keyboard.press("Shift+Space");
@@ -31,6 +33,7 @@ test.describe("keyboard-only play", () => {
   test("selects the whole table with one keystroke", async ({ page }) => {
     await page.goto("/");
     await page.getByLabel("Challenge").selectOption({ label: "Select the whole table" });
+    await expect(page.getByRole("grid", { name: "Spreadsheet" })).toBeFocused();
 
     await page.keyboard.press("ControlOrMeta+a");
 

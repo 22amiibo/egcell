@@ -21,12 +21,15 @@ import {
 import { createRunClock } from "@/hooks/runClock";
 import { useGameRun, type FinishedRun } from "@/hooks/useGameRun";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
+import type { NewRunEntry } from "@/hooks/useLocalRunHistory";
 import type { LocalSessionRecords, SessionRecordSubmission } from "@/hooks/useLocalSessionRecords";
 
 type SessionRunProps = {
   sessionMode: SessionMode;
   personalRecords: LocalPersonalRecords;
   sessionRecords: LocalSessionRecords;
+  /** Lets the shell log the finished session to the local run history. */
+  recordHistory?: (entry: NewRunEntry) => void;
 };
 
 function toTaskResult(
@@ -142,7 +145,12 @@ function SessionTask({ challenge, records, onFinished, deadlineAtMs, frozen }: S
   );
 }
 
-export function SessionRun({ sessionMode, personalRecords, sessionRecords }: SessionRunProps) {
+export function SessionRun({
+  sessionMode,
+  personalRecords,
+  sessionRecords,
+  recordHistory,
+}: SessionRunProps) {
   const plan = SESSION_PLANS[sessionMode];
 
   const [clock] = useState(createRunClock);
@@ -179,9 +187,24 @@ export function SessionRun({ sessionMode, personalRecords, sessionRecords }: Ses
       });
       const submission = sessionRecords.submit(sessionRecordFromResult(result));
 
+      recordHistory?.({
+        modeKey: sessionMode,
+        label: sessionModeLabel(sessionMode),
+        score: result.totalScore,
+        elapsedMs: result.totalElapsedMs,
+        // A sprint with skips is a finished session but not a completed one. A timed run always
+        // ran its full course.
+        completed:
+          SESSION_PLANS[sessionMode].kind === "task-count"
+            ? result.tasksCompleted === result.taskCount
+            : true,
+        tasksCompleted: result.tasksCompleted,
+        isNewRecord: submission.isNewRecord,
+      });
+
       setOutcome({ result, submission });
     },
-    [sessionMode, clock, sessionRecords],
+    [sessionMode, clock, sessionRecords, recordHistory],
   );
 
   const handleTaskFinished = useCallback(

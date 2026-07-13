@@ -29,6 +29,20 @@ export function formatElapsed(elapsedMs: number): string {
   return `${(elapsedMs / 1000).toFixed(2)}s`;
 }
 
+const shortDateTime = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+  timeZone: "UTC",
+});
+
+/** Pinned to UTC like every other formatter here, so server and client can never disagree. */
+export function formatDateTime(iso: string): string {
+  return shortDateTime.format(new Date(iso));
+}
+
 export function formatScore(score: number): string {
   return plainNumber.format(score);
 }
