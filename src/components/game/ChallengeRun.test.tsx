@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ChallengeRun } from "@/components/game/ChallengeRun";
@@ -43,6 +43,32 @@ describe("ChallengeRun practice frame", () => {
     expect(prompt.compareDocumentPosition(stats)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(stats.compareDocumentPosition(grid)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(grid.compareDocumentPosition(toolbar)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("turns keyboard run events into shortcut and combo feedback without leaving the grid stage", () => {
+    render(
+      <ChallengeRun
+        challenge={formattingBoldHeaderChallenge}
+        mode="main-speed"
+        records={records}
+        onNext={vi.fn()}
+      />,
+    );
+
+    const grid = screen.getByTestId("spreadsheet-grid");
+    const layer = screen.getByTestId("run-feedback-layer");
+
+    expect(layer).toHaveAttribute("data-event", "taskAppear");
+    expect(screen.getByTestId("grid-stage")).toContainElement(layer);
+
+    fireEvent.keyDown(grid, { key: "ArrowDown" });
+
+    expect(layer).toHaveAttribute("data-event", "shortcut");
+    expect(screen.getByTestId("shortcut-flash")).toHaveTextContent("Arrow key");
+
+    fireEvent.keyDown(grid, { key: "ArrowRight" });
+
+    expect(screen.getByTestId("combo-indicator")).toHaveTextContent("2 streak");
   });
 });
 

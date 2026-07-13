@@ -5,6 +5,11 @@ import { useCallback, useState } from "react";
 import { ChallengePrompt } from "@/components/game/ChallengePrompt";
 import { LiveStatsBar } from "@/components/game/LiveStatsBar";
 import { ResultCard } from "@/components/game/ResultCard";
+import {
+  feedbackEventForRun,
+  RunFeedbackLayer,
+  shortcutLabelForEvent,
+} from "@/components/game/RunFeedbackLayer";
 import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { Toolbar } from "@/components/game/Toolbar";
 import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
@@ -34,6 +39,7 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
     (event) => event.inputMethod === "keyboard",
   ).length;
   const mistakes = Math.round(actionCount * (1 - run.validation.accuracy));
+  const feedbackEvent = feedbackEventForRun(run.events, run.validation, run.result !== null);
 
   // Retry remounts the grid. The grid keeps its keyboard anchor in refs, and a reset that left
   // the component mounted would leave those refs pointing at the last run's selection; a fresh
@@ -76,9 +82,17 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
           onAction={run.dispatch}
           allowedActions={challenge.allowedActions}
         />
+        <RunFeedbackLayer
+          event={feedbackEvent}
+          reducedMotion={settings.accessibility.reducedMotion}
+          combo={actionCount - mistakes}
+          shortcutLabel={shortcutLabelForEvent(run.events.at(-1))}
+          showCombo={settings.feedback.combo}
+          showShortcut={settings.feedback.shortcutFlash}
+        />
 
         {run.result !== null && (
-          <div className="absolute inset-0 flex items-center justify-center bg-canvas/70 backdrop-blur-[2px]">
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-canvas/70 backdrop-blur-[2px]">
             <ResultCard
               challenge={challenge}
               mode={mode}

@@ -64,6 +64,7 @@ describe("the theme presets", () => {
       expect(vars["--color-error"]).toMatch(HEX_COLOR);
       expect(vars["--motion-fast"]).toMatch(/^\d+ms$/);
       expect(vars["--motion-base"]).toMatch(/^\d+ms$/);
+      expect(vars["--motion-standard"]).toMatch(/^\d+ms$/);
       expect(vars["--motion-slow"]).toMatch(/^\d+ms$/);
       expect(vars["--shadow-elevated"]).toContain("rgba");
     }

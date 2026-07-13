@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { LiveStatsBar } from "@/components/game/LiveStatsBar";
+import {
+  feedbackEventForRun,
+  RunFeedbackLayer,
+  shortcutLabelForEvent,
+} from "@/components/game/RunFeedbackLayer";
 import { SessionResultCard } from "@/components/game/SessionResultCard";
 import { TaskProgressRail } from "@/components/game/TaskProgressRail";
 import { TimerDisplay } from "@/components/game/TimerDisplay";
@@ -74,6 +79,9 @@ type SessionTaskProps = {
   completedTasks: number;
   totalTasks: number;
   liveStatsEnabled: boolean;
+  reducedMotion: boolean;
+  showCombo: boolean;
+  showShortcut: boolean;
 };
 
 /**
@@ -95,6 +103,9 @@ function SessionTask({
   completedTasks,
   totalTasks,
   liveStatsEnabled,
+  reducedMotion,
+  showCombo,
+  showShortcut,
 }: SessionTaskProps) {
   // A task reports its result exactly once, whichever of completion, skip, or the session
   // deadline gets there first.
@@ -155,6 +166,7 @@ function SessionTask({
     (event) => event.inputMethod === "keyboard",
   ).length;
   const taskMistakes = Math.round(taskActions * (1 - run.validation.accuracy));
+  const feedbackEvent = feedbackEventForRun(run.events, run.validation, run.result !== null);
 
   return (
     <div className="flex w-full flex-col items-center gap-5">
@@ -172,11 +184,21 @@ function SessionTask({
         />
       </div>
 
-      <SpreadsheetGrid
-        grid={run.grid}
-        onAction={run.dispatch}
-        allowedActions={challenge.allowedActions}
-      />
+      <div className="relative" data-testid="grid-stage">
+        <SpreadsheetGrid
+          grid={run.grid}
+          onAction={run.dispatch}
+          allowedActions={challenge.allowedActions}
+        />
+        <RunFeedbackLayer
+          event={feedbackEvent}
+          reducedMotion={reducedMotion}
+          combo={taskActions - taskMistakes}
+          shortcutLabel={shortcutLabelForEvent(run.events.at(-1))}
+          showCombo={showCombo}
+          showShortcut={showShortcut}
+        />
+      </div>
 
       <div className="flex min-h-9 w-full items-center justify-between gap-4">
         <Toolbar challenge={challenge} grid={run.grid} onAction={run.dispatch} />
@@ -395,10 +417,13 @@ export function SessionRun({
           completedTasks={statsCompletedCount}
           totalTasks={plan.kind === "task-count" ? plan.taskCount : 0}
           liveStatsEnabled={settings.feedback.liveStats}
+          reducedMotion={settings.accessibility.reducedMotion}
+          showCombo={settings.feedback.combo}
+          showShortcut={settings.feedback.shortcutFlash}
         />
 
         {outcome !== null && (
-          <div className="absolute inset-0 flex items-center justify-center bg-canvas/70 backdrop-blur-[2px]">
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-canvas/70 backdrop-blur-[2px]">
             <SessionResultCard
               result={outcome.result}
               previousBest={outcome.submission.previousBest}

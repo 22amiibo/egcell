@@ -19,6 +19,7 @@
   --shadow-elevated: 0 18px 60px rgba(0, 0, 0, 0.38);
   --motion-fast: 90ms;
   --motion-base: 160ms;
+  --motion-standard: var(--motion-base);
   --motion-slow: 260ms;
   --font-game: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --grid-cell-height: 32px;
@@ -30,6 +31,27 @@
   --color-line-strong: var(--color-grid-line-strong);
   --color-ink: var(--color-text-primary);
   --color-muted: var(--color-text-muted);
+}
+
+@keyframes run-feedback-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -3px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.run-feedback-cue {
+  animation: run-feedback-in var(--motion-standard) ease-out both;
+}
+
+[data-motion="reduced"] .run-feedback-cue {
+  animation: none;
+  transform: translateX(-50%);
 }
 
 @layer base {

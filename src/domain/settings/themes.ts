@@ -422,6 +422,7 @@ export function themeCssVars(tokens: ThemeTokens): Record<string, string> {
     "--shadow-elevated": tokens.shadow,
     "--motion-fast": tokens.motionFast,
     "--motion-base": tokens.motionBase,
+    "--motion-standard": tokens.motionBase,
     "--motion-slow": tokens.motionSlow,
 
     "--color-canvas": tokens.background,

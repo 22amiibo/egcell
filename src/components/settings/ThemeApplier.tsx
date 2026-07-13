@@ -34,6 +34,7 @@ export function ThemeApplier() {
     if (settings.accessibility.reducedMotion) {
       root.style.setProperty("--motion-fast", "0ms");
       root.style.setProperty("--motion-base", "0ms");
+      root.style.setProperty("--motion-standard", "0ms");
       root.style.setProperty("--motion-slow", "0ms");
     }
 
