@@ -267,6 +267,7 @@ export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: Sp
     <div
       role="grid"
       aria-label="Spreadsheet"
+      data-testid="spreadsheet-grid"
       tabIndex={0}
       ref={containerRef}
       onKeyDown={handleKeyDown}

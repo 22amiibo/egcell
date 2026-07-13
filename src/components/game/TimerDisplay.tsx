@@ -45,7 +45,7 @@ export function TimerDisplay({ startedAt, frozenElapsedMs, countdownFromMs }: Ti
     <span
       aria-label={countdownFromMs === undefined ? "Elapsed time" : "Time remaining"}
       data-testid="timer"
-      className="text-2xl font-semibold tabular-nums text-ink"
+      className="min-w-24 text-right text-2xl font-semibold tabular-nums text-ink"
     >
       {formatElapsed(shown)}
     </span>

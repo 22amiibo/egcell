@@ -46,8 +46,11 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
   }, [run]);
 
   return (
-    <div className="flex flex-col items-center gap-5">
-      <div className="flex w-full items-end justify-between gap-8">
+    <div data-testid="practice-frame" className="flex flex-col items-center gap-4">
+      <div
+        data-testid="prompt-rail"
+        className="flex min-h-14 w-full items-end justify-between gap-8"
+      >
         <ChallengePrompt challenge={challenge} />
         <TimerDisplay startedAt={run.startedAt} frozenElapsedMs={run.result?.elapsedMs ?? null} />
       </div>
@@ -66,11 +69,7 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
         />
       </div>
 
-      <div className="flex w-full justify-start">
-        <Toolbar challenge={challenge} grid={run.grid} onAction={run.dispatch} />
-      </div>
-
-      <div className="relative">
+      <div className="relative" data-testid="grid-stage">
         <SpreadsheetGrid
           key={attempt}
           grid={run.grid}
@@ -89,6 +88,10 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
             />
           </div>
         )}
+      </div>
+
+      <div className="flex min-h-9 w-full justify-start">
+        <Toolbar challenge={challenge} grid={run.grid} onAction={run.dispatch} />
       </div>
     </div>
   );

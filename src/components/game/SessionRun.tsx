@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 
 import { LiveStatsBar } from "@/components/game/LiveStatsBar";
 import { SessionResultCard } from "@/components/game/SessionResultCard";
+import { TaskProgressRail } from "@/components/game/TaskProgressRail";
 import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { Toolbar } from "@/components/game/Toolbar";
 import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
@@ -171,7 +172,13 @@ function SessionTask({
         />
       </div>
 
-      <div className="flex w-full items-center justify-between gap-4">
+      <SpreadsheetGrid
+        grid={run.grid}
+        onAction={run.dispatch}
+        allowedActions={challenge.allowedActions}
+      />
+
+      <div className="flex min-h-9 w-full items-center justify-between gap-4">
         <Toolbar challenge={challenge} grid={run.grid} onAction={run.dispatch} />
         <span aria-hidden className="flex-1" />
         {!frozen && (
@@ -184,12 +191,6 @@ function SessionTask({
           </button>
         )}
       </div>
-
-      <SpreadsheetGrid
-        grid={run.grid}
-        onAction={run.dispatch}
-        allowedActions={challenge.allowedActions}
-      />
     </div>
   );
 }
@@ -346,8 +347,11 @@ export function SessionRun({
       : tasks.slice(0, -1).filter((task) => task.outcome === "completed").length;
 
   return (
-    <div className="flex flex-col items-center gap-5">
-      <div className="flex w-full items-end justify-between gap-8">
+    <div data-testid="practice-frame" className="flex flex-col items-center gap-4">
+      <div
+        data-testid="prompt-rail"
+        className="flex min-h-14 w-full items-end justify-between gap-8"
+      >
         <div className="flex flex-col gap-1">
           <span className="text-[11px] font-medium tracking-widest text-muted uppercase">
             {sessionModeLabel(sessionMode)}
@@ -357,11 +361,18 @@ export function SessionRun({
           </span>
           <h1 className="text-xl font-semibold tracking-tight text-ink">{challenge.prompt}</h1>
         </div>
-        <TimerDisplay
-          startedAt={sessionStartedAt}
-          frozenElapsedMs={frozenElapsedMs}
-          countdownFromMs={durationMs ?? undefined}
-        />
+        <div className="flex items-end gap-5">
+          <TaskProgressRail
+            currentTask={taskNumber}
+            completedTasks={completedCount}
+            totalTasks={plan.kind === "task-count" ? plan.taskCount : null}
+          />
+          <TimerDisplay
+            startedAt={sessionStartedAt}
+            frozenElapsedMs={frozenElapsedMs}
+            countdownFromMs={durationMs ?? undefined}
+          />
+        </div>
       </div>
 
       <div className="relative flex w-full flex-col items-center">
