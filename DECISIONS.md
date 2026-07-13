@@ -1,5 +1,78 @@
 # Decisions
 
+## 2026-07-12: Validators Grade The Grid's End State, Never The Route
+
+Decision: Every validator compares what the grid looks like when the player stops. None of them inspect how the player got there.
+
+Reasoning:
+
+- The product promises skill transfer to Excel. In Excel there are always several ways to do a thing, and the fast one is the point of the game.
+- If a validator asked "did they click the toolbar button", then adding keyboard shortcuts later would silently break every challenge, and the player who used the fast route would be the one penalised.
+- Grading end state means a mouse click, a toolbar press, and a future Ctrl+B all count the same.
+
+Consequences:
+
+- Keyboard support can be added without touching a single validator.
+- A sort challenge is satisfied by the visible row order, not by `sortState`, so any route to that order counts.
+- The one exception is deliberate: a sort challenge additionally requires that *something* was sorted or filtered, or an untouched grid could satisfy an ascending sort by luck.
+
+## 2026-07-12: GridState Carries headerRows
+
+Decision: `GridState` gained a `headerRows` count.
+
+Reasoning:
+
+- Sorting must move the data rows and leave the header where it is. Filtering must never hide the header.
+- Neither is possible if the model cannot say where the header ends. `usedRange` alone does not distinguish a header from a first data row.
+
+Consequences:
+
+- `createRevenueGrid` sets `headerRows: 1`.
+- A future headerless dataset sets it to 0, and sorting and filtering keep working with no code change.
+
+## 2026-07-12: Drag-To-Select Was Required, Not Optional
+
+Decision: The grid supports click-and-drag range selection.
+
+Reasoning:
+
+- Phase 6 adds a "select the whole table" challenge. Without dragging, a player has no way to select an arbitrary range at all, so the challenge would be unplayable. This was not a polish item; it was a blocker.
+- A click always fires after a drag's pointerup. Left alone, it would collapse the range the player just dragged back down to a single cell, so the click after a drag is suppressed.
+
+Consequences:
+
+- Range selections are reachable by hand, not only in code.
+- `pointerenter` checks `event.buttons`, because hovering with the mouse up also fires it and must not paint a selection.
+
+## 2026-07-12: The Toolbar Shows Only What The Challenge Allows
+
+Decision: `Toolbar` renders buttons filtered by the challenge's `allowedActions`, and renders nothing at all when the challenge allows none of them.
+
+Reasoning:
+
+- `allowedActions` already existed on `Challenge` and was doing nothing. Honouring it costs one line and makes the surface honest.
+- A control that cannot help with the current challenge is noise at best, and a wrong turn at worst, in a game measured in seconds.
+
+Consequences:
+
+- Selection and navigation challenges show no toolbar.
+- Adding a family means listing its actions on the challenge; the toolbar follows automatically.
+
+## 2026-07-12: The Event Digest Is Not Security, And Says So
+
+Decision: `eventDigest` is a plain FNV-1a hash over a canonical event string, and its docstring states at length that it proves nothing.
+
+Reasoning:
+
+- The plan's own risk list warns against "treating client event digest as secure". It is computed on the client, from client-controlled data, with a published algorithm and no secret. Anyone can forge one.
+- It is still worth having: a future server can use it to recognise duplicate submissions and to check a replay against the summary it arrived with.
+- The comment is long on purpose. The failure mode is a future contributor assuming the digest is anti-cheat and building on it.
+
+Consequences:
+
+- Real verification stays what it always was: re-run the deterministic validators on the server against the submitted events.
+- The digest is versioned, so changing the canonical form cannot be mistaken for the same digest.
+
 ## 2026-07-12: The Clock Starts When The Grid Appears, Not On The First Click
 
 Decision: A run's timer starts the moment the challenge is on screen, not when the player first interacts.

@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-07-12 (phases 6 to 8)
+
+**All eight phases of the plan are complete.**
+
+- Expanded to eight challenges across four families: navigation, selection, formatting, and sort/filter. `ValidationSpec` became a real discriminated union, and the validator dispatcher switches over it exhaustively, so adding a family without a validator is now a type error.
+- Taught the grid to format, sort, and filter. Sorting moves the whole row with the sorted value and leaves the header alone. Filtering removes rows from the page, and a later sort recomputes which rows are hidden, because sorting changes which row holds which value.
+- Added drag-to-select. Without it a player could not select an arbitrary range at all, which made the whole-table challenge unplayable.
+- Added a toolbar that only offers the actions the current challenge allows, so a selection challenge shows no toolbar at all.
+- Added a challenge picker and a "Next challenge" step through the set.
+- Added practice mode. Same validators, same scoring; the one difference is that the result card shows the route notes once the run is over. There is no code path that can show a hint during play.
+- Added a versioned, serializable run result and a client event digest for a future leaderboard. Nothing is submitted anywhere, and a test spies on `fetch` to prove it. The digest is explicitly not a security primitive.
+- A registry test asserts no challenge starts already complete, which is the easiest way to ship an unplayable one.
+
+189 unit tests, 17 e2e tests. Lint, test, typecheck, build, and e2e all pass.
+
 ## 2026-07-12 (later)
 
 Phases 2 through 5 of `IMPLEMENTATION_PLAN.md`. **The game is playable.**

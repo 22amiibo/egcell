@@ -602,7 +602,9 @@ The clock starts when the grid appears, not on the first click; see `DECISIONS.m
 - No anti-cheat.
 - No additional challenge families unless the first loop is already verified.
 
-### Phase 6: Expand Challenge Families
+### Phase 6: Expand Challenge Families — COMPLETE (2026-07-12)
+
+Eight challenges across navigation, selection, formatting, and sort/filter. `ValidationSpec` became a real discriminated union; `validateChallenge` switches exhaustively over it. The grid gained `set-format`, `sort-column`, `filter-column`, and `clear-filters`, plus drag-to-select, without which an arbitrary range could not be selected at all. `GridState` gained `headerRows`, because a sort has to know where the data starts.
 
 **Goal:** Add small sets of navigation, selection, formatting, and sort/filter challenges after the first loop feels good.
 
@@ -643,7 +645,9 @@ The clock starts when the grid appears, not on the first click; see `DECISIONS.m
 - No AI-generated tasks.
 - No replay viewer.
 
-### Phase 7: Practice Mode Post-Run Suggestions
+### Phase 7: Practice Mode Post-Run Suggestions — COMPLETE (2026-07-12)
+
+PracticeNotes is only reachable from inside the result card, so no code path can show a hint during an active run. Records were already keyed by mode, so practice bests stay separate from speed bests.
 
 **Goal:** Add practice mode that shows faster routes after completion without interrupting active runs.
 
@@ -677,7 +681,9 @@ The clock starts when the grid appears, not on the first click; see `DECISIONS.m
 - No lesson tree.
 - No school-style curriculum.
 
-### Phase 8: Leaderboard Preparation
+### Phase 8: Leaderboard Preparation — COMPLETE (2026-07-12)
+
+`buildRunResult` and `eventDigest` exist and are exercised by the UI. Nothing is submitted anywhere: a test spies on `fetch` and asserts a completed run calls it zero times. The digest is not a security primitive and its docstring says so.
 
 **Goal:** Prepare versioned run-result payloads while delaying real global leaderboards.
 
