@@ -10,6 +10,7 @@ type ResultCardProps = {
   challenge: Challenge;
   run: FinishedRun;
   onRetry: () => void;
+  onNext: () => void;
 };
 
 function PersonalBest({ run }: { run: FinishedRun }) {
@@ -40,7 +41,7 @@ function PersonalBest({ run }: { run: FinishedRun }) {
   );
 }
 
-export function ResultCard({ challenge, run, onRetry }: ResultCardProps) {
+export function ResultCard({ challenge, run, onRetry, onNext }: ResultCardProps) {
   return (
     <div
       role="dialog"
@@ -86,8 +87,16 @@ export function ResultCard({ challenge, run, onRetry }: ResultCardProps) {
         </div>
       </details>
 
-      <div className="mt-5">
+      {/* Retry is the primary action. Chasing the time again is the whole point of the game. */}
+      <div className="mt-5 flex items-center gap-2">
         <RetryButton onRetry={onRetry} />
+        <button
+          type="button"
+          onClick={onNext}
+          className="rounded-md border border-line px-4 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface-raised hover:text-ink"
+        >
+          Next challenge
+        </button>
       </div>
     </div>
   );

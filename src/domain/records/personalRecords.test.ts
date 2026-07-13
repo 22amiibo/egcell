@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { selectionRevenueColumnChallenge } from "@/data/challenges/selectionRevenueColumn";
+import { selectionRevenueColumnChallenge } from "@/data/challenges";
 import {
   PERSONAL_RECORDS_KEY,
   betterRecord,

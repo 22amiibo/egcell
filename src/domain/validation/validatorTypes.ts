@@ -24,7 +24,49 @@ export type ValidationInput = {
   run: RunState;
 };
 
-export type ChallengeValidator = {
-  kind: ValidationSpec["kind"];
-  validate(input: ValidationInput): ValidationResult;
+export type SpecOfKind<K extends ValidationSpec["kind"]> = Extract<ValidationSpec, { kind: K }>;
+
+/** A validator is handed its own narrowed spec, so it can never read another family's fields. */
+export type ChallengeValidator<K extends ValidationSpec["kind"]> = (
+  input: ValidationInput,
+  spec: SpecOfKind<K>,
+) => ValidationResult;
+
+export const NOTHING_DONE_YET: ValidationResult = {
+  isComplete: false,
+  correctness: 0,
+  completionPercent: 0,
+  accuracy: 1,
+  messages: [{ kind: "info", text: "Nothing is selected yet." }],
 };
+
+export function failed(text: string): ValidationResult {
+  return {
+    isComplete: false,
+    correctness: 0,
+    completionPercent: 0,
+    accuracy: 1,
+    messages: [{ kind: "error", text }],
+  };
+}
+
+export function passed(text: string): ValidationResult {
+  return {
+    isComplete: true,
+    correctness: 1,
+    completionPercent: 1,
+    accuracy: 1,
+    messages: [{ kind: "success", text }],
+  };
+}
+
+/** Partial progress: the run is not over, but the player has some of it right. */
+export function partial(progress: number, text: string): ValidationResult {
+  return {
+    isComplete: false,
+    correctness: progress,
+    completionPercent: progress,
+    accuracy: 1,
+    messages: [{ kind: "error", text }],
+  };
+}

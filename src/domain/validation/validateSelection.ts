@@ -1,11 +1,12 @@
-import type { ValidationSpec } from "@/domain/challenges/challengeTypes";
 import type { GridSelection, GridState, RangeAddress } from "@/domain/grid/gridTypes";
 import { normalizeRange, rangesEqual } from "@/domain/grid/range";
 import { columnRangeWithinUsedRange, rowRangeWithinUsedRange } from "@/domain/grid/selectors";
-import type {
-  ChallengeValidator,
-  ValidationInput,
-  ValidationResult,
+import {
+  NOTHING_DONE_YET,
+  type ChallengeValidator,
+  type SpecOfKind,
+  failed,
+  passed,
 } from "@/domain/validation/validatorTypes";
 
 function wholeColumn(grid: GridState, col: number): RangeAddress {
@@ -19,14 +20,14 @@ function wholeRow(grid: GridState, row: number): RangeAddress {
 /**
  * Flattens whatever the player has selected into a single range the validator can compare.
  *
- * A column selection is clipped to the used range when the spec asks for the column within the
- * used range. Clicking a column header and dragging that column's data mean the same thing to a
- * player working on a table, so the two must not validate differently.
+ * A column selection is clipped to the used range when the spec asks for the column within the used
+ * range. Clicking a column header and dragging that column's data mean the same thing to a player
+ * working on a table, so the two must not validate differently.
  */
 export function selectionToRange(
   grid: GridState,
   selection: GridSelection,
-  spec: ValidationSpec,
+  spec: SpecOfKind<"selection">,
 ): RangeAddress | null {
   switch (selection.kind) {
     case "none":
@@ -53,44 +54,16 @@ export function selectionToRange(
   }
 }
 
-function validate(input: ValidationInput): ValidationResult {
-  const { challenge, grid } = input;
-  const spec = challenge.validation;
-
+export const validateSelection: ChallengeValidator<"selection"> = ({ grid }, spec) => {
   const selected = selectionToRange(grid, grid.selection, spec);
 
   if (selected === null) {
-    return {
-      isComplete: false,
-      correctness: 0,
-      completionPercent: 0,
-      accuracy: 1,
-      messages: [{ kind: "info", text: "Nothing is selected yet." }],
-    };
+    return NOTHING_DONE_YET;
   }
 
   if (!rangesEqual(selected, spec.requiredRange)) {
-    return {
-      isComplete: false,
-      correctness: 0,
-      completionPercent: 0,
-      accuracy: 1,
-      messages: [{ kind: "error", text: "Selection does not match the target." }],
-    };
+    return failed("Selection does not match the target.");
   }
 
-  return {
-    isComplete: true,
-    correctness: 1,
-    completionPercent: 1,
-    accuracy: 1,
-    messages: [{ kind: "success", text: "Selection matches the target." }],
-  };
-}
-
-export const validateSelection = validate;
-
-export const selectionValidator: ChallengeValidator = {
-  kind: "selection",
-  validate,
+  return passed("Selection matches the target.");
 };

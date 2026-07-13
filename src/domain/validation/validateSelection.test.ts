@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { selectionRevenueColumnChallenge } from "@/data/challenges/selectionRevenueColumn";
+import { selectionRevenueColumnChallenge } from "@/data/challenges";
 import type { Challenge } from "@/domain/challenges/challengeTypes";
 import { gridReducer } from "@/domain/grid/gridReducer";
 import type { GridAction, GridState } from "@/domain/grid/gridTypes";
 import type { RunState } from "@/domain/runs/runTypes";
 import { validateChallenge } from "@/domain/validation/validateChallenge";
 import { selectionToRange } from "@/domain/validation/validateSelection";
+import type { SpecOfKind } from "@/domain/validation/validatorTypes";
 import { createRevenueGrid } from "@/test/fixtures/revenueGrid";
 
 const challenge: Challenge = selectionRevenueColumnChallenge;
@@ -137,7 +138,11 @@ describe("validateChallenge on a selection challenge", () => {
 });
 
 describe("selectionToRange", () => {
-  const spec = challenge.validation;
+  const spec: SpecOfKind<"selection"> = {
+    kind: "selection",
+    requiredRange: { start: { row: 0, col: 2 }, end: { row: 6, col: 2 } },
+    requireEntireColumnWithinUsedRange: true,
+  };
 
   it("returns null when nothing is selected", () => {
     expect(selectionToRange(createRevenueGrid(), { kind: "none" }, spec)).toBeNull();
