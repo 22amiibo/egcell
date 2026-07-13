@@ -30,7 +30,7 @@ describe("a completed run", () => {
 
     // The submission exists: the run digest is read straight off it.
     expect(screen.getByText("Run digest")).toBeVisible();
-    expect(screen.getByText(/^v1:[0-9a-f]{8}$/)).toBeVisible();
+    expect(screen.getByText(/^v2:[0-9a-f]{8}$/)).toBeVisible();
 
     // There is no leaderboard yet, and no accounts. Nothing about a run may leave the machine.
     expect(globalThis.fetch).not.toHaveBeenCalled();

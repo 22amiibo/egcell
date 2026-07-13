@@ -2,16 +2,21 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
+import type { ActionMeta, GridCommandId } from "@/domain/commands/commandTypes";
 import type { GridAction, GridState } from "@/domain/grid/gridTypes";
-import type { RunInputMethod } from "@/domain/runs/runTypes";
 import { createRevenueGrid } from "@/test/fixtures/revenueGrid";
 
 function renderGrid(grid: GridState, allowedActions?: GridAction["kind"][]) {
-  const onAction = vi.fn<(action: GridAction, inputMethod?: RunInputMethod) => void>();
+  const onAction = vi.fn<(action: GridAction, meta: ActionMeta) => void>();
 
   render(<SpreadsheetGrid grid={grid} onAction={onAction} allowedActions={allowedActions} />);
 
   return { onAction, container: screen.getByRole("grid") };
+}
+
+/** Every keyboard-originated call carries this shape; only `command` and `chord` vary. */
+function keyboardMeta(command: GridCommandId, chord: string): ActionMeta {
+  return { command, inputMethod: "keyboard", via: "shortcut", chord, controlId: null };
 }
 
 describe("keyboard movement", () => {
@@ -22,7 +27,7 @@ describe("keyboard movement", () => {
 
     expect(onAction).toHaveBeenCalledWith(
       { kind: "select-cell", cell: { row: 1, col: 0 } },
-      "keyboard",
+      keyboardMeta("MOVE_DOWN", "ArrowDown"),
     );
   });
 
@@ -34,7 +39,7 @@ describe("keyboard movement", () => {
 
     expect(onAction).toHaveBeenLastCalledWith(
       { kind: "select-cell", cell: { row: 1, col: 1 } },
-      "keyboard",
+      keyboardMeta("MOVE_RIGHT", "ArrowRight"),
     );
   });
 
@@ -46,7 +51,7 @@ describe("keyboard movement", () => {
 
     expect(onAction).toHaveBeenCalledWith(
       { kind: "select-cell", cell: { row: 6, col: 2 } },
-      "keyboard",
+      keyboardMeta("JUMP_DOWN", "mod+ArrowDown"),
     );
   });
 
@@ -58,7 +63,7 @@ describe("keyboard movement", () => {
 
     expect(onAction).toHaveBeenCalledWith(
       { kind: "select-cell", cell: { row: 6, col: 2 } },
-      "keyboard",
+      keyboardMeta("JUMP_DOWN", "mod+ArrowDown"),
     );
   });
 });
@@ -76,7 +81,7 @@ describe("keyboard selection", () => {
         kind: "select-range",
         range: { start: { row: 0, col: 0 }, end: { row: 1, col: 0 } },
       },
-      "keyboard",
+      keyboardMeta("EXTEND_DOWN", "shift+ArrowDown"),
     );
     expect(onAction).toHaveBeenNthCalledWith(
       2,
@@ -84,7 +89,7 @@ describe("keyboard selection", () => {
         kind: "select-range",
         range: { start: { row: 0, col: 0 }, end: { row: 1, col: 1 } },
       },
-      "keyboard",
+      keyboardMeta("EXTEND_RIGHT", "shift+ArrowRight"),
     );
   });
 
@@ -99,7 +104,9 @@ describe("keyboard selection", () => {
         kind: "select-range",
         range: { start: { row: 0, col: 2 }, end: { row: 6, col: 2 } },
       },
-      "keyboard",
+      // The exact case this whole command layer exists for: this single Ctrl/Cmd+Shift+Down must
+      // stay distinguishable from twelve plain Shift+Downs, which reach the same final selection.
+      keyboardMeta("EXTEND_JUMP_DOWN", "mod+shift+ArrowDown"),
     );
   });
 
@@ -111,7 +118,7 @@ describe("keyboard selection", () => {
 
     expect(onAction).toHaveBeenCalledWith(
       { kind: "select-column", col: 2, usedRangeOnly: true },
-      "keyboard",
+      keyboardMeta("SELECT_COLUMN", "ctrl+ "),
     );
   });
 
@@ -121,7 +128,10 @@ describe("keyboard selection", () => {
 
     fireEvent.keyDown(container, { key: " ", code: "Space", shiftKey: true });
 
-    expect(onAction).toHaveBeenCalledWith({ kind: "select-row", row: 3 }, "keyboard");
+    expect(onAction).toHaveBeenCalledWith(
+      { kind: "select-row", row: 3 },
+      keyboardMeta("SELECT_ROW", "shift+ "),
+    );
   });
 
   it("selects the whole used range with the modifier and A", () => {
@@ -134,7 +144,7 @@ describe("keyboard selection", () => {
         kind: "select-range",
         range: { start: { row: 0, col: 0 }, end: { row: 6, col: 4 } },
       },
-      "keyboard",
+      keyboardMeta("SELECT_TABLE", "mod+a"),
     );
   });
 });
@@ -155,7 +165,7 @@ describe("formatting shortcuts", () => {
         range: { start: { row: 0, col: 0 }, end: { row: 0, col: 4 } },
         format: { bold: true },
       },
-      "keyboard",
+      keyboardMeta("TOGGLE_BOLD", "mod+b"),
     );
   });
 
@@ -174,7 +184,7 @@ describe("formatting shortcuts", () => {
         range: { start: { row: 0, col: 0 }, end: { row: 0, col: 4 } },
         format: { bold: false },
       },
-      "keyboard",
+      keyboardMeta("TOGGLE_BOLD", "mod+b"),
     );
   });
 
@@ -193,7 +203,7 @@ describe("formatting shortcuts", () => {
         range: { start: { row: 1, col: 2 }, end: { row: 6, col: 2 } },
         format: { numberFormat: "currency" },
       },
-      "keyboard",
+      keyboardMeta("FORMAT_CURRENCY", "mod+shift+$"),
     );
   });
 
@@ -213,7 +223,7 @@ describe("formatting shortcuts", () => {
 
     expect(onAction).toHaveBeenCalledWith(
       { kind: "select-cell", cell: { row: 1, col: 0 } },
-      "keyboard",
+      keyboardMeta("MOVE_DOWN", "ArrowDown"),
     );
   });
 });

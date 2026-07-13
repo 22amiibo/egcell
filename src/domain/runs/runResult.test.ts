@@ -50,7 +50,7 @@ describe("buildRunResult", () => {
       clientFinishedAt: "2026-07-12T10:00:04.200Z",
     });
 
-    expect(result.eventDigest).toMatch(/^v1:[0-9a-f]{8}$/);
+    expect(result.eventDigest).toMatch(/^v2:[0-9a-f]{8}$/);
     expect(result.replayEvents).toEqual(events);
   });
 
@@ -104,7 +104,7 @@ describe("eventDigest", () => {
   });
 
   it("handles a run with no events", () => {
-    expect(eventDigest([])).toMatch(/^v1:[0-9a-f]{8}$/);
+    expect(eventDigest([])).toMatch(/^v2:[0-9a-f]{8}$/);
   });
 
   it("does not depend on the key order of a format", () => {
@@ -134,6 +134,16 @@ describe("eventDigest", () => {
   });
 
   it("writes a canonical form a server could recompute", () => {
-    expect(canonicalEvents(events)).toBe("120|select-cell:3,2;900|select-column:2:true");
+    // These fixture events predate the command layer, so the command slot is empty — canonicalised
+    // as "", never guessed.
+    expect(canonicalEvents(events)).toBe("120||select-cell:3,2;900||select-column:2:true");
+  });
+
+  it("changes when only the command differs, so two routes to the same action stay distinguishable", () => {
+    const withCommand: RunEvent[] = [{ ...events[0], command: "MOVE_DOWN" }, events[1]];
+    const withDifferentCommand: RunEvent[] = [{ ...events[0], command: "JUMP_DOWN" }, events[1]];
+
+    expect(eventDigest(withCommand)).not.toBe(eventDigest(withDifferentCommand));
+    expect(eventDigest(withCommand)).not.toBe(eventDigest(events));
   });
 });

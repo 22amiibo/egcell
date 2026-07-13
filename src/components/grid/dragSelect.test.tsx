@@ -3,10 +3,16 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
+import type { ActionMeta, GridCommandId } from "@/domain/commands/commandTypes";
 import { gridReducer } from "@/domain/grid/gridReducer";
 import { createRevenueGrid } from "@/test/fixtures/revenueGrid";
 
 const cell = (name: string) => screen.getByRole("button", { name });
+
+/** Every grid-pointer call carries this shape; only `command` varies. */
+function pointerMeta(command: GridCommandId): ActionMeta {
+  return { command, inputMethod: "pointer", via: "grid", chord: null, controlId: null };
+}
 
 describe("drag to select a range", () => {
   it("selects the range the pointer was dragged across", async () => {
@@ -23,7 +29,7 @@ describe("drag to select a range", () => {
         kind: "select-range",
         range: { start: { row: 0, col: 0 }, end: { row: 2, col: 2 } },
       },
-      "pointer",
+      pointerMeta("DRAG_SELECT_RANGE"),
     );
   });
 
@@ -44,7 +50,7 @@ describe("drag to select a range", () => {
         kind: "select-cell",
         cell: { row: 2, col: 2 },
       },
-      "pointer",
+      pointerMeta("CLICK_CELL"),
     );
   });
 
@@ -56,7 +62,7 @@ describe("drag to select a range", () => {
 
     expect(onAction).toHaveBeenCalledWith(
       { kind: "select-cell", cell: { row: 1, col: 1 } },
-      "pointer",
+      pointerMeta("CLICK_CELL"),
     );
   });
 

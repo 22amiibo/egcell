@@ -62,12 +62,21 @@ describe("Toolbar filters", () => {
     expect(screen.queryByTestId("filter-hint")).not.toBeInTheDocument();
     filterButton().click();
 
-    expect(onAction).toHaveBeenCalledWith({
-      kind: "filter-column",
-      col: STATUS_COL,
-      op: "equals",
-      value: "Complete",
-    });
+    expect(onAction).toHaveBeenCalledWith(
+      {
+        kind: "filter-column",
+        col: STATUS_COL,
+        op: "equals",
+        value: "Complete",
+      },
+      {
+        command: "FILTER_TO_VALUE",
+        inputMethod: "pointer",
+        via: "toolbar",
+        chord: null,
+        controlId: "toolbar-filter-equals",
+      },
+    );
   });
 
   it("offers the greater-than filter only on a number cell", () => {
@@ -75,12 +84,21 @@ describe("Toolbar filters", () => {
 
     filterAboveButton().click();
 
-    expect(onAction).toHaveBeenCalledWith({
-      kind: "filter-column",
-      col: REVENUE_COL,
-      op: "greater-than",
-      value: 128400,
-    });
+    expect(onAction).toHaveBeenCalledWith(
+      {
+        kind: "filter-column",
+        col: REVENUE_COL,
+        op: "greater-than",
+        value: 128400,
+      },
+      {
+        command: "FILTER_ABOVE_VALUE",
+        inputMethod: "pointer",
+        via: "toolbar",
+        chord: null,
+        controlId: "toolbar-filter-above",
+      },
+    );
   });
 
   it("tells the player to pick a value when the selected cell is blank", () => {
@@ -88,5 +106,40 @@ describe("Toolbar filters", () => {
 
     expect(filterButton()).toBeDisabled();
     expect(screen.getByTestId("filter-hint")).toHaveTextContent(/blank/i);
+  });
+});
+
+describe("Toolbar formatting", () => {
+  const formatChallenge: Challenge = {
+    ...filterChallenge,
+    id: "test.format",
+    allowedActions: ["select-cell", "set-format"],
+  };
+
+  it("tags a toolbar Bold click as TOGGLE_BOLD via the toolbar — distinguishable from the same command fired by Ctrl+B", () => {
+    const onAction = vi.fn();
+    const grid: GridState = {
+      ...createRevenueGrid(),
+      selection: { kind: "range", range: { start: { row: 0, col: 0 }, end: { row: 0, col: 4 } } },
+    };
+
+    render(<Toolbar challenge={formatChallenge} grid={grid} onAction={onAction} />);
+
+    screen.getByRole("button", { name: "Bold" }).click();
+
+    expect(onAction).toHaveBeenCalledWith(
+      {
+        kind: "set-format",
+        range: { start: { row: 0, col: 0 }, end: { row: 0, col: 4 } },
+        format: { bold: true },
+      },
+      {
+        command: "TOGGLE_BOLD",
+        inputMethod: "pointer",
+        via: "toolbar",
+        chord: null,
+        controlId: "toolbar-bold",
+      },
+    );
   });
 });

@@ -1,7 +1,9 @@
 import { ComboIndicator } from "@/components/game/ComboIndicator";
 import { ShortcutFlash } from "@/components/game/ShortcutFlash";
+import { chordLabel } from "@/domain/commands/keymap";
 import type { RunEvent } from "@/domain/runs/runTypes";
 import type { ValidationResult } from "@/domain/validation/validatorTypes";
+import type { Platform } from "@/lib/platform";
 
 export type RunFeedbackEvent =
   | "taskAppear"
@@ -67,36 +69,19 @@ export function feedbackEventForRun(
   return validation.messages.some((message) => message.kind === "error") ? "mistake" : "combo";
 }
 
-export function shortcutLabelForEvent(event: RunEvent | undefined): string | null {
-  if (event?.inputMethod !== "keyboard") {
+/**
+ * The chord that actually fired, read from the command the input boundary minted — never guessed
+ * from the resulting action the way the deleted `shortcutLabelForEvent` did (it said "Arrow key"
+ * for a `Ctrl+↓`, because a `select-cell` action alone cannot tell you which). Gated on
+ * `inputMethod === "keyboard"`, matching that function's original gate exactly: a toolbar click
+ * has a command with a real keyboard binding too, and must not flash a chord it did not use.
+ */
+export function chordLabelForEvent(event: RunEvent | undefined, platform: Platform): string | null {
+  if (event === undefined || event.inputMethod !== "keyboard" || event.command === undefined) {
     return null;
   }
 
-  switch (event.action.kind) {
-    case "select-cell":
-      return "Arrow key";
-    case "select-range":
-      return "Selection shortcut";
-    case "select-row":
-      return "Shift+Space";
-    case "select-column":
-      return "Ctrl+Space";
-    case "set-format":
-      if (event.action.format.bold !== undefined) {
-        return "Ctrl+B";
-      }
-      if (event.action.format.numberFormat === "currency") {
-        return "Ctrl+Shift+4";
-      }
-      if (event.action.format.numberFormat === "percent") {
-        return "Ctrl+Shift+5";
-      }
-      return "Format shortcut";
-    case "sort-column":
-    case "filter-column":
-    case "clear-filters":
-      return "Keyboard shortcut";
-  }
+  return chordLabel(event.command, platform);
 }
 
 /** Visual-only feedback overlay. Absolute positioning guarantees it never changes grid geometry. */

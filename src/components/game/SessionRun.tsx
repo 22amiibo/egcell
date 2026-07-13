@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 
 import { LiveStatsBar } from "@/components/game/LiveStatsBar";
 import {
+  chordLabelForEvent,
   feedbackEventForRun,
   RunFeedbackLayer,
-  shortcutLabelForEvent,
 } from "@/components/game/RunFeedbackLayer";
 import { SessionResultCard } from "@/components/game/SessionResultCard";
 import { TaskProgressRail } from "@/components/game/TaskProgressRail";
@@ -34,6 +34,7 @@ import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
 import type { NewRunEntry } from "@/hooks/useLocalRunHistory";
 import type { LocalSessionRecords, SessionRecordSubmission } from "@/hooks/useLocalSessionRecords";
 import { useSettings } from "@/hooks/useSettings";
+import { getPlatform } from "@/lib/platform";
 import {
   getSoundCue,
   playSoundCue,
@@ -223,7 +224,7 @@ function SessionTask({
           event={feedbackEvent}
           reducedMotion={reducedMotion}
           combo={taskActions - taskMistakes}
-          shortcutLabel={shortcutLabelForEvent(run.events.at(-1))}
+          shortcutLabel={chordLabelForEvent(run.events.at(-1), getPlatform())}
           showCombo={showCombo}
           showShortcut={showShortcut}
         />

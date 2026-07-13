@@ -1,6 +1,8 @@
 "use client";
 
 import type { Challenge } from "@/domain/challenges/challengeTypes";
+import type { ActionMeta, GridCommandId } from "@/domain/commands/commandTypes";
+import { resolveCommand } from "@/domain/commands/resolveCommand";
 import { comparableValue } from "@/domain/grid/cellValues";
 import type { GridAction, GridActionKind, GridState } from "@/domain/grid/gridTypes";
 import { dataRowBounds, getCell, selectionBounds } from "@/domain/grid/selectors";
@@ -8,7 +10,7 @@ import { dataRowBounds, getCell, selectionBounds } from "@/domain/grid/selectors
 type ToolbarProps = {
   challenge: Challenge;
   grid: GridState;
-  onAction: (action: GridAction) => void;
+  onAction: (action: GridAction, meta: ActionMeta) => void;
 };
 
 function ToolbarButton({
@@ -67,6 +69,21 @@ export function Toolbar({ challenge, grid, onAction }: ToolbarProps) {
       ? "That cell is blank — click a cell holding the value to filter by."
       : null;
 
+  // The toolbar has no anchor/focus of its own — every command acts on wherever the active cell
+  // already is, exactly as `resolveCommand`'s guards (a blank filter cell, an empty selection)
+  // already expect from a caller with no independent tracking.
+  const emit = (command: GridCommandId, controlId: string) => {
+    const action = resolveCommand(command, {
+      grid,
+      focus: grid.activeCell,
+      anchor: grid.activeCell,
+    });
+
+    if (action !== null) {
+      onAction(action, { command, inputMethod: "pointer", via: "toolbar", chord: null, controlId });
+    }
+  };
+
   return (
     <div
       role="toolbar"
@@ -79,36 +96,41 @@ export function Toolbar({ challenge, grid, onAction }: ToolbarProps) {
             label="B"
             title="Bold"
             disabled={bounds === null}
+            // Deliberately not `emit`: unlike Ctrl+B, this button always sets bold on rather than
+            // toggling it (formatting.unbold-header has no mouse-only solve because of exactly
+            // this — see the plan's §7.5/§12). Preserved as-is; still tagged TOGGLE_BOLD, since
+            // that remains the closest honest label for what the player asked for.
             onClick={() =>
-              bounds && onAction({ kind: "set-format", range: bounds, format: { bold: true } })
+              bounds !== null &&
+              onAction(
+                { kind: "set-format", range: bounds, format: { bold: true } },
+                {
+                  command: "TOGGLE_BOLD",
+                  inputMethod: "pointer",
+                  via: "toolbar",
+                  chord: null,
+                  controlId: "toolbar-bold",
+                },
+              )
             }
           />
           <ToolbarButton
             label="$"
             title="Format as currency"
             disabled={bounds === null}
-            onClick={() =>
-              bounds &&
-              onAction({ kind: "set-format", range: bounds, format: { numberFormat: "currency" } })
-            }
+            onClick={() => emit("FORMAT_CURRENCY", "toolbar-currency")}
           />
           <ToolbarButton
             label="%"
             title="Format as percent"
             disabled={bounds === null}
-            onClick={() =>
-              bounds &&
-              onAction({ kind: "set-format", range: bounds, format: { numberFormat: "percent" } })
-            }
+            onClick={() => emit("FORMAT_PERCENT", "toolbar-percent")}
           />
           <ToolbarButton
             label="Date"
             title="Format as date"
             disabled={bounds === null}
-            onClick={() =>
-              bounds &&
-              onAction({ kind: "set-format", range: bounds, format: { numberFormat: "date" } })
-            }
+            onClick={() => emit("FORMAT_DATE", "toolbar-date")}
           />
         </>
       )}
@@ -119,17 +141,13 @@ export function Toolbar({ challenge, grid, onAction }: ToolbarProps) {
             label="A to Z"
             title="Sort low to high"
             disabled={false}
-            onClick={() =>
-              onAction({ kind: "sort-column", col: grid.activeCell.col, direction: "asc" })
-            }
+            onClick={() => emit("SORT_ASC", "toolbar-sort-asc")}
           />
           <ToolbarButton
             label="Z to A"
             title="Sort high to low"
             disabled={false}
-            onClick={() =>
-              onAction({ kind: "sort-column", col: grid.activeCell.col, direction: "desc" })
-            }
+            onClick={() => emit("SORT_DESC", "toolbar-sort-desc")}
           />
         </>
       )}
@@ -141,36 +159,20 @@ export function Toolbar({ challenge, grid, onAction }: ToolbarProps) {
             title="Filter to the selected value"
             // Excel's "filter by selected cell's value". A blank cell has nothing to filter to.
             disabled={filterValue === null}
-            onClick={() =>
-              filterValue !== null &&
-              onAction({
-                kind: "filter-column",
-                col: grid.activeCell.col,
-                op: "equals",
-                value: filterValue,
-              })
-            }
+            onClick={() => emit("FILTER_TO_VALUE", "toolbar-filter-equals")}
           />
           <ToolbarButton
             label="Filter >"
             title="Filter above the selected value"
             // A threshold only means something for a number.
             disabled={typeof filterValue !== "number"}
-            onClick={() =>
-              typeof filterValue === "number" &&
-              onAction({
-                kind: "filter-column",
-                col: grid.activeCell.col,
-                op: "greater-than",
-                value: filterValue,
-              })
-            }
+            onClick={() => emit("FILTER_ABOVE_VALUE", "toolbar-filter-above")}
           />
           <ToolbarButton
             label="Clear"
             title="Clear filters"
             disabled={grid.filters.length === 0}
-            onClick={() => onAction({ kind: "clear-filters" })}
+            onClick={() => emit("CLEAR_FILTERS", "toolbar-clear-filters")}
           />
           {filterHint !== null && (
             <span data-testid="filter-hint" className="pl-1 text-[11px] text-muted">

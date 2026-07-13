@@ -1,7 +1,7 @@
 import type { CellFormat, GridAction } from "@/domain/grid/gridTypes";
 import type { RunEvent } from "@/domain/runs/runTypes";
 
-const DIGEST_VERSION = "v1";
+const DIGEST_VERSION = "v2";
 
 const FNV_OFFSET_BASIS = 0x811c9dc5;
 const FNV_PRIME = 0x01000193;
@@ -36,8 +36,16 @@ function canonicalAction(action: GridAction): string {
   }
 }
 
+/**
+ * The command is part of the canonical form: two routes that reach the same action (twelve
+ * `MOVE_DOWN`s and one `EXTEND_JUMP_DOWN`) are different runs, and a digest that only hashed the
+ * resulting actions would say they were identical. Absent for events recorded before the command
+ * layer existed — canonicalised as `""`, never guessed.
+ */
 export function canonicalEvents(events: RunEvent[]): string {
-  return events.map((event) => `${event.atMs}|${canonicalAction(event.action)}`).join(";");
+  return events
+    .map((event) => `${event.atMs}|${event.command ?? ""}|${canonicalAction(event.action)}`)
+    .join(";");
 }
 
 function fnv1a(input: string): number {

@@ -3,8 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
+import type { ActionMeta, GridCommandId } from "@/domain/commands/commandTypes";
 import { gridReducer } from "@/domain/grid/gridReducer";
 import { createRevenueGrid } from "@/test/fixtures/revenueGrid";
+
+/** Every grid-pointer call carries this shape; only `command` varies. */
+function pointerMeta(command: GridCommandId): ActionMeta {
+  return { command, inputMethod: "pointer", via: "grid", chord: null, controlId: null };
+}
 
 describe("SpreadsheetGrid", () => {
   it("applies compact density and gridline strength to the grid", () => {
@@ -77,7 +83,7 @@ describe("SpreadsheetGrid", () => {
 
     expect(onAction).toHaveBeenCalledWith(
       { kind: "select-column", col: 2, usedRangeOnly: true },
-      "pointer",
+      pointerMeta("CLICK_COLUMN_HEADER"),
     );
   });
 
@@ -89,7 +95,7 @@ describe("SpreadsheetGrid", () => {
 
     expect(onAction).toHaveBeenCalledWith(
       { kind: "select-cell", cell: { row: 3, col: 2 } },
-      "pointer",
+      pointerMeta("CLICK_CELL"),
     );
   });
 
@@ -99,7 +105,10 @@ describe("SpreadsheetGrid", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Select row 2" }));
 
-    expect(onAction).toHaveBeenCalledWith({ kind: "select-row", row: 1 }, "pointer");
+    expect(onAction).toHaveBeenCalledWith(
+      { kind: "select-row", row: 1 },
+      pointerMeta("CLICK_ROW_HEADER"),
+    );
   });
 
   it("renders the Revenue column as formatted currency", () => {

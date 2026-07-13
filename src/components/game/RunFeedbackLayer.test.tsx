@@ -1,7 +1,18 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { RunFeedbackLayer } from "@/components/game/RunFeedbackLayer";
+import { chordLabelForEvent, RunFeedbackLayer } from "@/components/game/RunFeedbackLayer";
+import type { RunEvent } from "@/domain/runs/runTypes";
+
+const MOVE_DOWN: RunEvent = {
+  atMs: 100,
+  action: { kind: "select-cell", cell: { row: 1, col: 0 } },
+  inputMethod: "keyboard",
+  command: "MOVE_DOWN",
+  via: "shortcut",
+  chord: "ArrowDown",
+  controlId: null,
+};
 
 describe("RunFeedbackLayer", () => {
   it("uses a reduced-motion, pointer-transparent overlay without changing grid dimensions", () => {
@@ -55,5 +66,44 @@ describe("RunFeedbackLayer", () => {
 
     expect(screen.queryByTestId("shortcut-flash")).not.toBeInTheDocument();
     expect(screen.queryByTestId("combo-indicator")).not.toBeInTheDocument();
+  });
+});
+
+describe("chordLabelForEvent", () => {
+  it("reads the chord from the command that fired, not a guess about the action", () => {
+    expect(chordLabelForEvent(MOVE_DOWN, "windows")).toBe("↓");
+  });
+
+  it("never labels a pointer-origin event as a keyboard chord", () => {
+    const toolbarClick: RunEvent = {
+      ...MOVE_DOWN,
+      inputMethod: "pointer",
+      command: "TOGGLE_BOLD",
+      via: "toolbar",
+      chord: null,
+      controlId: "toolbar-bold",
+    };
+
+    expect(chordLabelForEvent(toolbarClick, "windows")).toBeNull();
+  });
+
+  it("never labels an unknown-origin event as a verified keyboard action", () => {
+    const unknownOrigin: RunEvent = { ...MOVE_DOWN, inputMethod: "unknown" };
+
+    expect(chordLabelForEvent(unknownOrigin, "windows")).toBeNull();
+  });
+
+  it("returns null for a legacy event recorded before the command layer existed", () => {
+    const legacy: RunEvent = {
+      atMs: 100,
+      action: { kind: "select-cell", cell: { row: 1, col: 0 } },
+      inputMethod: "keyboard",
+    };
+
+    expect(chordLabelForEvent(legacy, "windows")).toBeNull();
+  });
+
+  it("returns null when there is no event yet", () => {
+    expect(chordLabelForEvent(undefined, "windows")).toBeNull();
   });
 });

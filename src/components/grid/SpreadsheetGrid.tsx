@@ -15,21 +15,62 @@ import { ColumnHeader } from "@/components/grid/ColumnHeader";
 import { RowHeader } from "@/components/grid/RowHeader";
 import { SelectionOverlay } from "@/components/grid/SelectionOverlay";
 import { getGridMetrics } from "@/components/grid/gridMetrics";
+import type { ActionMeta, GridCommandId } from "@/domain/commands/commandTypes";
+import { matchChord } from "@/domain/commands/keymap";
+import { resolveCommand } from "@/domain/commands/resolveCommand";
 import type {
   CellAddress,
   GridAction,
   GridActionKind,
   GridState,
 } from "@/domain/grid/gridTypes";
-import type { RunInputMethod } from "@/domain/runs/runTypes";
 import type { GridDensity, Settings } from "@/domain/settings/themes";
-import { jumpActive, stepActive, type MoveDirection } from "@/domain/grid/keyboardNav";
-import { cellKey, normalizeRange } from "@/domain/grid/range";
-import { isCellSelected, isRangeBold, renderedRows, selectionBounds } from "@/domain/grid/selectors";
+import { cellKey } from "@/domain/grid/range";
+import { isCellSelected, renderedRows } from "@/domain/grid/selectors";
+
+/** Commands whose action the challenge can disable, the same way the toolbar gates its buttons. */
+const SET_FORMAT_COMMANDS = new Set<GridCommandId>([
+  "TOGGLE_BOLD",
+  "FORMAT_CURRENCY",
+  "FORMAT_PERCENT",
+  "FORMAT_DATE",
+]);
+
+/**
+ * Mirrors the ref assignments `handleKeyDown` and the pointer handlers made inline before the
+ * command layer existed. `select-column`/`select-row` deliberately echo the caller's `base`
+ * rather than deriving `{row: 0, col}`/`{row, col: 0}` from the action, because a keyboard
+ * shortcut (Ctrl+Space from row 3) and a header click (always row 0) disagree on what the anchor
+ * should become afterward, and only the caller knows which one this is.
+ */
+function updateRefsForAction(
+  action: GridAction,
+  base: CellAddress,
+  anchorRef: RefObject<CellAddress | null>,
+  focusRef: RefObject<CellAddress | null>,
+): void {
+  switch (action.kind) {
+    case "select-cell":
+      anchorRef.current = action.cell;
+      focusRef.current = action.cell;
+      return;
+    case "select-range":
+      anchorRef.current = action.range.start;
+      focusRef.current = action.range.end;
+      return;
+    case "select-column":
+    case "select-row":
+      anchorRef.current = base;
+      focusRef.current = base;
+      return;
+    default:
+      return;
+  }
+}
 
 type SpreadsheetGridProps = {
   grid: GridState;
-  onAction: (action: GridAction, inputMethod?: RunInputMethod) => void;
+  onAction: (action: GridAction, meta: ActionMeta) => void;
   /**
    * The actions the current challenge allows, used to gate formatting shortcuts the way the
    * toolbar gates its buttons. Omitted means everything is allowed, which keeps the grid usable
@@ -47,13 +88,6 @@ const GRIDLINE_CLASSES: Record<Settings["grid"]["gridlineStrength"], string> = {
   soft: "border-line/60",
   standard: "border-line",
   strong: "border-line-strong",
-};
-
-const ARROW_DIRECTIONS: Record<string, MoveDirection> = {
-  ArrowUp: "up",
-  ArrowDown: "down",
-  ArrowLeft: "left",
-  ArrowRight: "right",
 };
 
 export function SpreadsheetGrid({
@@ -129,11 +163,23 @@ export function SpreadsheetGrid({
       }
 
       draggedRef.current = true;
-      keyAnchorRef.current = anchor;
-      keyFocusRef.current = cell;
-      onAction({ kind: "select-range", range: { start: anchor, end: cell } }, "pointer");
+
+      const action = resolveCommand("DRAG_SELECT_RANGE", { grid, focus: cell, anchor });
+
+      if (action === null) {
+        return;
+      }
+
+      updateRefsForAction(action, cell, keyAnchorRef, keyFocusRef);
+      onAction(action, {
+        command: "DRAG_SELECT_RANGE",
+        inputMethod: "pointer",
+        via: "grid",
+        chord: null,
+        controlId: null,
+      });
     },
-    [onAction],
+    [grid, onAction],
   );
 
   const selectCell = useCallback(
@@ -146,30 +192,65 @@ export function SpreadsheetGrid({
         return;
       }
 
-      keyAnchorRef.current = cell;
-      keyFocusRef.current = cell;
-      onAction({ kind: "select-cell", cell }, "pointer");
+      const action = resolveCommand("CLICK_CELL", { grid, focus: cell, anchor: cell });
+
+      if (action === null) {
+        return;
+      }
+
+      updateRefsForAction(action, cell, keyAnchorRef, keyFocusRef);
+      onAction(action, {
+        command: "CLICK_CELL",
+        inputMethod: "pointer",
+        via: "grid",
+        chord: null,
+        controlId: null,
+      });
     },
-    [onAction],
+    [grid, onAction],
   );
 
   // Clicking a column header means "this column's data", the same as it does in Excel.
   const selectColumn = useCallback(
     (col: number) => {
-      keyAnchorRef.current = { row: 0, col };
-      keyFocusRef.current = { row: 0, col };
-      onAction({ kind: "select-column", col, usedRangeOnly: true }, "pointer");
+      const base = { row: 0, col };
+      const action = resolveCommand("CLICK_COLUMN_HEADER", { grid, focus: base, anchor: base });
+
+      if (action === null) {
+        return;
+      }
+
+      updateRefsForAction(action, base, keyAnchorRef, keyFocusRef);
+      onAction(action, {
+        command: "CLICK_COLUMN_HEADER",
+        inputMethod: "pointer",
+        via: "grid",
+        chord: null,
+        controlId: null,
+      });
     },
-    [onAction],
+    [grid, onAction],
   );
 
   const selectRow = useCallback(
     (row: number) => {
-      keyAnchorRef.current = { row, col: 0 };
-      keyFocusRef.current = { row, col: 0 };
-      onAction({ kind: "select-row", row }, "pointer");
+      const base = { row, col: 0 };
+      const action = resolveCommand("CLICK_ROW_HEADER", { grid, focus: base, anchor: base });
+
+      if (action === null) {
+        return;
+      }
+
+      updateRefsForAction(action, base, keyAnchorRef, keyFocusRef);
+      onAction(action, {
+        command: "CLICK_ROW_HEADER",
+        inputMethod: "pointer",
+        via: "grid",
+        chord: null,
+        controlId: null,
+      });
     },
-    [onAction],
+    [grid, onAction],
   );
 
   const handleKeyDown = useCallback(
@@ -177,110 +258,39 @@ export function SpreadsheetGrid({
       const allows = (kind: GridActionKind) =>
         allowedActions === undefined || allowedActions.includes(kind);
 
-      // Cmd on Mac and Ctrl elsewhere. Both are accepted everywhere, the way web spreadsheets do
-      // it, so nothing has to sniff the platform.
-      const mod = event.metaKey || event.ctrlKey;
-      const base = keyFocusRef.current ?? grid.activeCell;
+      const match = matchChord(event);
 
-      const direction = ARROW_DIRECTIONS[event.key];
-
-      if (direction !== undefined) {
-        event.preventDefault();
-
-        const target = mod ? jumpActive(grid, base, direction) : stepActive(grid, base, direction);
-
-        if (event.shiftKey) {
-          const anchor = keyAnchorRef.current ?? grid.activeCell;
-
-          keyAnchorRef.current = anchor;
-          keyFocusRef.current = target;
-          onAction({ kind: "select-range", range: { start: anchor, end: target } }, "keyboard");
-        } else {
-          keyAnchorRef.current = target;
-          keyFocusRef.current = target;
-          onAction({ kind: "select-cell", cell: target }, "keyboard");
-        }
-
+      if (match === null) {
         return;
       }
 
-      if (event.key === " " || event.code === "Space") {
-        // Excel: Ctrl+Space selects the column, Shift+Space selects the row.
-        if (event.ctrlKey && !event.shiftKey) {
-          event.preventDefault();
-          keyAnchorRef.current = base;
-          keyFocusRef.current = base;
-          onAction({ kind: "select-column", col: base.col, usedRangeOnly: true }, "keyboard");
-        } else if (event.shiftKey && !event.ctrlKey) {
-          event.preventDefault();
-          keyAnchorRef.current = base;
-          keyFocusRef.current = base;
-          onAction({ kind: "select-row", row: base.row }, "keyboard");
-        }
+      const { command, chord } = match;
 
+      // Movement is never gated: it is how the player gets around. Only the set-format commands
+      // can be disallowed, exactly as the toolbar's own buttons are — and, as before, a disallowed
+      // chord is not prevented at all, so the browser is free to do whatever it would otherwise.
+      if (SET_FORMAT_COMMANDS.has(command) && !allows("set-format")) {
         return;
       }
 
-      const key = event.key.toLowerCase();
+      event.preventDefault();
 
-      if (mod && key === "a") {
-        // Select the whole table, Excel's Ctrl+A from inside a table.
-        event.preventDefault();
+      const focus = keyFocusRef.current ?? grid.activeCell;
+      const anchor = keyAnchorRef.current ?? grid.activeCell;
+      const action = resolveCommand(command, { grid, focus, anchor });
 
-        const used = normalizeRange(grid.usedRange);
-
-        keyAnchorRef.current = used.start;
-        keyFocusRef.current = used.end;
-        onAction({ kind: "select-range", range: used }, "keyboard");
-
+      if (action === null) {
         return;
       }
 
-      if (mod && key === "b" && allows("set-format")) {
-        event.preventDefault();
-
-        const bounds = selectionBounds(grid);
-
-        if (bounds !== null) {
-          // A toggle, as in Excel: an already fully bold selection unbolds.
-          onAction(
-            { kind: "set-format", range: bounds, format: { bold: !isRangeBold(grid, bounds) } },
-            "keyboard",
-          );
-        }
-
-        return;
-      }
-
-      // Excel: Ctrl+Shift+4 is currency, Ctrl+Shift+5 is percent. With Shift held, a US layout
-      // reports "$" and "%", other layouts report the digit, so both spellings are accepted.
-      if (mod && event.shiftKey && (event.key === "$" || event.key === "4") && allows("set-format")) {
-        event.preventDefault();
-
-        const bounds = selectionBounds(grid);
-
-        if (bounds !== null) {
-          onAction(
-            { kind: "set-format", range: bounds, format: { numberFormat: "currency" } },
-            "keyboard",
-          );
-        }
-
-        return;
-      }
-
-      if (mod && event.shiftKey && (event.key === "%" || event.key === "5") && allows("set-format")) {
-        event.preventDefault();
-
-        const bounds = selectionBounds(grid);
-
-        if (bounds !== null) {
-          onAction(
-            { kind: "set-format", range: bounds, format: { numberFormat: "percent" } },
-            "keyboard",
-          );
-        }
-      }
+      updateRefsForAction(action, focus, keyAnchorRef, keyFocusRef);
+      onAction(action, {
+        command,
+        inputMethod: "keyboard",
+        via: "shortcut",
+        chord,
+        controlId: null,
+      });
     },
     [grid, onAction, allowedActions],
   );

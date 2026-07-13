@@ -70,7 +70,9 @@ describe("ChallengeRun practice frame", () => {
     fireEvent.keyDown(grid, { key: "ArrowDown" });
 
     expect(layer).toHaveAttribute("data-event", "shortcut");
-    expect(screen.getByTestId("shortcut-flash")).toHaveTextContent("Arrow key");
+    // The real chord, read from the command that fired — not the guessed "Arrow key" the deleted
+    // shortcutLabelForEvent used to show for every select-cell, keyboard or not.
+    expect(screen.getByTestId("shortcut-flash")).toHaveTextContent("↓");
 
     fireEvent.keyDown(grid, { key: "ArrowRight" });
 

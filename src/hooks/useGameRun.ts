@@ -3,17 +3,13 @@
 import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 
 import type { Challenge, ChallengeMode } from "@/domain/challenges/challengeTypes";
+import type { ActionMeta } from "@/domain/commands/commandTypes";
 import { gridReducer } from "@/domain/grid/gridReducer";
 import type { GridAction, GridState } from "@/domain/grid/gridTypes";
 import { isPersonalRecordEligible } from "@/domain/records/personalRecords";
 import type { PersonalRecord } from "@/domain/records/recordTypes";
 import { buildRunResult, type RunResult } from "@/domain/runs/runResult";
-import type {
-  RunEvent,
-  RunInputMethod,
-  RunState,
-  RunStatus,
-} from "@/domain/runs/runTypes";
+import type { RunEvent, RunState, RunStatus } from "@/domain/runs/runTypes";
 import { scoreRun } from "@/domain/scoring/scoreRun";
 import type { ScoreResult } from "@/domain/scoring/scoringTypes";
 import { validateChallenge } from "@/domain/validation/validateChallenge";
@@ -45,7 +41,7 @@ export type GameRun = {
   result: FinishedRun | null;
   events: RunEvent[];
   validation: ValidationResult;
-  dispatch: (action: GridAction, inputMethod?: RunInputMethod) => void;
+  dispatch: (action: GridAction, meta: ActionMeta) => void;
   retry: () => void;
   /**
    * Ends the run right now and grades whatever the grid looks like, complete or not. Sessions use
@@ -159,7 +155,7 @@ export function useGameRun(
   );
 
   const dispatch = useCallback(
-    (action: GridAction, inputMethod: RunInputMethod = "pointer") => {
+    (action: GridAction, meta: ActionMeta) => {
       if (resultRef.current !== null) {
         return;
       }
@@ -179,7 +175,15 @@ export function useGameRun(
       setGrid(nextGrid);
       eventsRef.current = [
         ...eventsRef.current,
-        { atMs: now - runStartedAt, action, inputMethod },
+        {
+          atMs: now - runStartedAt,
+          action,
+          inputMethod: meta.inputMethod,
+          command: meta.command,
+          via: meta.via,
+          chord: meta.chord,
+          controlId: meta.controlId,
+        },
       ];
       setEvents(eventsRef.current);
 

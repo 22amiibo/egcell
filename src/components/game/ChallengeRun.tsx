@@ -6,9 +6,9 @@ import { ChallengePrompt } from "@/components/game/ChallengePrompt";
 import { LiveStatsBar } from "@/components/game/LiveStatsBar";
 import { ResultCard } from "@/components/game/ResultCard";
 import {
+  chordLabelForEvent,
   feedbackEventForRun,
   RunFeedbackLayer,
-  shortcutLabelForEvent,
 } from "@/components/game/RunFeedbackLayer";
 import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { Toolbar } from "@/components/game/Toolbar";
@@ -17,6 +17,7 @@ import type { Challenge, ChallengeMode } from "@/domain/challenges/challengeType
 import { useGameRun, type FinishedRun } from "@/hooks/useGameRun";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
 import { useSettings } from "@/hooks/useSettings";
+import { getPlatform } from "@/lib/platform";
 import { getSoundCue, playSoundCue, soundEventForFeedback } from "@/lib/sound/runSounds";
 
 type ChallengeRunProps = {
@@ -96,7 +97,7 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
           event={feedbackEvent}
           reducedMotion={settings.accessibility.reducedMotion}
           combo={actionCount - mistakes}
-          shortcutLabel={shortcutLabelForEvent(run.events.at(-1))}
+          shortcutLabel={chordLabelForEvent(run.events.at(-1), getPlatform())}
           showCombo={settings.feedback.combo}
           showShortcut={settings.feedback.shortcutFlash}
         />
