@@ -42,7 +42,23 @@ function finishedRun(overrides: Partial<FinishedRun> = {}): FinishedRun {
       accuracy: 1,
       startedAtMs: 1_000_000,
       finishedAtMs: 1_003_000,
-      events: [],
+      events: [
+        {
+          atMs: 250,
+          inputMethod: "pointer",
+          action: { kind: "select-cell", cell: { row: 1, col: 1 } },
+        },
+        {
+          atMs: 800,
+          inputMethod: "keyboard",
+          action: { kind: "select-cell", cell: { row: 1, col: 2 } },
+        },
+        {
+          atMs: 1200,
+          inputMethod: "keyboard",
+          action: { kind: "select-column", col: 2, usedRangeOnly: true },
+        },
+      ],
     }),
     ...overrides,
   };
@@ -75,6 +91,34 @@ function sessionResult(): SessionResult {
 }
 
 describe("the single-run result card", () => {
+  it("shows replay-driving metrics and leaves retry focused", () => {
+    render(
+      <ResultCard
+        challenge={defaultChallenge}
+        mode="main-speed"
+        run={finishedRun({
+          previousBest: {
+            challengeId: defaultChallenge.id,
+            mode: "main-speed",
+            bestScore: 1000,
+            bestElapsedMs: 3500,
+            bestCorrectness: 1,
+            achievedAt: "2026-07-01T00:00:00.000Z",
+            seed: defaultChallenge.seed,
+          },
+        })}
+        onRetry={vi.fn()}
+        onNext={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("EPM")).toBeVisible();
+    expect(screen.getByText("Shortcut efficiency")).toBeVisible();
+    expect(screen.getByText("PB delta")).toBeVisible();
+    expect(screen.getByText(/retry focused/i)).toBeVisible();
+    expect(screen.getByRole("button", { name: /retry/i })).toHaveFocus();
+  });
+
   it("wears the badge on a new record, and only then", () => {
     const { rerender } = render(
       <ResultCard
@@ -175,6 +219,48 @@ describe("the record line", () => {
 });
 
 describe("the session result card", () => {
+  it("shows pace, shortcut efficiency, and the slowest task before the breakdown", () => {
+    render(
+      <SessionResultCard
+        result={{
+          ...sessionResult(),
+          totalElapsedMs: 9000,
+          tasks: [
+            sessionResult().tasks[0],
+            {
+              ...sessionResult().tasks[0],
+              challengeId: "formatting.currency.v1",
+              title: "Format currency",
+              elapsedMs: 5000,
+              score: 700,
+            },
+          ],
+          tasksCompleted: 2,
+          taskCount: 2,
+        }}
+        previousBest={undefined}
+        isNewRecord={false}
+        liveStats={{
+          elapsedMs: 9000,
+          epm: 13,
+          accuracy: 90,
+          shortcutEfficiency: 75,
+          combo: 4,
+          mistakes: 1,
+          completedTasks: 2,
+          totalTasks: 2,
+          pbDeltaMs: null,
+        }}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Average task")).toBeVisible();
+    expect(screen.getByText("Fastest task")).toBeVisible();
+    expect(screen.getByText("Shortcut efficiency")).toBeVisible();
+    expect(screen.getByText(/slowest task: format currency/i)).toBeVisible();
+  });
+
   it("wears the badge on a new session record", () => {
     render(
       <SessionResultCard

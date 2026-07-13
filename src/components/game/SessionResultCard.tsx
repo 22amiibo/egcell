@@ -10,12 +10,14 @@ import {
   type SessionResult,
   type SessionTaskResult,
 } from "@/domain/sessions/sessionTypes";
+import type { LiveRunStats } from "@/domain/stats/liveRunStats";
 import { formatElapsed, formatPercent, formatScore } from "@/lib/format";
 
 type SessionResultCardProps = {
   result: SessionResult;
   previousBest: SessionRecord | undefined;
   isNewRecord: boolean;
+  liveStats?: LiveRunStats;
   onRetry: () => void;
 };
 
@@ -75,10 +77,30 @@ export function SessionResultCard({
   result,
   previousBest,
   isNewRecord,
+  liveStats,
   onRetry,
 }: SessionResultCardProps) {
   const plan = SESSION_PLANS[result.mode];
   const heading = plan.kind === "task-count" ? "Sprint complete" : "Time's up";
+  const completedTasks = result.tasks.filter((task) => task.outcome === "completed");
+  const timedTasks = completedTasks.length > 0 ? completedTasks : result.tasks;
+  const fastestTask = timedTasks.reduce<SessionTaskResult | null>(
+    (fastest, task) => (fastest === null || task.elapsedMs < fastest.elapsedMs ? task : fastest),
+    null,
+  );
+  const slowestTask = timedTasks.reduce<SessionTaskResult | null>(
+    (slowest, task) => (slowest === null || task.elapsedMs > slowest.elapsedMs ? task : slowest),
+    null,
+  );
+  const averageTaskMs =
+    timedTasks.length === 0
+      ? 0
+      : timedTasks.reduce((sum, task) => sum + task.elapsedMs, 0) / timedTasks.length;
+  const epm =
+    liveStats?.epm ??
+    (result.totalElapsedMs === 0
+      ? 0
+      : Math.round((result.tasksCompleted * 60_000) / result.totalElapsedMs));
 
   return (
     <div
@@ -97,18 +119,28 @@ export function SessionResultCard({
         </span>
       </div>
 
-      <p className="mt-3 text-4xl font-semibold tabular-nums text-ink" data-testid="session-final-time">
-        {plan.kind === "task-count"
-          ? formatElapsed(result.totalElapsedMs)
-          : `${result.tasksCompleted} ${result.tasksCompleted === 1 ? "task" : "tasks"}`}
-      </p>
-
-      <p
-        className="mt-1 text-lg font-medium tabular-nums text-accent-strong"
-        data-testid="session-score"
-      >
-        {formatScore(result.totalScore)} points
-      </p>
+      <div className="mt-3 flex items-end justify-between gap-4">
+        <div>
+          <p
+            className="text-4xl font-semibold tabular-nums text-ink"
+            data-testid="session-final-time"
+          >
+            {plan.kind === "task-count"
+              ? formatElapsed(result.totalElapsedMs)
+              : `${result.tasksCompleted} ${result.tasksCompleted === 1 ? "task" : "tasks"}`}
+          </p>
+          <p
+            className="mt-1 text-lg font-medium tabular-nums text-accent-strong"
+            data-testid="session-score"
+          >
+            {formatScore(result.totalScore)} points
+          </p>
+        </div>
+        <div className="pb-1 text-right">
+          <p className="text-[10px] font-medium tracking-widest text-muted uppercase">EPM</p>
+          <p className="text-xl font-semibold tabular-nums text-ink">{epm}</p>
+        </div>
+      </div>
 
       <div className="mt-4">
         <SessionBest result={result} previousBest={previousBest} isNewRecord={isNewRecord} />
@@ -123,10 +155,26 @@ export function SessionResultCard({
         />
         <StatRow label="Completion" value={formatPercent(result.completionPercent)} />
         <StatRow label="Accuracy" value={formatPercent(result.accuracy)} />
+        <StatRow
+          label="Shortcut efficiency"
+          value={`${liveStats?.shortcutEfficiency ?? 0}%`}
+        />
+        <StatRow label="Average task" value={formatElapsed(averageTaskMs)} />
+        <StatRow
+          label="Fastest task"
+          value={fastestTask === null ? "—" : formatElapsed(fastestTask.elapsedMs)}
+        />
         {plan.kind === "fixed-time" && (
           <StatRow label="Total time" value={formatElapsed(result.totalElapsedMs)} />
         )}
       </div>
+
+      {slowestTask !== null && (
+        <p className="mt-3 text-[12px] text-muted">
+          <span className="font-medium text-ink">Slowest task: {slowestTask.title}.</span>{" "}
+          Retry focused: make that step automatic.
+        </p>
+      )}
 
       <details className="mt-3 border-t border-line pt-3">
         <summary className="cursor-pointer text-[12px] text-muted hover:text-ink">

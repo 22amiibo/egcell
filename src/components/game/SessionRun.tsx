@@ -25,6 +25,7 @@ import {
   type SessionTaskResult,
   type TaskOutcome,
 } from "@/domain/sessions/sessionTypes";
+import { calculateLiveRunStats } from "@/domain/stats/liveRunStats";
 import { createRunClock } from "@/hooks/runClock";
 import { useGameRun, type FinishedRun } from "@/hooks/useGameRun";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
@@ -381,6 +382,24 @@ export function SessionRun({
     outcome === null
       ? completedCount
       : tasks.slice(0, -1).filter((task) => task.outcome === "completed").length;
+  const finalActions = finishedTaskStats.reduce((sum, stats) => sum + stats.actions, 0);
+  const finalShortcutActions = finishedTaskStats.reduce(
+    (sum, stats) => sum + stats.shortcutActions,
+    0,
+  );
+  const finalMistakes = finishedTaskStats.reduce((sum, stats) => sum + stats.mistakes, 0);
+  const finalLiveStats =
+    outcome === null
+      ? undefined
+      : calculateLiveRunStats({
+          elapsedMs: outcome.result.totalElapsedMs,
+          actions: finalActions,
+          shortcutActions: finalShortcutActions,
+          mistakes: finalMistakes,
+          completedTasks: outcome.result.tasksCompleted,
+          totalTasks: outcome.result.taskCount,
+          pbMs: outcome.submission.previousBest?.bestElapsedMs ?? null,
+        });
 
   return (
     <div data-testid="practice-frame" className="flex flex-col items-center gap-4">
@@ -443,6 +462,7 @@ export function SessionRun({
               result={outcome.result}
               previousBest={outcome.submission.previousBest}
               isNewRecord={outcome.submission.isNewRecord}
+              liveStats={finalLiveStats}
               onRetry={retry}
             />
           </div>

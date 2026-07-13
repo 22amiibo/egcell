@@ -5,6 +5,7 @@ import { PracticeNotes } from "@/components/game/PracticeNotes";
 import { RetryButton } from "@/components/game/RetryButton";
 import { StatRow } from "@/components/game/StatRow";
 import type { Challenge, ChallengeMode } from "@/domain/challenges/challengeTypes";
+import { calculateLiveRunStats } from "@/domain/stats/liveRunStats";
 import type { FinishedRun } from "@/hooks/useGameRun";
 import { formatElapsed, formatPercent, formatScore } from "@/lib/format";
 
@@ -52,6 +53,36 @@ function PersonalBest({ run }: { run: FinishedRun }) {
 }
 
 export function ResultCard({ challenge, mode, run, onRetry, onNext }: ResultCardProps) {
+  const actions = run.submission.replayEvents.length;
+  const shortcutActions = run.submission.replayEvents.filter(
+    (event) => event.inputMethod === "keyboard",
+  ).length;
+  const stats = calculateLiveRunStats({
+    elapsedMs: run.elapsedMs,
+    actions,
+    shortcutActions,
+    mistakes: Math.round(actions * (1 - run.validation.accuracy)),
+    completedTasks: run.validation.completionPercent,
+    totalTasks: 1,
+    pbMs: run.previousBest?.bestElapsedMs ?? null,
+  });
+  const pbDelta =
+    stats.pbDeltaMs === null
+      ? "First result"
+      : stats.pbDeltaMs === 0
+        ? "Matched"
+        : stats.pbDeltaMs < 0
+          ? `${formatElapsed(Math.abs(stats.pbDeltaMs))} faster`
+          : `${formatElapsed(stats.pbDeltaMs)} behind`;
+  const retryFocus =
+    stats.shortcutEfficiency < 100
+      ? "replace pointer actions with shortcuts"
+      : run.validation.accuracy < 1
+        ? "complete a clean route"
+        : run.elapsedMs > challenge.scoring.targetSeconds * 1000
+          ? `bring ${challenge.family} under target`
+          : "defend this pace";
+
   return (
     <div
       role="dialog"
@@ -71,23 +102,39 @@ export function ResultCard({ challenge, mode, run, onRetry, onNext }: ResultCard
         </span>
       </div>
 
-      <p className="mt-3 text-4xl font-semibold tabular-nums text-ink" data-testid="final-time">
-        {formatElapsed(run.elapsedMs)}
-      </p>
-
-      <p className="mt-1 text-lg font-medium tabular-nums text-accent-strong" data-testid="score">
-        {formatScore(run.score.score)} points
-      </p>
+      <div className="mt-3 flex items-end justify-between gap-4">
+        <div>
+          <p className="text-4xl font-semibold tabular-nums text-ink" data-testid="final-time">
+            {formatElapsed(run.elapsedMs)}
+          </p>
+          <p
+            className="mt-1 text-lg font-medium tabular-nums text-accent-strong"
+            data-testid="score"
+          >
+            {formatScore(run.score.score)} points
+          </p>
+        </div>
+        <div className="pb-1 text-right">
+          <p className="text-[10px] font-medium tracking-widest text-muted uppercase">EPM</p>
+          <p className="text-xl font-semibold tabular-nums text-ink">{stats.epm}</p>
+        </div>
+      </div>
 
       <div className="mt-4">
         <PersonalBest run={run} />
       </div>
 
-      {/* The whole two-second read: time, score, and how clean the run was. */}
+      {/* The whole two-second read: result, record pace, and how efficiently it was earned. */}
       <div className="mt-4 flex flex-col gap-1 border-t border-line pt-4">
+        <StatRow label="PB delta" value={pbDelta} />
         <StatRow label="Correctness" value={formatPercent(run.validation.correctness)} />
         <StatRow label="Accuracy" value={formatPercent(run.validation.accuracy)} />
+        <StatRow label="Shortcut efficiency" value={`${stats.shortcutEfficiency}%`} />
       </div>
+
+      <p className="mt-3 text-[12px] text-muted">
+        <span className="font-medium text-ink">Retry focused:</span> {retryFocus}.
+      </p>
 
       {mode === "practice" && <PracticeNotes notes={challenge.practiceNotes} />}
 
