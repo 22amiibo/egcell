@@ -60,6 +60,7 @@ The grid is fully playable without a mouse: arrows move, Shift+Arrow extends, Cm
 - Every validator still grades the grid's end state, never the route. The keyboard shipped without touching one.
 - Generated variants and queues are pure functions of their seeds. A template emits its grid and validation spec from the same generated dataset layout.
 - Composite validation reports each named subgoal while preserving the existing mean completion calculation and unchanged score pipeline.
+- Composite eligibility rejects misaligned labels and incompatible selection, navigation, formatting, or sort/filter requirements before a mixed variant can ship.
 - Client-only state (records, session records, history, settings, clocks) goes through `useSyncExternalStore`. Zero lint suppressions.
 - `useGameRun` gained `recordPersonalBest`, `onFinished`, and `finishNow()` for sessions; the timed deadline is a per-task timeout **plus** a wall-clock check at completion, because setTimeout is a lower bound.
 

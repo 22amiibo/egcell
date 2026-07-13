@@ -4,7 +4,7 @@ import type { ChallengeVariant, EligibilityIssue } from "@/domain/challenges/var
 import type { GeneratedGrid } from "@/domain/datasets/datasetTypes";
 import { matchesFilter } from "@/domain/grid/cellValues";
 import type { CellFormat, GridState, RangeAddress } from "@/domain/grid/gridTypes";
-import { cellKey, normalizeRange } from "@/domain/grid/range";
+import { cellKey, isAddressInRange, normalizeRange, rangesEqual } from "@/domain/grid/range";
 import { dataRowBounds, getCell } from "@/domain/grid/selectors";
 import type { RunState } from "@/domain/runs/runTypes";
 import { validateChallenge } from "@/domain/validation/validateChallenge";
@@ -105,6 +105,47 @@ function cellSatisfies(grid: GridState, row: number, col: number, required: Cell
   );
 }
 
+function rangesOverlap(left: RangeAddress, right: RangeAddress): boolean {
+  const first = normalizeRange(left);
+  const second = normalizeRange(right);
+
+  return (
+    isAddressInRange(first.start, second) ||
+    isAddressInRange(first.end, second) ||
+    isAddressInRange(second.start, first) ||
+    isAddressInRange(second.end, first)
+  );
+}
+
+function formatsConflict(left: CellFormat, right: CellFormat): boolean {
+  return (Object.keys(left) as Array<keyof CellFormat>).some(
+    (key) => right[key] !== undefined && right[key] !== left[key],
+  );
+}
+
+/**
+ * Composite parts all grade the same final grid. Reject pairs whose requirements cannot coexist,
+ * rather than shipping a chain that can never earn full credit regardless of route.
+ */
+function conflictingCompositeParts(left: LeafValidationSpec, right: LeafValidationSpec): boolean {
+  if (left.kind === "selection" && right.kind === "selection") {
+    return !rangesEqual(left.requiredRange, right.requiredRange);
+  }
+
+  if (left.kind === "navigation" && right.kind === "navigation") {
+    return (
+      left.requiredCell.row !== right.requiredCell.row || left.requiredCell.col !== right.requiredCell.col
+    );
+  }
+
+  return (
+    left.kind === "formatting" &&
+    right.kind === "formatting" &&
+    rangesOverlap(left.range, right.range) &&
+    formatsConflict(left.requiredFormat, right.requiredFormat)
+  );
+}
+
 function syntheticRun(variant: ChallengeVariant): RunState {
   return {
     challengeId: variant.id,
@@ -150,6 +191,17 @@ export function checkVariant(input: EligibilityInput): EligibilityIssue[] {
         check: "composite-multiple-sort-filter",
         detail: `${sortFilterParts} sort-filter parts cannot be graded independently.`,
       });
+    }
+
+    for (let leftIndex = 0; leftIndex < specs.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < specs.length; rightIndex += 1) {
+        if (conflictingCompositeParts(specs[leftIndex], specs[rightIndex])) {
+          issues.push({
+            check: "composite-interference",
+            detail: `Parts ${leftIndex + 1} and ${rightIndex + 1} require incompatible final grid state.`,
+          });
+        }
+      }
     }
   }
 

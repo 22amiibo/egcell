@@ -151,4 +151,33 @@ describe("checkVariant", () => {
 
     expect(issuesOf(broken, dataset)).toContain("composite-label-count");
   });
+
+  it("rejects composite selection parts that require different final ranges", () => {
+    const { variant, dataset } = goodDraw();
+    const selection = variant.validation;
+
+    if (selection.kind !== "selection") {
+      throw new Error("Expected a selection spec.");
+    }
+
+    const broken: ChallengeVariant = {
+      ...variant,
+      validation: {
+        kind: "composite",
+        parts: [
+          selection,
+          {
+            ...selection,
+            requiredRange: {
+              start: { row: selection.requiredRange.start.row, col: selection.requiredRange.start.col + 1 },
+              end: { row: selection.requiredRange.end.row, col: selection.requiredRange.end.col + 1 },
+            },
+          },
+        ],
+        partLabels: ["Select the first range", "Select the second range"],
+      },
+    };
+
+    expect(issuesOf(broken, dataset)).toContain("composite-interference");
+  });
 });

@@ -1045,7 +1045,7 @@ Two rules hold across every phase below:
 
 **Goal:** Two- and three-step chains, with subgoal progress that timed mode can pay out on.
 
-**Done:** one deterministic, order-independent generated mixed template; named subgoal validation; session result propagation and breakdown; timed buzzer partial-credit integration. `scoreRun` and every leaf validator remain unchanged.
+**Done:** one deterministic, order-independent generated mixed template; named subgoal validation; session result propagation and breakdown; timed buzzer partial-credit integration; and eligibility rejection for incompatible composite final-state requirements. `scoreRun` and every leaf validator remain unchanged.
 
 **Files:**
 
