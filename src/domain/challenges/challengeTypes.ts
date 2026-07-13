@@ -16,6 +16,7 @@ export type ChallengeFamily =
   | "formula"
   | "mixed";
 export type ChallengeMode = "main-speed" | "practice";
+export type ChallengeDifficulty = 1 | 2 | 3 | 4 | 5;
 
 export type TimingPolicy =
   | { kind: "single-challenge"; targetSeconds: number }
@@ -81,7 +82,7 @@ export type Challenge = {
   title: string;
   prompt: string;
   family: ChallengeFamily;
-  difficulty: 1 | 2 | 3 | 4 | 5;
+  difficulty: ChallengeDifficulty;
   seed: string;
   timingPolicy: TimingPolicy;
   initialGrid: GridState;
