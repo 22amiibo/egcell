@@ -23,6 +23,68 @@ describe("the settings panel", () => {
     );
   });
 
+  it("exposes every settings category and its core controls", async () => {
+    const user = userEvent.setup();
+
+    render(<SettingsPanel />);
+
+    for (const category of [
+      "Appearance",
+      "Grid",
+      "Gameplay",
+      "Scoring",
+      "Feedback",
+      "Sound",
+      "Accessibility",
+      "Privacy",
+    ]) {
+      expect(screen.getByRole("tab", { name: category })).toBeInTheDocument();
+    }
+
+    await user.click(screen.getByRole("tab", { name: "Grid" }));
+    expect(screen.getByLabelText("Grid density")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Scoring" }));
+    expect(screen.getByLabelText("Mouse policy")).toBeInTheDocument();
+    expect(screen.getByLabelText("Hotkey strictness")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Feedback" }));
+    expect(screen.getByLabelText("Live stats")).toBeChecked();
+    expect(screen.getByLabelText("Shortcut flash")).toBeChecked();
+
+    await user.click(screen.getByRole("tab", { name: "Accessibility" }));
+    expect(screen.getByLabelText("Reduced motion")).not.toBeChecked();
+    expect(screen.getByLabelText("High contrast")).not.toBeChecked();
+  });
+
+  it("persists a tuning control immediately", async () => {
+    const user = userEvent.setup();
+
+    render(<SettingsPanel />);
+    await user.click(screen.getByRole("tab", { name: "Grid" }));
+    await user.selectOptions(screen.getByLabelText("Grid density"), "compact");
+
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "{}")).toMatchObject({
+      grid: { density: "compact" },
+    });
+  });
+
+  it("applies accessibility preferences to the document root", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <>
+        <ThemeApplier />
+        <SettingsPanel />
+      </>,
+    );
+    await user.click(screen.getByRole("tab", { name: "Accessibility" }));
+    await user.click(screen.getByLabelText("Reduced motion"));
+
+    expect(document.documentElement.dataset.reducedMotion).toBe("true");
+    expect(document.documentElement.style.getPropertyValue("--motion-base")).toBe("0ms");
+  });
+
   it("picking a preset restyles the document root and persists the choice", async () => {
     render(
       <>

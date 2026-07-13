@@ -20,6 +20,8 @@
   --motion-fast: 90ms;
   --motion-base: 160ms;
   --motion-slow: 260ms;
+  --font-game: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --grid-cell-height: 32px;
 
   /* Compatibility aliases retained while existing components migrate. */
   --color-canvas: var(--color-background);
@@ -38,10 +40,24 @@
   body {
     background-color: var(--color-background);
     color: var(--color-text-primary);
+    font-family: var(--font-game);
   }
 
   :focus-visible {
     outline: 2px solid var(--color-focus-ring);
     outline-offset: 2px;
+  }
+
+  html[data-high-contrast="true"] :focus-visible {
+    outline-width: 3px;
+  }
+
+  html[data-reduced-motion="true"] *,
+  html[data-reduced-motion="true"] *::before,
+  html[data-reduced-motion="true"] *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
