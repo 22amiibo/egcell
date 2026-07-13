@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
+import { LiveStatsBar } from "@/components/game/LiveStatsBar";
 import { SessionResultCard } from "@/components/game/SessionResultCard";
 import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { Toolbar } from "@/components/game/Toolbar";
@@ -23,6 +24,7 @@ import { useGameRun, type FinishedRun } from "@/hooks/useGameRun";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
 import type { NewRunEntry } from "@/hooks/useLocalRunHistory";
 import type { LocalSessionRecords, SessionRecordSubmission } from "@/hooks/useLocalSessionRecords";
+import { useSettings } from "@/hooks/useSettings";
 
 type SessionRunProps = {
   sessionMode: SessionMode;
@@ -63,6 +65,14 @@ type SessionTaskProps = {
   deadlineAtMs: number | null;
   /** True once the session is over: the grid freezes and the skip control goes away. */
   frozen: boolean;
+  sessionStartedAt: number | null;
+  frozenSessionElapsedMs: number | null;
+  previousActions: number;
+  previousShortcutActions: number;
+  previousMistakes: number;
+  completedTasks: number;
+  totalTasks: number;
+  liveStatsEnabled: boolean;
 };
 
 /**
@@ -70,7 +80,21 @@ type SessionTaskProps = {
  * per-task result card, because the session advances instead, and no per-challenge personal
  * record, because the session banks one record for the whole run.
  */
-function SessionTask({ challenge, records, onFinished, deadlineAtMs, frozen }: SessionTaskProps) {
+function SessionTask({
+  challenge,
+  records,
+  onFinished,
+  deadlineAtMs,
+  frozen,
+  sessionStartedAt,
+  frozenSessionElapsedMs,
+  previousActions,
+  previousShortcutActions,
+  previousMistakes,
+  completedTasks,
+  totalTasks,
+  liveStatsEnabled,
+}: SessionTaskProps) {
   // A task reports its result exactly once, whichever of completion, skip, or the session
   // deadline gets there first.
   const reportedRef = useRef(false);
@@ -125,8 +149,28 @@ function SessionTask({ challenge, records, onFinished, deadlineAtMs, frozen }: S
     return () => clearTimeout(timer);
   }, [deadlineAtMs, frozen, finishNow, report]);
 
+  const taskActions = run.events.length;
+  const taskShortcutActions = run.events.filter(
+    (event) => event.inputMethod === "keyboard",
+  ).length;
+  const taskMistakes = Math.round(taskActions * (1 - run.validation.accuracy));
+
   return (
     <div className="flex w-full flex-col items-center gap-5">
+      <div className="flex w-full justify-start">
+        <LiveStatsBar
+          startedAt={sessionStartedAt}
+          frozenElapsedMs={frozenSessionElapsedMs}
+          actions={previousActions + taskActions}
+          shortcutActions={previousShortcutActions + taskShortcutActions}
+          mistakes={previousMistakes + taskMistakes}
+          completedTasks={completedTasks + run.validation.completionPercent}
+          totalTasks={totalTasks}
+          pbMs={null}
+          enabled={liveStatsEnabled}
+        />
+      </div>
+
       <div className="flex w-full items-center justify-between gap-4">
         <Toolbar challenge={challenge} grid={run.grid} onAction={run.dispatch} />
         <span aria-hidden className="flex-1" />
@@ -158,6 +202,7 @@ export function SessionRun({
   seedOverride,
 }: SessionRunProps) {
   const plan = SESSION_PLANS[sessionMode];
+  const { settings } = useSettings();
 
   const [clock] = useState(createRunClock);
   const sessionStartedAt = useSyncExternalStore(
@@ -168,6 +213,9 @@ export function SessionRun({
 
   const [taskIndex, setTaskIndex] = useState(0);
   const [tasks, setTasks] = useState<SessionTaskResult[]>([]);
+  const [finishedTaskStats, setFinishedTaskStats] = useState<
+    Array<{ actions: number; shortcutActions: number; mistakes: number }>
+  >([]);
   const [outcome, setOutcome] = useState<{
     result: SessionResult;
     submission: SessionRecordSubmission;
@@ -233,6 +281,15 @@ export function SessionRun({
 
       tasksRef.current = next;
       setTasks(next);
+      const replayEvents = finished.submission.replayEvents;
+      setFinishedTaskStats((current) => [
+        ...current,
+        {
+          actions: replayEvents.length,
+          shortcutActions: replayEvents.filter((event) => event.inputMethod === "keyboard").length,
+          mistakes: Math.round(replayEvents.length * (1 - finished.validation.accuracy)),
+        },
+      ]);
 
       const sprintDone = plan.kind === "task-count" && next.length >= plan.taskCount;
       // In a timed run the queue only stops when the clock does. The wall clock is checked here
@@ -257,6 +314,7 @@ export function SessionRun({
     drawCounter.current += 1;
 
     setTasks([]);
+    setFinishedTaskStats([]);
     setTaskIndex(0);
     setOutcome(null);
     setAttempt((current) => current + 1);
@@ -275,6 +333,17 @@ export function SessionRun({
       : durationMs === null
         ? outcome.result.totalElapsedMs
         : Math.min(outcome.result.totalElapsedMs, durationMs);
+  const previousTaskStats = outcome === null ? finishedTaskStats : finishedTaskStats.slice(0, -1);
+  const previousActions = previousTaskStats.reduce((sum, stats) => sum + stats.actions, 0);
+  const previousShortcutActions = previousTaskStats.reduce(
+    (sum, stats) => sum + stats.shortcutActions,
+    0,
+  );
+  const previousMistakes = previousTaskStats.reduce((sum, stats) => sum + stats.mistakes, 0);
+  const statsCompletedCount =
+    outcome === null
+      ? completedCount
+      : tasks.slice(0, -1).filter((task) => task.outcome === "completed").length;
 
   return (
     <div className="flex flex-col items-center gap-5">
@@ -307,6 +376,14 @@ export function SessionRun({
           onFinished={handleTaskFinished}
           deadlineAtMs={deadlineAtMs}
           frozen={outcome !== null}
+          sessionStartedAt={sessionStartedAt}
+          frozenSessionElapsedMs={frozenElapsedMs}
+          previousActions={previousActions}
+          previousShortcutActions={previousShortcutActions}
+          previousMistakes={previousMistakes}
+          completedTasks={statsCompletedCount}
+          totalTasks={plan.kind === "task-count" ? plan.taskCount : 0}
+          liveStatsEnabled={settings.feedback.liveStats}
         />
 
         {outcome !== null && (

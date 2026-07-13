@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 
 import { ChallengePrompt } from "@/components/game/ChallengePrompt";
+import { LiveStatsBar } from "@/components/game/LiveStatsBar";
 import { ResultCard } from "@/components/game/ResultCard";
 import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { Toolbar } from "@/components/game/Toolbar";
@@ -10,6 +11,7 @@ import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
 import type { Challenge, ChallengeMode } from "@/domain/challenges/challengeTypes";
 import { useGameRun, type FinishedRun } from "@/hooks/useGameRun";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
+import { useSettings } from "@/hooks/useSettings";
 
 type ChallengeRunProps = {
   challenge: Challenge;
@@ -26,6 +28,12 @@ type ChallengeRunProps = {
  */
 export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: ChallengeRunProps) {
   const run = useGameRun(challenge, mode, records, { onFinished });
+  const { settings } = useSettings();
+  const actionCount = run.events.length;
+  const shortcutActionCount = run.events.filter(
+    (event) => event.inputMethod === "keyboard",
+  ).length;
+  const mistakes = Math.round(actionCount * (1 - run.validation.accuracy));
 
   // Retry remounts the grid. The grid keeps its keyboard anchor in refs, and a reset that left
   // the component mounted would leave those refs pointing at the last run's selection; a fresh
@@ -42,6 +50,20 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
       <div className="flex w-full items-end justify-between gap-8">
         <ChallengePrompt challenge={challenge} />
         <TimerDisplay startedAt={run.startedAt} frozenElapsedMs={run.result?.elapsedMs ?? null} />
+      </div>
+
+      <div className="flex w-full justify-start">
+        <LiveStatsBar
+          startedAt={run.startedAt}
+          frozenElapsedMs={run.result?.elapsedMs ?? null}
+          actions={actionCount}
+          shortcutActions={shortcutActionCount}
+          mistakes={mistakes}
+          completedTasks={run.validation.completionPercent}
+          totalTasks={1}
+          pbMs={records.getBest(challenge.id, mode)?.bestElapsedMs ?? null}
+          enabled={settings.feedback.liveStats}
+        />
       </div>
 
       <div className="flex w-full justify-start">

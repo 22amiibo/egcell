@@ -3,10 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
 import type { GridAction, GridState } from "@/domain/grid/gridTypes";
+import type { RunInputMethod } from "@/domain/runs/runTypes";
 import { createRevenueGrid } from "@/test/fixtures/revenueGrid";
 
 function renderGrid(grid: GridState, allowedActions?: GridAction["kind"][]) {
-  const onAction = vi.fn<(action: GridAction) => void>();
+  const onAction = vi.fn<(action: GridAction, inputMethod?: RunInputMethod) => void>();
 
   render(<SpreadsheetGrid grid={grid} onAction={onAction} allowedActions={allowedActions} />);
 
@@ -19,7 +20,10 @@ describe("keyboard movement", () => {
 
     fireEvent.keyDown(container, { key: "ArrowDown" });
 
-    expect(onAction).toHaveBeenCalledWith({ kind: "select-cell", cell: { row: 1, col: 0 } });
+    expect(onAction).toHaveBeenCalledWith(
+      { kind: "select-cell", cell: { row: 1, col: 0 } },
+      "keyboard",
+    );
   });
 
   it("keeps moving from where the last keystroke landed", () => {
@@ -28,7 +32,10 @@ describe("keyboard movement", () => {
     fireEvent.keyDown(container, { key: "ArrowDown" });
     fireEvent.keyDown(container, { key: "ArrowRight" });
 
-    expect(onAction).toHaveBeenLastCalledWith({ kind: "select-cell", cell: { row: 1, col: 1 } });
+    expect(onAction).toHaveBeenLastCalledWith(
+      { kind: "select-cell", cell: { row: 1, col: 1 } },
+      "keyboard",
+    );
   });
 
   it("jumps to the edge of the data region with a modifier held", () => {
@@ -37,7 +44,10 @@ describe("keyboard movement", () => {
 
     fireEvent.keyDown(container, { key: "ArrowDown", metaKey: true });
 
-    expect(onAction).toHaveBeenCalledWith({ kind: "select-cell", cell: { row: 6, col: 2 } });
+    expect(onAction).toHaveBeenCalledWith(
+      { kind: "select-cell", cell: { row: 6, col: 2 } },
+      "keyboard",
+    );
   });
 
   it("accepts Ctrl as the jump modifier too", () => {
@@ -46,7 +56,10 @@ describe("keyboard movement", () => {
 
     fireEvent.keyDown(container, { key: "ArrowDown", ctrlKey: true });
 
-    expect(onAction).toHaveBeenCalledWith({ kind: "select-cell", cell: { row: 6, col: 2 } });
+    expect(onAction).toHaveBeenCalledWith(
+      { kind: "select-cell", cell: { row: 6, col: 2 } },
+      "keyboard",
+    );
   });
 });
 
@@ -57,14 +70,22 @@ describe("keyboard selection", () => {
     fireEvent.keyDown(container, { key: "ArrowDown", shiftKey: true });
     fireEvent.keyDown(container, { key: "ArrowRight", shiftKey: true });
 
-    expect(onAction).toHaveBeenNthCalledWith(1, {
-      kind: "select-range",
-      range: { start: { row: 0, col: 0 }, end: { row: 1, col: 0 } },
-    });
-    expect(onAction).toHaveBeenNthCalledWith(2, {
-      kind: "select-range",
-      range: { start: { row: 0, col: 0 }, end: { row: 1, col: 1 } },
-    });
+    expect(onAction).toHaveBeenNthCalledWith(
+      1,
+      {
+        kind: "select-range",
+        range: { start: { row: 0, col: 0 }, end: { row: 1, col: 0 } },
+      },
+      "keyboard",
+    );
+    expect(onAction).toHaveBeenNthCalledWith(
+      2,
+      {
+        kind: "select-range",
+        range: { start: { row: 0, col: 0 }, end: { row: 1, col: 1 } },
+      },
+      "keyboard",
+    );
   });
 
   it("extends to the edge of the data region with modifier and Shift together", () => {
@@ -73,10 +94,13 @@ describe("keyboard selection", () => {
 
     fireEvent.keyDown(container, { key: "ArrowDown", metaKey: true, shiftKey: true });
 
-    expect(onAction).toHaveBeenCalledWith({
-      kind: "select-range",
-      range: { start: { row: 0, col: 2 }, end: { row: 6, col: 2 } },
-    });
+    expect(onAction).toHaveBeenCalledWith(
+      {
+        kind: "select-range",
+        range: { start: { row: 0, col: 2 }, end: { row: 6, col: 2 } },
+      },
+      "keyboard",
+    );
   });
 
   it("selects the active column with Ctrl+Space", () => {
@@ -85,7 +109,10 @@ describe("keyboard selection", () => {
 
     fireEvent.keyDown(container, { key: " ", code: "Space", ctrlKey: true });
 
-    expect(onAction).toHaveBeenCalledWith({ kind: "select-column", col: 2, usedRangeOnly: true });
+    expect(onAction).toHaveBeenCalledWith(
+      { kind: "select-column", col: 2, usedRangeOnly: true },
+      "keyboard",
+    );
   });
 
   it("selects the active row with Shift+Space", () => {
@@ -94,7 +121,7 @@ describe("keyboard selection", () => {
 
     fireEvent.keyDown(container, { key: " ", code: "Space", shiftKey: true });
 
-    expect(onAction).toHaveBeenCalledWith({ kind: "select-row", row: 3 });
+    expect(onAction).toHaveBeenCalledWith({ kind: "select-row", row: 3 }, "keyboard");
   });
 
   it("selects the whole used range with the modifier and A", () => {
@@ -102,10 +129,13 @@ describe("keyboard selection", () => {
 
     fireEvent.keyDown(container, { key: "a", metaKey: true });
 
-    expect(onAction).toHaveBeenCalledWith({
-      kind: "select-range",
-      range: { start: { row: 0, col: 0 }, end: { row: 6, col: 4 } },
-    });
+    expect(onAction).toHaveBeenCalledWith(
+      {
+        kind: "select-range",
+        range: { start: { row: 0, col: 0 }, end: { row: 6, col: 4 } },
+      },
+      "keyboard",
+    );
   });
 });
 
@@ -119,11 +149,14 @@ describe("formatting shortcuts", () => {
 
     fireEvent.keyDown(container, { key: "b", metaKey: true });
 
-    expect(onAction).toHaveBeenCalledWith({
-      kind: "set-format",
-      range: { start: { row: 0, col: 0 }, end: { row: 0, col: 4 } },
-      format: { bold: true },
-    });
+    expect(onAction).toHaveBeenCalledWith(
+      {
+        kind: "set-format",
+        range: { start: { row: 0, col: 0 }, end: { row: 0, col: 4 } },
+        format: { bold: true },
+      },
+      "keyboard",
+    );
   });
 
   it("unbolds a selection that is already fully bold", () => {
@@ -135,11 +168,14 @@ describe("formatting shortcuts", () => {
 
     fireEvent.keyDown(container, { key: "b", ctrlKey: true });
 
-    expect(onAction).toHaveBeenCalledWith({
-      kind: "set-format",
-      range: { start: { row: 0, col: 0 }, end: { row: 0, col: 4 } },
-      format: { bold: false },
-    });
+    expect(onAction).toHaveBeenCalledWith(
+      {
+        kind: "set-format",
+        range: { start: { row: 0, col: 0 }, end: { row: 0, col: 4 } },
+        format: { bold: false },
+      },
+      "keyboard",
+    );
   });
 
   it("applies currency with Ctrl+Shift+4", () => {
@@ -151,11 +187,14 @@ describe("formatting shortcuts", () => {
 
     fireEvent.keyDown(container, { key: "$", ctrlKey: true, shiftKey: true });
 
-    expect(onAction).toHaveBeenCalledWith({
-      kind: "set-format",
-      range: { start: { row: 1, col: 2 }, end: { row: 6, col: 2 } },
-      format: { numberFormat: "currency" },
-    });
+    expect(onAction).toHaveBeenCalledWith(
+      {
+        kind: "set-format",
+        range: { start: { row: 1, col: 2 }, end: { row: 6, col: 2 } },
+        format: { numberFormat: "currency" },
+      },
+      "keyboard",
+    );
   });
 
   it("ignores formatting shortcuts when the challenge does not allow set-format", () => {
@@ -172,6 +211,9 @@ describe("formatting shortcuts", () => {
     // Movement is never gated: it is how the player gets around.
     fireEvent.keyDown(container, { key: "ArrowDown" });
 
-    expect(onAction).toHaveBeenCalledWith({ kind: "select-cell", cell: { row: 1, col: 0 } });
+    expect(onAction).toHaveBeenCalledWith(
+      { kind: "select-cell", cell: { row: 1, col: 0 } },
+      "keyboard",
+    );
   });
 });

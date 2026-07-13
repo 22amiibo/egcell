@@ -13,7 +13,10 @@ describe("SpreadsheetGrid", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Select column C" }));
 
-    expect(onAction).toHaveBeenCalledWith({ kind: "select-column", col: 2, usedRangeOnly: true });
+    expect(onAction).toHaveBeenCalledWith(
+      { kind: "select-column", col: 2, usedRangeOnly: true },
+      "pointer",
+    );
   });
 
   it("dispatches a cell selection when a cell is clicked", async () => {
@@ -22,7 +25,10 @@ describe("SpreadsheetGrid", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "C4" }));
 
-    expect(onAction).toHaveBeenCalledWith({ kind: "select-cell", cell: { row: 3, col: 2 } });
+    expect(onAction).toHaveBeenCalledWith(
+      { kind: "select-cell", cell: { row: 3, col: 2 } },
+      "pointer",
+    );
   });
 
   it("dispatches a row selection when a row header is clicked", async () => {
@@ -31,7 +37,7 @@ describe("SpreadsheetGrid", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Select row 2" }));
 
-    expect(onAction).toHaveBeenCalledWith({ kind: "select-row", row: 1 });
+    expect(onAction).toHaveBeenCalledWith({ kind: "select-row", row: 1 }, "pointer");
   });
 
   it("renders the Revenue column as formatted currency", () => {

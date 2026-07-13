@@ -8,11 +8,19 @@ import type { GridAction, GridState } from "@/domain/grid/gridTypes";
 import { isPersonalRecordEligible } from "@/domain/records/personalRecords";
 import type { PersonalRecord } from "@/domain/records/recordTypes";
 import { buildRunResult, type RunResult } from "@/domain/runs/runResult";
-import type { RunEvent, RunState, RunStatus } from "@/domain/runs/runTypes";
+import type {
+  RunEvent,
+  RunInputMethod,
+  RunState,
+  RunStatus,
+} from "@/domain/runs/runTypes";
 import { scoreRun } from "@/domain/scoring/scoreRun";
 import type { ScoreResult } from "@/domain/scoring/scoringTypes";
 import { validateChallenge } from "@/domain/validation/validateChallenge";
-import type { ValidationResult } from "@/domain/validation/validatorTypes";
+import {
+  NOTHING_DONE_YET,
+  type ValidationResult,
+} from "@/domain/validation/validatorTypes";
 import { createRunClock } from "@/hooks/runClock";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
 
@@ -35,7 +43,9 @@ export type GameRun = {
   /** Epoch milliseconds. Null on the server, before the clock exists. */
   startedAt: number | null;
   result: FinishedRun | null;
-  dispatch: (action: GridAction) => void;
+  events: RunEvent[];
+  validation: ValidationResult;
+  dispatch: (action: GridAction, inputMethod?: RunInputMethod) => void;
   retry: () => void;
   /**
    * Ends the run right now and grades whatever the grid looks like, complete or not. Sessions use
@@ -70,6 +80,8 @@ export function useGameRun(
   const [clock] = useState(createRunClock);
   const [grid, setGrid] = useState<GridState>(challenge.initialGrid);
   const [result, setResult] = useState<FinishedRun | null>(null);
+  const [events, setEvents] = useState<RunEvent[]>([]);
+  const [validation, setValidation] = useState<ValidationResult>(NOTHING_DONE_YET);
 
   const gridRef = useRef<GridState>(challenge.initialGrid);
   const resultRef = useRef<FinishedRun | null>(null);
@@ -92,6 +104,8 @@ export function useGameRun(
 
     setGrid(challenge.initialGrid);
     setResult(null);
+    setEvents([]);
+    setValidation(NOTHING_DONE_YET);
     clock.restart();
   }, [challenge, clock]);
 
@@ -145,7 +159,7 @@ export function useGameRun(
   );
 
   const dispatch = useCallback(
-    (action: GridAction) => {
+    (action: GridAction, inputMethod: RunInputMethod = "pointer") => {
       if (resultRef.current !== null) {
         return;
       }
@@ -163,7 +177,11 @@ export function useGameRun(
 
       gridRef.current = nextGrid;
       setGrid(nextGrid);
-      eventsRef.current = [...eventsRef.current, { atMs: now - runStartedAt, action }];
+      eventsRef.current = [
+        ...eventsRef.current,
+        { atMs: now - runStartedAt, action, inputMethod },
+      ];
+      setEvents(eventsRef.current);
 
       const run: RunState = {
         challengeId: challenge.id,
@@ -178,6 +196,7 @@ export function useGameRun(
       };
 
       const validation = validateChallenge({ challenge, grid: nextGrid, run });
+      setValidation(validation);
 
       if (!validation.isComplete) {
         return;
@@ -213,6 +232,7 @@ export function useGameRun(
     };
 
     const validation = validateChallenge({ challenge, grid: gridRef.current, run });
+    setValidation(validation);
     const finished = buildFinished(validation, now, runStartedAt);
 
     resultRef.current = finished;
@@ -221,5 +241,5 @@ export function useGameRun(
     return finished;
   }, [challenge, mode, clock, buildFinished]);
 
-  return { grid, status, startedAt, result, dispatch, retry, finishNow };
+  return { grid, status, startedAt, result, events, validation, dispatch, retry, finishNow };
 }

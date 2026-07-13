@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -23,7 +23,23 @@ describe("GameShell", () => {
 
     expect(screen.getByRole("heading", { name: "Select the Revenue column." })).toBeVisible();
     expect(screen.getByRole("grid", { name: "Spreadsheet" })).toBeVisible();
+    expect(screen.getByTestId("live-stats-bar")).toBeVisible();
     expect(screen.queryByTestId("result-card")).not.toBeInTheDocument();
+  });
+
+  it("counts keyboard-originated grid actions toward shortcut efficiency", () => {
+    render(<GameShell />);
+
+    const grid = screen.getByRole("grid", { name: "Spreadsheet" });
+
+    fireEvent.keyDown(grid, { key: "ArrowRight" });
+    fireEvent.keyDown(grid, { key: "ArrowRight" });
+    fireEvent.keyDown(grid, { key: " ", code: "Space", ctrlKey: true });
+
+    const stats = within(screen.getByTestId("live-stats-bar"));
+
+    expect(screen.getByTestId("result-card")).toBeVisible();
+    expect(stats.getByText("Shortcuts").nextElementSibling).toHaveTextContent("100%");
   });
 
   it("shows the result card once the Revenue column is selected", async () => {

@@ -20,13 +20,14 @@ import type {
   GridActionKind,
   GridState,
 } from "@/domain/grid/gridTypes";
+import type { RunInputMethod } from "@/domain/runs/runTypes";
 import { jumpActive, stepActive, type MoveDirection } from "@/domain/grid/keyboardNav";
 import { cellKey, normalizeRange } from "@/domain/grid/range";
 import { isCellSelected, isRangeBold, renderedRows, selectionBounds } from "@/domain/grid/selectors";
 
 type SpreadsheetGridProps = {
   grid: GridState;
-  onAction: (action: GridAction) => void;
+  onAction: (action: GridAction, inputMethod?: RunInputMethod) => void;
   /**
    * The actions the current challenge allows, used to gate formatting shortcuts the way the
    * toolbar gates its buttons. Omitted means everything is allowed, which keeps the grid usable
@@ -103,7 +104,7 @@ export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: Sp
       draggedRef.current = true;
       keyAnchorRef.current = anchor;
       keyFocusRef.current = cell;
-      onAction({ kind: "select-range", range: { start: anchor, end: cell } });
+      onAction({ kind: "select-range", range: { start: anchor, end: cell } }, "pointer");
     },
     [onAction],
   );
@@ -120,7 +121,7 @@ export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: Sp
 
       keyAnchorRef.current = cell;
       keyFocusRef.current = cell;
-      onAction({ kind: "select-cell", cell });
+      onAction({ kind: "select-cell", cell }, "pointer");
     },
     [onAction],
   );
@@ -130,7 +131,7 @@ export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: Sp
     (col: number) => {
       keyAnchorRef.current = { row: 0, col };
       keyFocusRef.current = { row: 0, col };
-      onAction({ kind: "select-column", col, usedRangeOnly: true });
+      onAction({ kind: "select-column", col, usedRangeOnly: true }, "pointer");
     },
     [onAction],
   );
@@ -139,7 +140,7 @@ export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: Sp
     (row: number) => {
       keyAnchorRef.current = { row, col: 0 };
       keyFocusRef.current = { row, col: 0 };
-      onAction({ kind: "select-row", row });
+      onAction({ kind: "select-row", row }, "pointer");
     },
     [onAction],
   );
@@ -166,11 +167,11 @@ export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: Sp
 
           keyAnchorRef.current = anchor;
           keyFocusRef.current = target;
-          onAction({ kind: "select-range", range: { start: anchor, end: target } });
+          onAction({ kind: "select-range", range: { start: anchor, end: target } }, "keyboard");
         } else {
           keyAnchorRef.current = target;
           keyFocusRef.current = target;
-          onAction({ kind: "select-cell", cell: target });
+          onAction({ kind: "select-cell", cell: target }, "keyboard");
         }
 
         return;
@@ -182,12 +183,12 @@ export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: Sp
           event.preventDefault();
           keyAnchorRef.current = base;
           keyFocusRef.current = base;
-          onAction({ kind: "select-column", col: base.col, usedRangeOnly: true });
+          onAction({ kind: "select-column", col: base.col, usedRangeOnly: true }, "keyboard");
         } else if (event.shiftKey && !event.ctrlKey) {
           event.preventDefault();
           keyAnchorRef.current = base;
           keyFocusRef.current = base;
-          onAction({ kind: "select-row", row: base.row });
+          onAction({ kind: "select-row", row: base.row }, "keyboard");
         }
 
         return;
@@ -203,7 +204,7 @@ export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: Sp
 
         keyAnchorRef.current = used.start;
         keyFocusRef.current = used.end;
-        onAction({ kind: "select-range", range: used });
+        onAction({ kind: "select-range", range: used }, "keyboard");
 
         return;
       }
@@ -215,7 +216,10 @@ export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: Sp
 
         if (bounds !== null) {
           // A toggle, as in Excel: an already fully bold selection unbolds.
-          onAction({ kind: "set-format", range: bounds, format: { bold: !isRangeBold(grid, bounds) } });
+          onAction(
+            { kind: "set-format", range: bounds, format: { bold: !isRangeBold(grid, bounds) } },
+            "keyboard",
+          );
         }
 
         return;
@@ -229,7 +233,10 @@ export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: Sp
         const bounds = selectionBounds(grid);
 
         if (bounds !== null) {
-          onAction({ kind: "set-format", range: bounds, format: { numberFormat: "currency" } });
+          onAction(
+            { kind: "set-format", range: bounds, format: { numberFormat: "currency" } },
+            "keyboard",
+          );
         }
 
         return;
@@ -241,7 +248,10 @@ export function SpreadsheetGrid({ grid, onAction, allowedActions, focusRef }: Sp
         const bounds = selectionBounds(grid);
 
         if (bounds !== null) {
-          onAction({ kind: "set-format", range: bounds, format: { numberFormat: "percent" } });
+          onAction(
+            { kind: "set-format", range: bounds, format: { numberFormat: "percent" } },
+            "keyboard",
+          );
         }
       }
     },
