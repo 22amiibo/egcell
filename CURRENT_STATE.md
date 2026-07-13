@@ -6,11 +6,11 @@ Last updated: 2026-07-13
 
 **The plan's eight phases plus a full gameplay-expansion batch are complete.** The game now has six play modes, 23 challenges, full keyboard control, a local profile, and player-chosen themes.
 
-The Core Game Feel + Settings upgrade is complete through **Task 7 of 12**. Tasks 4-7 added live run stats, a fixed practice frame, reduced-motion-safe feedback/combo cues, and original synthesized sound hooks. Continue with Task 8, the results redesign.
+The Core Game Feel + Settings upgrade is complete through **Task 10 of 12**. Tasks 8-10 upgraded results for replay motivation, added an honest local-only leaderboard shell, and added mastery progression to the profile. Continue with Task 11, grid density and spreadsheet-native polish.
 
 Open `/` and a run is already under way. Complete the challenge and it scores, banks a personal record, logs to the local history, and offers a retry or the next challenge.
 
-## Core Game Feel Checkpoint (Tasks 1-7)
+## Core Game Feel Checkpoint (Tasks 1-10)
 
 | Commit | Task |
 | --- | --- |
@@ -21,8 +21,11 @@ Open `/` and a run is already under way. Complete the challenge and it scores, b
 | `e422d8e` | Fixed practice frame and session progress rail |
 | `f5761ea` | Feedback, combo, shortcut, and reduced-motion layer |
 | `6da8b65` | Silent-by-default original synthesized run cues |
+| `fb2a543` | Replay-focused single and session results |
+| `9e0384b` | Local-only leaderboard shell and route |
+| `bf2fad0` | Skill mastery and profile progression |
 
-Latest verification: clean lint, 462 unit tests across 47 files, clean typecheck, successful production build, and 39 Chromium end-to-end tests. The known inferred-workspace-root warning remains harmless.
+Latest verification: clean lint, 471 unit tests across 49 files, clean typecheck, successful production build, and 39 Chromium end-to-end tests. The known inferred-workspace-root warning remains harmless.
 
 ## Play Modes
 
@@ -47,7 +50,8 @@ The grid is fully playable without a mouse: arrows move, Shift+Arrow extends, Cm
 
 ## Profile and Settings
 
-- `/profile`: recent runs (capped at 50), total runs, total challenges completed, and best score/time per mode. Totals are folded in before the cap trims, so nothing earned is lost.
+- `/profile`: local mastery across eight professional skill families, focused practice recommendations, recent runs (capped at 50), totals, and best score/time per mode. Totals are folded in before the cap trims, so nothing earned is lost.
+- `/leaderboard`: an accessible local/mock shell for daily, weekly, friends, global, skill, and ranked views. It shows personal bands and honest empty states; no live service or fake opponents exist.
 - `/settings`: 16 theme presets, dark to light to high-contrast to terminal. A preset reassigns all nine design tokens as CSS variables on the document root; a boot script applies a saved theme before first paint. Local-only.
 
 ## Architecture Notes

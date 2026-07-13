@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-13 (core game feel, Tasks 8-10)
+
+- Upgraded single and session results with EPM, PB delta, shortcut efficiency, average and fastest task pace, slowest-task retry guidance, and focused retry copy. Technical digests remain behind disclosures and Retry retains focus.
+- Added `/leaderboard` as a local-only competition shell with Daily, Weekly, Friends, Global, Skills, and Ranked tabs, full arrow-key navigation, a personal “Near me” band, and explicit no-service empty states instead of fabricated ranks.
+- Added a pure mastery projection across Navigation, Selection, Formatting, Formulas, Sort / Filter, Fill / Paste, Tables, and Mixed Workflows. The profile now shows professional levels, focused practice recommendations, badges, and future cosmetic unlock signals above recent runs.
+- All five gates pass: lint, 471 unit tests across 49 files, typecheck, production build, and 39 Chromium end-to-end tests.
+
 ## 2026-07-13 (core game feel, Tasks 4-7)
 
 - Added a self-ticking live stats bar for EPM, accuracy, shortcut efficiency, and progress. Keyboard and pointer input origins are preserved in replay events.
