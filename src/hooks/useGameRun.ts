@@ -13,6 +13,7 @@ import { scoreRun } from "@/domain/scoring/scoreRun";
 import type { ScoreResult } from "@/domain/scoring/scoringTypes";
 import { validateChallenge } from "@/domain/validation/validateChallenge";
 import type { ValidationResult } from "@/domain/validation/validatorTypes";
+import { createRunClock } from "@/hooks/runClock";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
 
 export type FinishedRun = {
@@ -36,55 +37,23 @@ export type GameRun = {
   result: FinishedRun | null;
   dispatch: (action: GridAction) => void;
   retry: () => void;
+  /**
+   * Ends the run right now and grades whatever the grid looks like, complete or not. Sessions use
+   * it for skipping a task and for the moment the session clock expires; the validation inside the
+   * returned result says how much partial credit the state was worth.
+   */
+  finishNow: () => FinishedRun;
 };
 
-/**
- * The wall clock is an external system, so the run reads it through `useSyncExternalStore`.
- *
- * The clock starts when the grid appears, not on the first click. Were it to start on the first
- * action, a correct first click would always land at roughly zero elapsed time, pinning the speed
- * multiplier at its cap on every run and flattening the score into a constant.
- *
- * The server snapshot is null because `Date.now()` on the server and in the browser would disagree
- * and break hydration. The first read in the browser is what starts the run.
- */
-function createRunClock() {
-  const listeners = new Set<() => void>();
-
-  let startedAt: number | null = null;
-
-  return {
-    subscribe(listener: () => void) {
-      listeners.add(listener);
-
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-
-    getSnapshot(): number | null {
-      startedAt ??= Date.now();
-
-      return startedAt;
-    },
-
-    getServerSnapshot(): number | null {
-      return null;
-    },
-
-    /** The start time the scorer measures against. Identical to what the timer displays. */
-    startedAt(): number {
-      startedAt ??= Date.now();
-
-      return startedAt;
-    },
-
-    restart(): void {
-      startedAt = Date.now();
-      listeners.forEach((listener) => listener());
-    },
-  };
-}
+export type GameRunOptions = {
+  /**
+   * Single-challenge play banks per-challenge personal records. A task inside a sprint or timed
+   * session must not: the session banks one record for the whole session instead.
+   */
+  recordPersonalBest?: boolean;
+  /** Fires once when the run completes through play. Not fired by `finishNow`, whose caller already holds the result. */
+  onFinished?: (finished: FinishedRun) => void;
+};
 
 /**
  * One run of one challenge. Callers that can switch challenges should key this component by
@@ -94,7 +63,10 @@ export function useGameRun(
   challenge: Challenge,
   mode: ChallengeMode,
   records: LocalPersonalRecords,
+  options: GameRunOptions = {},
 ): GameRun {
+  const { recordPersonalBest = true, onFinished } = options;
+
   const [clock] = useState(createRunClock);
   const [grid, setGrid] = useState<GridState>(challenge.initialGrid);
   const [result, setResult] = useState<FinishedRun | null>(null);
@@ -122,6 +94,55 @@ export function useGameRun(
     setResult(null);
     clock.restart();
   }, [challenge, clock]);
+
+  const buildFinished = useCallback(
+    (validation: ValidationResult, now: number, runStartedAt: number): FinishedRun => {
+      const elapsedMs = now - runStartedAt;
+      const score = scoreRun({
+        elapsedMs,
+        correctness: validation.correctness,
+        completionPercent: validation.completionPercent,
+        accuracy: validation.accuracy,
+        basePoints: challenge.scoring.basePoints,
+        targetSeconds: challenge.scoring.targetSeconds,
+      });
+
+      let previousBest = getBest(challenge.id, mode);
+      let isNewRecord = false;
+
+      if (recordPersonalBest && isPersonalRecordEligible(challenge, validation)) {
+        const submission = submit({
+          challengeId: challenge.id,
+          mode,
+          bestScore: score.score,
+          bestElapsedMs: elapsedMs,
+          bestCorrectness: validation.correctness,
+          achievedAt: new Date(now).toISOString(),
+          seed: challenge.seed,
+        });
+
+        previousBest = submission.previousBest;
+        isNewRecord = submission.isNewRecord;
+      }
+
+      const submission = buildRunResult({
+        challengeId: challenge.id,
+        challengeVersion: challenge.version,
+        seed: challenge.seed,
+        mode,
+        score: score.score,
+        correctness: validation.correctness,
+        completionPercent: validation.completionPercent,
+        accuracy: validation.accuracy,
+        startedAtMs: runStartedAt,
+        finishedAtMs: now,
+        events: eventsRef.current,
+      });
+
+      return { validation, score, elapsedMs, previousBest, isNewRecord, submission };
+    },
+    [challenge, mode, submit, getBest, recordPersonalBest],
+  );
 
   const dispatch = useCallback(
     (action: GridAction) => {
@@ -162,62 +183,43 @@ export function useGameRun(
         return;
       }
 
-      const elapsedMs = now - runStartedAt;
-      const score = scoreRun({
-        elapsedMs,
-        correctness: validation.correctness,
-        completionPercent: validation.completionPercent,
-        accuracy: validation.accuracy,
-        basePoints: challenge.scoring.basePoints,
-        targetSeconds: challenge.scoring.targetSeconds,
-      });
-
-      let previousBest = getBest(challenge.id, mode);
-      let isNewRecord = false;
-
-      if (isPersonalRecordEligible(challenge, validation)) {
-        const submission = submit({
-          challengeId: challenge.id,
-          mode,
-          bestScore: score.score,
-          bestElapsedMs: elapsedMs,
-          bestCorrectness: validation.correctness,
-          achievedAt: new Date(now).toISOString(),
-          seed: challenge.seed,
-        });
-
-        previousBest = submission.previousBest;
-        isNewRecord = submission.isNewRecord;
-      }
-
-      const submission = buildRunResult({
-        challengeId: challenge.id,
-        challengeVersion: challenge.version,
-        seed: challenge.seed,
-        mode,
-        score: score.score,
-        correctness: validation.correctness,
-        completionPercent: validation.completionPercent,
-        accuracy: validation.accuracy,
-        startedAtMs: runStartedAt,
-        finishedAtMs: now,
-        events: eventsRef.current,
-      });
-
-      const finished: FinishedRun = {
-        validation,
-        score,
-        elapsedMs,
-        previousBest,
-        isNewRecord,
-        submission,
-      };
+      const finished = buildFinished(validation, now, runStartedAt);
 
       resultRef.current = finished;
       setResult(finished);
+      onFinished?.(finished);
     },
-    [challenge, mode, submit, getBest, clock],
+    [challenge, mode, clock, buildFinished, onFinished],
   );
 
-  return { grid, status, startedAt, result, dispatch, retry };
+  const finishNow = useCallback((): FinishedRun => {
+    if (resultRef.current !== null) {
+      return resultRef.current;
+    }
+
+    const now = Date.now();
+    const runStartedAt = clock.startedAt();
+
+    const run: RunState = {
+      challengeId: challenge.id,
+      challengeVersion: challenge.version,
+      seed: challenge.seed,
+      mode,
+      status: "running",
+      startedAt: runStartedAt,
+      finishedAt: null,
+      elapsedMs: now - runStartedAt,
+      events: eventsRef.current,
+    };
+
+    const validation = validateChallenge({ challenge, grid: gridRef.current, run });
+    const finished = buildFinished(validation, now, runStartedAt);
+
+    resultRef.current = finished;
+    setResult(finished);
+
+    return finished;
+  }, [challenge, mode, clock, buildFinished]);
+
+  return { grid, status, startedAt, result, dispatch, retry, finishNow };
 }
