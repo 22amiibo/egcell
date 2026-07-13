@@ -1,15 +1,33 @@
 @import "tailwindcss";
 
 @theme {
-  --color-canvas: #0b0d0f;
+  --color-background: #0a0d0c;
   --color-surface: #14181c;
-  --color-surface-raised: #1b2026;
-  --color-line: #262c33;
-  --color-line-strong: #39424c;
-  --color-ink: #e8ecef;
-  --color-muted: #8a949e;
-  --color-accent: #21a366;
-  --color-accent-strong: #2ec27e;
+  --color-surface-elevated: #1c2221;
+  --color-grid-line: #27302d;
+  --color-grid-line-strong: #3d4a45;
+  --color-active-cell: #37c982;
+  --color-selected-range: #183d2d;
+  --color-correct: #45d38b;
+  --color-warning: #e9b949;
+  --color-error: #f06a72;
+  --color-accent: #2daf70;
+  --color-accent-strong: #46d28d;
+  --color-text-primary: #edf2ef;
+  --color-text-muted: #8f9c96;
+  --color-focus-ring: #68e2a4;
+  --shadow-elevated: 0 18px 60px rgba(0, 0, 0, 0.38);
+  --motion-fast: 90ms;
+  --motion-base: 160ms;
+  --motion-slow: 260ms;
+
+  /* Compatibility aliases retained while existing components migrate. */
+  --color-canvas: var(--color-background);
+  --color-surface-raised: var(--color-surface-elevated);
+  --color-line: var(--color-grid-line);
+  --color-line-strong: var(--color-grid-line-strong);
+  --color-ink: var(--color-text-primary);
+  --color-muted: var(--color-text-muted);
 }
 
 @layer base {
@@ -18,12 +36,12 @@
   }
 
   body {
-    background-color: var(--color-canvas);
-    color: var(--color-ink);
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-accent-strong);
+    outline: 2px solid var(--color-focus-ring);
     outline-offset: 2px;
   }
 }

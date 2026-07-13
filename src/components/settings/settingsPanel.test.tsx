@@ -17,7 +17,7 @@ describe("the settings panel", () => {
     const gallery = screen.getByTestId("theme-presets");
 
     expect(gallery.querySelectorAll("button")).toHaveLength(THEME_PRESETS.length);
-    expect(screen.getByRole("button", { name: /Excel Dark/ })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: /Ledger Noir/ })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -31,21 +31,26 @@ describe("the settings panel", () => {
       </>,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: /Sepia/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Quarter Close/ }));
 
     const root = document.documentElement;
-    const sepia = themeById("sepia");
+    const quarterClose = themeById("quarter-close");
 
-    expect(root.style.getPropertyValue("--color-canvas")).toBe(sepia.tokens.canvas);
-    expect(root.style.getPropertyValue("--color-accent")).toBe(sepia.tokens.accent);
-    expect(root.dataset.theme).toBe("sepia");
+    expect(root.style.getPropertyValue("--color-background")).toBe(
+      quarterClose.tokens.background,
+    );
+    expect(root.style.getPropertyValue("--color-accent")).toBe(quarterClose.tokens.accent);
+    expect(root.dataset.theme).toBe("quarter-close");
 
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "{}")).toEqual({
-      themeId: "sepia",
+      themeId: "quarter-close",
     });
 
-    expect(screen.getByRole("button", { name: /Sepia/ })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: /Excel Dark/ })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: /Quarter Close/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: /Ledger Noir/ })).toHaveAttribute(
       "aria-pressed",
       "false",
     );
