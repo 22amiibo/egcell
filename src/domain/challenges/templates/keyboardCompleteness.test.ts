@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  filterEastRegionChallenge,
+  filterStatusCompleteChallenge,
+  filterUnitsAboveBrunoChallenge,
+  mixedFilterEastCurrencyChallenge,
+  mixedSortAndBoldChallenge,
+  sortRepAToZChallenge,
+  sortRevenueHighToLowChallenge,
+  sortUnitsLowToHighChallenge,
+} from "@/data/challenges";
 import { DATASET_THEMES } from "@/data/datasets/themes";
+import type { Challenge } from "@/domain/challenges/challengeTypes";
 import { generateVariant } from "@/domain/challenges/generateVariant";
 import { formattingTemplates } from "@/domain/challenges/templates/formatting";
 import { mixedTemplates } from "@/domain/challenges/templates/mixed";
@@ -16,17 +27,18 @@ import type { RunState } from "@/domain/runs/runTypes";
 import { validateChallenge } from "@/domain/validation/validateChallenge";
 
 /**
- * §1a.6's acceptance gate: the six templates §2.3 named as unsolvable without a mouse
- * (`gen.formatting.date`, both `gen.sort-filter.sort-*`, both `gen.sort-filter.filter-*`, and
- * `gen.mixed.sort-and-format`) must now solve through a command sequence drawn only from
- * `hotkeyEligible: true` commands, replayed through the real reducer and the real validator.
+ * §1a.6's acceptance gate: every template and classic §2.3 named as unsolvable without a mouse
+ * (`gen.formatting.date`, both `gen.sort-filter.sort-*`, both `gen.sort-filter.filter-*`,
+ * `gen.mixed.sort-and-format`, and the eight sort-filter/mixed classics) must now solve through a
+ * command sequence drawn only from `hotkeyEligible: true` commands, replayed through the real
+ * reducer and the real validator.
  */
 
-function runFor(variant: ChallengeVariant): RunState {
+function runFor(challenge: Challenge): RunState {
   return {
-    challengeId: variant.id,
-    challengeVersion: variant.version,
-    seed: variant.seed,
+    challengeId: challenge.id,
+    challengeVersion: challenge.version,
+    seed: challenge.seed,
     mode: "main-speed",
     status: "running",
     startedAt: 0,
@@ -36,8 +48,8 @@ function runFor(variant: ChallengeVariant): RunState {
   };
 }
 
-function isComplete(variant: ChallengeVariant, grid: GridState): boolean {
-  return validateChallenge({ challenge: variant, grid, run: runFor(variant) }).isComplete;
+function isComplete(challenge: Challenge, grid: GridState): boolean {
+  return validateChallenge({ challenge, grid, run: runFor(challenge) }).isComplete;
 }
 
 function findTemplate(templates: ChallengeTemplate[], id: string): ChallengeTemplate {
@@ -106,6 +118,82 @@ function findCell(
 
   throw new Error(`No cell in column ${col} holds ${String(value)}.`);
 }
+
+/**
+ * Solves any sort-filter or composite (sort-filter + formatting) challenge using only
+ * hotkeyEligible commands — the same handful of routes the six-template tests below exercise
+ * individually, generalized so the eight classics don't need one bespoke test body each.
+ */
+function solveByKeyboard(challenge: Challenge, grid: GridState): GridState {
+  const spec = challenge.validation;
+  const parts = spec.kind === "composite" ? spec.parts : [spec];
+  let current = grid;
+
+  for (const part of parts) {
+    if (part.kind === "sort-filter" && part.requiredSort !== undefined) {
+      const command: GridCommandId = part.requiredSort.direction === "asc" ? "SORT_ASC" : "SORT_DESC";
+
+      current = replay(current, command, { row: 0, col: part.requiredSort.col });
+      continue;
+    }
+
+    if (part.kind === "sort-filter" && part.requiredVisible !== undefined) {
+      const { col, op, value } = part.requiredVisible;
+      const command: GridCommandId = op === "greater-than" ? "FILTER_ABOVE_VALUE" : "FILTER_TO_VALUE";
+      const first = current.usedRange.start.row + current.headerRows;
+      const last = current.usedRange.end.row;
+      const focus = findCell(current, col, first, last, value);
+
+      current = replay(current, command, focus);
+      continue;
+    }
+
+    if (part.kind === "formatting" && part.requiredFormat.bold === true) {
+      const row = part.range.start.row;
+
+      current = replay(current, "SELECT_ROW", { row, col: 0 });
+      current = replay(current, "TOGGLE_BOLD", { row, col: 0 });
+      continue;
+    }
+
+    if (part.kind === "formatting" && part.requiredFormat.numberFormat !== undefined) {
+      const focus = part.range.start;
+      const command: GridCommandId =
+        part.requiredFormat.numberFormat === "currency"
+          ? "FORMAT_CURRENCY"
+          : part.requiredFormat.numberFormat === "percent"
+            ? "FORMAT_PERCENT"
+            : "FORMAT_DATE";
+
+      current = replay(current, "SELECT_COLUMN", focus);
+      current = replay(current, command, focus);
+      continue;
+    }
+
+    throw new Error(`Unhandled validation part for ${challenge.id}: ${JSON.stringify(part)}.`);
+  }
+
+  return current;
+}
+
+describe("Phase 2 keyboard completeness — the eight previously mouse-only classics", () => {
+  it.each([
+    sortRevenueHighToLowChallenge,
+    filterEastRegionChallenge,
+    sortUnitsLowToHighChallenge,
+    sortRepAToZChallenge,
+    filterStatusCompleteChallenge,
+    filterUnitsAboveBrunoChallenge,
+    mixedSortAndBoldChallenge,
+    mixedFilterEastCurrencyChallenge,
+  ])("$id solves via hotkeyEligible commands only, through the real reducer and validator", (challenge) => {
+    expect(isComplete(challenge, challenge.initialGrid)).toBe(false);
+
+    const solved = solveByKeyboard(challenge, challenge.initialGrid);
+
+    expect(isComplete(challenge, solved)).toBe(true);
+  });
+});
 
 describe("Phase 2 keyboard completeness — the six previously mouse-only templates", () => {
   it("gen.formatting.date solves with Ctrl+Space (SELECT_COLUMN) then the date-format chord", () => {
