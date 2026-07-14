@@ -51,15 +51,16 @@ This section records two things that changed after the plan above was written an
 
 ### 1a.1 Resolved: the Practice open question
 
-**Decision: Practice's personal-record book is retired outright. There is no `Learn` mode. Help stays inside Practice.**
+**Correction (this replaces an earlier, wrong draft of this section — see the note at the end).** **Decision: Practice remains an ordinary record-eligible mode. There is no `Learn` mode. Help stays inside Practice, and assistance — not mode identity — is what unranks a run.**
 
 - Practice remains a fully playable, fully graphed mode — the same challenge picker, the same generated templates and classics, the same five difficulties. Nothing about *what Practice offers* changes. (Verified: `GameShell.tsx`'s single-selection dropdown already lists every classic and every generated template for both Speed and Practice from the same `challenges`/`generatedTemplates` arrays, `GameShell.tsx:238-251` — Practice was never a restricted subset, so "make sure all variants are offered" is already true today and needs no code change.)
-- What changes: a completed Practice run **never** writes to `PersonalRecordStore`, regardless of whether help was ever revealed. `getRunEligibility` gains a rule that is independent of `assist`: `modeKey === "practice" → countsForPersonalBest: false`, always, alongside (not instead of) the existing assist/outcome/legacy rules (§1a.4 below has the full updated rule order).
-- This removes the tension the original open question was built on. Because Practice never had a record to protect, revealing help in Practice needs **no unranking confirmation** — there is nothing to unrank. The confirmation step (§3.2) is now specific to modes that *can* bank a record: Speed, Sprint 5/10, 30s/60s, Hotkey.
-- Practice runs still exclude themselves from the **performance graph** while assisted (`countsForPerformanceStats: false` when `assist === "revealed"`, unchanged from the original policy) — an assisted score is not a measurement of unaided performance, PB or no PB, and plotting it would still corrupt the Practice trend line.
-- `settings.help.autoRevealInPractice` keeps its function — it controls whether Practice opens with the panel already visible — but loses its consequence clause. It no longer "banks no Practice PB" (there is no such thing to bank); it simply starts the run assisted. Practice's mode button never needs an "assisted" qualifier the way a rankable mode would, because Practice was never presented as ranked in the first place. `confirmBeforeReveal` (§5.9) is now read as *"require confirmation before revealing help in a mode that can rank"* — false by construction for Practice, true by default elsewhere.
-- `ChallengeMode` still needs `"practice"` as a value (Practice is still a distinct mode for history, mastery, and the graph category) but **loses its place in the personal-record type guard**. `personalRecords.ts:60`'s `candidate.mode === "main-speed" || candidate.mode === "practice"` becomes `candidate.mode === "main-speed" || candidate.mode === "hotkey"` in Phase 7 — the same edit Phase 7 already had to make to add Hotkey, now also dropping Practice. Any Practice record already on disk from before this change becomes unreadable by the new guard on the next load, which is correct and intentional: it is not a record this app awards any more, and `readPersonalRecords` already drops entries a guard does not recognise instead of crashing (`personalRecords.ts:83`, unchanged). **This must be called out in the Phase 7 checklist as a one-time, silent, deliberate record removal** — a player who had a Practice best today loses it once this ships. No migration preserves it, because there is nothing correct to migrate it to.
-- No `Learn` mode is introduced. The fourth-mode alternative the original open question offered is rejected: Practice already is the always-available, never-ranked, help-permitting surface the brief asked for.
+- **A Practice run with help never revealed is an ordinary record-eligible run**, exactly like Speed: it may set a Practice personal best and is fully counted in Practice's performance statistics. `ChallengeMode`, the PR type guard (`personalRecords.ts:60`), and every existing Practice record are **untouched** by this plan. Practice's record book is not retired, killed, or special-cased in any way.
+- **Assistance, not mode, is what unranks a run.** The instant help is revealed — in *any* mode, Practice included — that run's `assist` flips to `"revealed"` and stays that way for the attempt (§3.2, unchanged). `getRunEligibility` applies the same rules to a Practice run as to a Speed run: rule 2 (`assist === "revealed"` → PB/stats/leaderboard `false`) is what excludes an assisted Practice run from Practice's PB book and performance graph — there is no separate, mode-keyed rule, and none is needed (§1a.4 below).
+- `settings.help.autoRevealInPractice` (default `false`): when on, a Practice run **starts** already assisted — the panel is visible from the first render, no confirmation step is needed (nothing has been revealed mid-run to confirm), and the run is unranked from the start via the same `assist === "revealed"` rule as any other assisted run. Turning the setting off restores ordinary record-eligible Practice runs. This is a per-run starting condition, not a change to what Practice *is*.
+- Assisted runs (Practice or otherwise) still appear in Recent Runs with an `Assisted` badge and no official time (§3.3, unchanged), and are still excluded from PBs and the performance graph (§8.1's classification matrix, unchanged) — never deleted, never hidden from the practice-activity count.
+- No `Learn` mode is introduced. Practice already is the always-available, help-permitting surface the brief asked for; a Practice run simply keeps its existing record eligibility whenever the player doesn't ask for help.
+
+**Why this section changed.** An earlier pass of this addendum misread "kill practice mode PB book" as "Practice never banks a PB, ever" and, from that, retired the whole record book, added a mode-keyed eligibility rule, dropped `"practice"` from the PR type guard, and rewrote the Help confirmation and `autoRevealInPractice` sections around a Practice that could never be ranked. None of that is correct: the approved behavior is that Practice is ordinary and record-eligible until a specific run is assisted, exactly like every other mode. That draft's downstream changes (§1a.4's Practice-specific rule, the Phase 7 PR-type-guard rewrite, the Help-confirmation carve-out, and the closing "resolved" note at the end of §13) are corrected in place below, back to the original design's shape, with this section as the record of why.
 
 ### 1a.2 The three-layer event model, made explicit
 
@@ -139,15 +140,15 @@ export type CommandDefinition = {
 
 **Chord-matching rule, stated precisely (this is new — the original plan did not specify it and an ambiguous version would silently regress Alt-held input):** a chord matches an event when every modifier it *declares* matches exactly, and modifiers it does not declare are unconstrained, **except** `shift`, which is always checked exactly (declared-false and undeclared are both "must be up") because every existing branch of `SpreadsheetGrid.handleKeyDown` already handles both the shift and no-shift case explicitly — there is no "shift ignored" branch to preserve. `alt` is deliberately the odd one out: none of the nine chords shipping today constrain it (`handleKeyDown` never reads `event.altKey`), so Phase 1's registry entries leave `alt` undeclared, and the matcher does not require it to be up. This preserves today's real, if accidental, behaviour (Alt+Arrow still moves the cursor) instead of quietly regressing it under a stricter rule that no test happens to cover. When Phase 2 adds `Alt+↓` for the filter menu, a chord that explicitly requires `alt: true` will start existing alongside chords that don't care about `alt` at all — at that point `matchChord` needs a specificity rule (a chord that constrains more modifiers wins a tie) so `Alt+↓` doesn't also satisfy plain `MOVE_DOWN`. That rule is out of scope for Phase 1 (no Phase 1 chord sets `alt: true`, so no ambiguity can occur yet) and is called out as a Phase 2 task below.
 
-### 1a.4 `getRunEligibility`, rule order revised
+### 1a.4 `getRunEligibility`, confirmed unchanged from §5.6
 
-Supersedes §5.6's rule list:
+**Correction:** an earlier draft of this section inserted a `modeKey === "practice" → countsForPersonalBest: false` rule here. That rule is wrong and has been removed (§1a.1) — eligibility is derived from the run's own state (`assist`, `outcome`, `integrity`, `schemaVersion`), never from which mode it was played in. `getRunEligibility` needs no changes from §5.6's original rule list, restated here for completeness since §5.6 pointed forward to this section:
 
-1. `integrity === "suspect"` → everything `false`.
-2. `assist === "revealed"` → PB, stats, leaderboard `false`; recent, practice `true`.
-3. **`modeKey === "practice"` → `countsForPersonalBest: false`, independent of every other rule.** (New. §1a.1.)
-4. `outcome !== "completed"` → PB, stats, leaderboard `false`; recent `true` (labelled), practice `true`.
-5. `schemaVersion === 1` (migrated legacy) → PB `false`; stats `true`; recent `true`; practice `true`.
+1. `integrity === "suspect"` → everything `false`. Still stored, for audit.
+2. `assist === "revealed"` → PB, stats, leaderboard `false`; recent, practice `true`. **This is the only rule that unranks a Practice run** — the same rule that unranks any other mode's assisted run.
+3. `outcome !== "completed"` → PB, stats, leaderboard `false`; recent `true` (labelled), practice `true`.
+4. `schemaVersion === 1` (migrated legacy) → PB `false`; stats `true`; recent `true`; practice `true`.
+5. Otherwise → everything `true`. **This includes an unassisted, completed Practice run** — it may set a Practice PB exactly like Speed.
 6. Otherwise → everything `true`.
 
 Purity (Hotkey) is still handled outside this function, unchanged from §5.6.
@@ -192,7 +193,13 @@ The user-supplied dependency chain for this session (registry → rich event rec
 
 > All existing tests pass. Test files whose assertions describe the second argument to `onAction`/`dispatch`, or the label `shortcutLabelForEvent` produced, are intentionally migrated to assert the richer shape or label — same behaviour, same coverage, updated expected values. No assertion is deleted, weakened, or replaced with a looser matcher (`expect.anything()`) to make the migration pass. Every other test is untouched. The digest test is migrated the same way, for the same reason (`eventDigest`'s canonical form gains `command`, per §4.3).
 
----
+### 1a.9 Correction: `APPLY_BOLD` is not `TOGGLE_BOLD`
+
+**The toolbar's Bold button and the `Ctrl/Cmd+B` shortcut are not the same operation and must not share a command id.** An earlier implementation pass tagged both `via: "toolbar"` and `via: "shortcut"` bold actions as `TOGGLE_BOLD`, on the reasoning that they were "the same command, different surface" (§1a.2's general principle). They are not: the toolbar button always sets `format: { bold: true }` regardless of the selection's current state (`Toolbar.tsx:83`, unchanged since before this plan), while `Ctrl/Cmd+B` genuinely toggles — `format: { bold: !isRangeBold(grid, bounds) } }` — and unbolds an all-bold selection. This is not cosmetic: it is the reason `formatting.unbold-header` has **no mouse-only solve** (§7.5, §12 risk 5) — the toolbar cannot produce the one action that would unbold it. Recording both under `TOGGLE_BOLD` would mean the recorded command lies about which action a replay of it produces, breaking exactly the guarantee `resolveCommand` exists to provide (§1a.2: "the command is bound to the action atomically... never reconstructed after the fact").
+
+**Fix: a second command, `APPLY_BOLD`,** for the toolbar's button. `GridCommandId` gains it (§5.1, corrected above); it has no chord (`chords: []`, toolbar-only, matching `FORMAT_DATE`'s shape), `pointerControlId: "toolbar-bold"`, and — because it has no keyboard route — `hotkeyEligible: false` and it is never a member of `KEYBOARD_COMMANDS`, so the Phase 4 solver never has to choose between an apply-only and a toggling bold: it only ever searches `TOGGLE_BOLD`, the one that can reach every reachable state, including unbolding. `TOGGLE_BOLD` keeps its existing chord and keeps `pointerControlId` unset (no pointer path produces it now). `resolveCommand("APPLY_BOLD", context)` returns the same `bounds === null ? null : {kind:"set-format", range:bounds, format:{bold:true}}` the toolbar button already produces; `resolveCommand("TOGGLE_BOLD", context)` is unchanged. Because both go through `resolveCommand`, a future solver or replay reproduces exactly the state each command actually produces, from any grid — the "future solver execution reaches the same state as the original action" property holds by construction, not by a special case in the toolbar component.
+
+§11 Phase 1 changes: the toolbar's Bold button routes through the ordinary `emit(command, controlId)` helper like every other toolbar button (no special-cased bypass), calling `emit("APPLY_BOLD", "toolbar-bold")`. The acceptance line below is corrected to say so.
 
 ## 2. Current-state findings
 
@@ -378,13 +385,13 @@ What it changes, relative to Speed:
 ### 3.2 How help works, and when a run becomes assisted
 
 - **The control:** a `Show fastest path` button in the run's toolbar row, plus the `?` key (`Shift+/`), which collides with nothing the grid consumes and nothing the browser reserves. The handler lives on the run surface, not inside `SpreadsheetGrid`, so the grid's keymap stays about the grid.
-- **Confirmation: yes, one inline step — in every rankable mode.** First activation swaps the button for `Reveal fastest path? This makes the run unranked. [Reveal] [Cancel]`. Because the locked rules forbid un-assisting, an accidental click would silently destroy a PB attempt with no undo — a confirmation is the only protection available. It is skipped when the persistent setting below is on. **Per §1a.1, Practice is not a rankable mode, so Practice never shows this confirmation at all** — there is no PB attempt for an accidental click to destroy, in or out of `autoRevealInPractice`.
+- **Confirmation: yes, one inline step, in every mode including Practice.** First activation swaps the button for `Reveal fastest path? This makes the run unranked. [Reveal] [Cancel]`. Because the locked rules forbid un-assisting, an accidental click would silently destroy a PB attempt with no undo — a confirmation is the only protection available, and Practice can bank a PB exactly like Speed (§1a.1), so Practice needs the same protection. It is skipped only when the persistent setting below has already started the run assisted — there is nothing left to confirm mid-run once help was visible from the first render.
 - **The run becomes assisted at the moment of reveal.** `assist` flips `"none" → "revealed"` and is monotonic for the life of the attempt. Hiding the panel does not restore ranking, and the close button says so.
 - **Retry starts a fresh attempt with `assist: "none"`.** This is the intended escape hatch and must be discoverable: after an assisted completion the primary action is `Retry unassisted`.
 - **The run is not paused.** There is nothing left to protect — the run is unranked the instant help opens — and a pausable clock does not exist (`runClock` has none; `TODO.md:39` already flags idle handling as unsolved).
 - **The timer keeps running**, visible but muted and struck through, and is never presented as a result.
 - **Panel placement:** a right-hand rail whose width is **reserved from the moment the run mounts**, so revealing it cannot reflow the grid. `SpreadsheetGrid` already snapshots its own presentation on mount for exactly this reason (`SpreadsheetGrid.tsx:69-74`) — moving a target under the player mid-run is a bug this codebase already takes seriously. Below 1024 px the rail becomes a drawer *below* the grid; the page scrolls, the grid does not move.
-- **Persistent setting:** `settings.help.autoRevealInPractice` (default `false`). When on, Practice runs open with the panel visible, no confirmation needed (Practice never required one). **Resolved per §1a.1: this no longer "banks no Practice PB," because Practice never banks one regardless of this setting.** The mode button need not read `Practice · assisted` the way a rankable mode would, since Practice was never presented as ranked; it may still say the panel is open by default, as a plain statement rather than a ranking warning.
+- **Persistent setting:** `settings.help.autoRevealInPractice` (default `false`). When on, Practice runs **start** with the panel already visible, no confirmation (there is nothing to confirm before the run has even begun), and therefore bank no Practice PB **for that run** — the same `assist === "revealed"` rule that unranks any other assisted run, applied from the first render instead of from a mid-run reveal (§1a.1). Turning the setting off restores ordinary, record-eligible Practice runs. The mode button reads `Practice · assisted` while the setting is on, exactly as a rankable mode would, because Practice *is* rankable — the setting is simply choosing to start every Practice run already unranked.
 
 ### 3.3 Which records an assisted run affects
 
@@ -562,6 +569,7 @@ export type GridCommandId =
   | "OPEN_FILTER_MENU" | "SORT_ASC" | "SORT_DESC"
   | "FILTER_TO_VALUE" | "FILTER_ABOVE_VALUE" | "CLEAR_FILTERS"
   // pointer-origin; never searched by the solver
+  | "APPLY_BOLD" // toolbar's Bold button — sets bold on unconditionally; see §1a.9
   | "CLICK_CELL" | "DRAG_SELECT_RANGE" | "CLICK_COLUMN_HEADER" | "CLICK_ROW_HEADER";
 
 /** How the player physically produced it. Known exactly — minted at the input boundary. */
@@ -738,7 +746,7 @@ export type RunEligibility = {
 export function getRunEligibility(run: RunRecord): RunEligibility;
 ```
 
-Rules, in order (**superseded by §1a.4**, which inserts a Practice rule between 2 and 3 — kept here for context):
+Rules, in order (§1a.4 confirms this list is unchanged — an earlier draft of that section wrongly inserted a Practice-specific rule here; it has been removed):
 
 1. `integrity === "suspect"` → everything `false`. Still stored, for audit.
 2. `assist === "revealed"` → PB, stats, leaderboard `false`; recent, practice `true`.
@@ -1323,7 +1331,7 @@ The brief's recommended order is followed with **one change: the missing keyboar
 7. **Delete `shortcutLabelForEvent`;** the label comes from `chordLabel(event.command, platform)`.
 
 **Tests.** The Command-layer block in §10.1, plus: **every existing test passes unchanged.** That is the phase's real acceptance criterion.
-**Acceptance.** `Ctrl+Shift+↓` records `EXTEND_JUMP_DOWN`; a toolbar bold records `TOGGLE_BOLD` with `via: "toolbar"`; the shortcut-efficiency number is unchanged; every test passes, per the corrected criterion in §1a.8 (intentional migration of assertions describing `onAction`/`dispatch`'s second argument and the deleted `shortcutLabelForEvent`'s label — no assertion weakened or dropped).
+**Acceptance.** `Ctrl+Shift+↓` records `EXTEND_JUMP_DOWN`; a toolbar Bold click records `APPLY_BOLD` with `via: "toolbar"`, distinct from `Ctrl/Cmd+B`'s `TOGGLE_BOLD` (§1a.9 — they are different operations and must not share a command id); the shortcut-efficiency number is unchanged; every test passes, per the corrected criterion in §1a.8 (intentional migration of assertions describing `onAction`/`dispatch`'s second argument and the deleted `shortcutLabelForEvent`'s label — no assertion weakened or dropped).
 **Dependencies.** Phase 0 (soft). **Risk.** This touches the game's hot path — mitigated by keeping the resolved actions byte-identical and letting the existing keyboard suite prove it. **Rollback.** Revert; the new `RunEvent` fields are optional and nothing persisted them.
 
 ---
@@ -1441,7 +1449,7 @@ The brief's recommended order is followed with **one change: the missing keyboar
 **Changed.** `challengeTypes.ts`, `personalRecords.ts`, `GameShell.tsx`, `ChallengeRun.tsx`, `ResultCard.tsx`, `SpreadsheetGrid.tsx` + `Toolbar.tsx` (ignore pointer input at `ranked`), `themes.ts` + `SettingsPanel.tsx`, `categories.ts`.
 
 **Tasks.**
-1. Widen `ChallengeMode` to include `"hotkey"`. **Update the PR type guard to `"main-speed" | "hotkey"`** — `personalRecords.ts:60` hardcodes `"main-speed" | "practice"` today; per §1a.1, Practice's record book is retired in this same edit (dropped, not replaced), so the guard both adds Hotkey and removes Practice. A missed edit would either silently drop every Hotkey PB on reload or silently keep banking a Practice record the product no longer wants. **This is a one-time, deliberate, silent removal of any Practice record already on disk** — call it out in release notes; there is no migration path for a record type that no longer exists. It gets its own test, covering both the addition and the removal.
+1. Widen `ChallengeMode` to include `"hotkey"`. **Update the PR type guard to `"main-speed" | "practice" | "hotkey"`** — `personalRecords.ts:60` hardcodes `"main-speed" | "practice"` today; per §1a.1 (corrected), Practice keeps its existing record eligibility, so this edit only *adds* Hotkey, it does not remove Practice. A missed edit would silently drop every Hotkey PB on reload. It gets its own test.
 2. The seventh mode button; filter the queue to keyboard-complete drills.
 3. Purity gating per `hotkeyStrictness`; the `ranked` pointer block with its accessibility notice.
 4. The route-first Hotkey result card.
@@ -1593,7 +1601,7 @@ Work top to bottom. Do not start a phase until the one above it is green.
 - [ ] **Open help → complete → PB unchanged, row in Recent Runs, absent from the graph.**
 
 **Phase 7 — Hotkey Mode**
-- [ ] `ChallengeMode` gains `"hotkey"`; **update the PR type guard to `"main-speed" | "hotkey"` (Practice dropped, per §1a.1) and test it.**
+- [ ] `ChallengeMode` gains `"hotkey"`; **update the PR type guard to `"main-speed" | "practice" | "hotkey"` (Practice keeps its book, per §1a.1) and test it.**
 - [ ] Seventh mode button; queue filtered to keyboard-complete drills.
 - [ ] `hotkeyStrictness` wired; **`mousePolicy` deleted.**
 - [ ] Purity gates the Hotkey PB; `ranked` blocks the pointer, reversibly.
@@ -1622,4 +1630,4 @@ Work top to bottom. Do not start a phase until the one above it is green.
 
 ---
 
-**Resolved (§1a.1).** The product owner killed Practice's personal-record book outright, rather than conditioning it on `autoRevealInPractice`: Practice never banks a PB, assisted or not. No fourth `Learn` mode is added — Practice already is that surface. See §1a.1 for the full decision and its consequences for `getRunEligibility`, the Phase 6 confirmation step, and the Phase 7 PR type guard.
+**Resolved (§1a.1).** Practice remains an ordinary record-eligible mode. Assistance — not mode identity — is what unranks a run: a Practice run with help never revealed may bank a Practice PB exactly like Speed; opening help (or starting with `autoRevealInPractice` on) unranks only that run, via the same `assist === "revealed"` rule every mode already uses. No fourth `Learn` mode is added — Practice already is that surface. See §1a.1 for the full decision.

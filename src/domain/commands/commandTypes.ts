@@ -35,6 +35,13 @@ export type GridCommandId =
   | "FILTER_ABOVE_VALUE"
   | "CLEAR_FILTERS"
   // Pointer-origin only; never searched by the route solver.
+  /**
+   * The toolbar's Bold button: always sets bold on, regardless of the selection's current state.
+   * Deliberately distinct from `TOGGLE_BOLD` — they are different operations (this one cannot
+   * unbold an all-bold selection; `TOGGLE_BOLD` can), so they must not share a command id or a
+   * route replay would reach the wrong state.
+   */
+  | "APPLY_BOLD"
   | "CLICK_CELL"
   | "DRAG_SELECT_RANGE"
   | "CLICK_COLUMN_HEADER"

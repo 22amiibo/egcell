@@ -118,6 +118,14 @@ export function resolveCommand(
         ? null
         : { kind: "set-format", range: bounds, format: { bold: !isRangeBold(grid, bounds) } };
     }
+    // Deliberately not a toggle: the toolbar's Bold button always sets bold on, even when the
+    // selection is already fully bold (which is why formatting.unbold-header has no mouse-only
+    // solve — only TOGGLE_BOLD, keyboard-only, can unbold). See GridCommandId's doc comment.
+    case "APPLY_BOLD": {
+      const bounds = selectionBounds(grid);
+
+      return bounds === null ? null : { kind: "set-format", range: bounds, format: { bold: true } };
+    }
     case "FORMAT_CURRENCY": {
       const bounds = selectionBounds(grid);
 

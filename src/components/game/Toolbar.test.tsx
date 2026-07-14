@@ -116,7 +116,7 @@ describe("Toolbar formatting", () => {
     allowedActions: ["select-cell", "set-format"],
   };
 
-  it("tags a toolbar Bold click as TOGGLE_BOLD via the toolbar — distinguishable from the same command fired by Ctrl+B", () => {
+  it("tags a toolbar Bold click as APPLY_BOLD, a different command from Ctrl+B's TOGGLE_BOLD", () => {
     const onAction = vi.fn();
     const grid: GridState = {
       ...createRevenueGrid(),
@@ -134,12 +134,29 @@ describe("Toolbar formatting", () => {
         format: { bold: true },
       },
       {
-        command: "TOGGLE_BOLD",
+        command: "APPLY_BOLD",
         inputMethod: "pointer",
         via: "toolbar",
         chord: null,
         controlId: "toolbar-bold",
       },
+    );
+  });
+
+  it("does not unbold an all-bold selection — unlike TOGGLE_BOLD, APPLY_BOLD is not a toggle", () => {
+    const onAction = vi.fn();
+    const grid: GridState = {
+      ...createRevenueGrid({ boldHeaders: true }),
+      selection: { kind: "range", range: { start: { row: 0, col: 0 }, end: { row: 0, col: 4 } } },
+    };
+
+    render(<Toolbar challenge={formatChallenge} grid={grid} onAction={onAction} />);
+
+    screen.getByRole("button", { name: "Bold" }).click();
+
+    expect(onAction).toHaveBeenCalledWith(
+      expect.objectContaining({ format: { bold: true } }),
+      expect.objectContaining({ command: "APPLY_BOLD" }),
     );
   });
 });

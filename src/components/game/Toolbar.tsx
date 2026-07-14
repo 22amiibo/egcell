@@ -96,23 +96,11 @@ export function Toolbar({ challenge, grid, onAction }: ToolbarProps) {
             label="B"
             title="Bold"
             disabled={bounds === null}
-            // Deliberately not `emit`: unlike Ctrl+B, this button always sets bold on rather than
-            // toggling it (formatting.unbold-header has no mouse-only solve because of exactly
-            // this — see the plan's §7.5/§12). Preserved as-is; still tagged TOGGLE_BOLD, since
-            // that remains the closest honest label for what the player asked for.
-            onClick={() =>
-              bounds !== null &&
-              onAction(
-                { kind: "set-format", range: bounds, format: { bold: true } },
-                {
-                  command: "TOGGLE_BOLD",
-                  inputMethod: "pointer",
-                  via: "toolbar",
-                  chord: null,
-                  controlId: "toolbar-bold",
-                },
-              )
-            }
+            // Unlike Ctrl+B (TOGGLE_BOLD), this always sets bold on rather than toggling it — a
+            // genuinely different operation, tagged APPLY_BOLD so a route replay reaches the same
+            // state the click actually produced (formatting.unbold-header has no mouse-only solve
+            // because of exactly this; see the plan's §1a.9/§7.5/§12).
+            onClick={() => emit("APPLY_BOLD", "toolbar-bold")}
           />
           <ToolbarButton
             label="$"

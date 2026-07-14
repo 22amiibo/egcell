@@ -126,12 +126,9 @@ export const COMMAND_REGISTRY: Record<GridCommandId, CommandDefinition> = {
   }),
   SELECT_TABLE: define({ id: "SELECT_TABLE", chords: [{ key: "a", mod: true }], label: mod("A") }),
 
-  TOGGLE_BOLD: define({
-    id: "TOGGLE_BOLD",
-    chords: [{ key: "b", mod: true }],
-    label: mod("B"),
-    pointerControlId: "toolbar-bold",
-  }),
+  // Keyboard-only: this one really toggles (it can unbold), which is why the toolbar's Bold
+  // button — which cannot — is a separate command, APPLY_BOLD, below.
+  TOGGLE_BOLD: define({ id: "TOGGLE_BOLD", chords: [{ key: "b", mod: true }], label: mod("B") }),
   // Cmd+Shift+4/5 are macOS screenshot shortcuts and never reach the browser, so the label reads
   // Ctrl on both platforms. Handling still accepts either modifier — a labelling fact, not a
   // behaviour change (the code never printed "Cmd" for these before this registry existed either).
@@ -201,6 +198,15 @@ export const COMMAND_REGISTRY: Record<GridCommandId, CommandDefinition> = {
     label: null,
     pointerControlId: "toolbar-clear-filters",
     reserved: "Bound to mod+Shift+L (toggle) in Phase 2.",
+  }),
+
+  // Toolbar-only: always sets bold on. See the comment on GridCommandId's "APPLY_BOLD" member —
+  // this is not TOGGLE_BOLD's pointer equivalent, it is a genuinely different operation.
+  APPLY_BOLD: define({
+    id: "APPLY_BOLD",
+    chords: [],
+    label: null,
+    pointerControlId: "toolbar-bold",
   }),
 
   CLICK_CELL: define({ id: "CLICK_CELL", chords: [], label: null }),
