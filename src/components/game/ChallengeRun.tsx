@@ -165,8 +165,14 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
         {assist.stage === "revealed" ? "Fastest path revealed. This run is now unranked." : ""}
       </p>
 
-      <div className="flex items-start gap-4">
-        <div className="flex flex-col">
+      {/* `w-full`, or this row is sized to its content and centred by the frame above — and a centred
+          row wider than its parent overflows *equally in both directions*, putting the row numbers and
+          column A at a negative x, where no scroll position can reach them. Constrained to the frame,
+          the row shrinks its children instead, and the sheet scrolls inside its own box. */}
+      <div className="flex w-full items-start gap-4">
+        {/* `min-w-0`, or this column refuses to shrink below the grid's natural width — a flex item's
+            default minimum size is its content — and the overflow comes straight back. */}
+        <div className="flex min-w-0 flex-col">
           {/* The lane sits above the grid and owns its own height, so a cue can never cover a header,
               a cell, or a filter caret — and can never move the grid by appearing. */}
           <RunFeedbackLayer
@@ -178,18 +184,25 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
             showShortcut={settings.feedback.shortcutFlash}
           />
 
-          <div className="relative" data-testid="grid-stage">
-            <SpreadsheetGrid
-              key={attempt}
-              grid={run.grid}
-              onAction={run.dispatch}
-              allowedActions={challenge.allowedActions}
-              focusRef={gridFocusRef}
-              pointerDisabled={blockPointer}
-              density={settings.grid.density}
-              gridlineStrength={settings.grid.gridlineStrength}
-              largeTargets={settings.accessibility.largeTargets}
-            />
+          <div className="relative max-w-full" data-testid="grid-stage">
+            {/* The sheet scrolls inside this box. It used to be allowed to grow past the centred
+                column that holds it, and a centred item wider than its container overflows *both*
+                ways: at difficulty 5 the grid's left edge sat at -150px, so the row numbers and
+                column A were off the left of the window, at a scroll position that does not exist.
+                Scrolling right — the only direction available — just pushed them further away. */}
+            <div className="max-w-full overflow-x-auto" data-testid="grid-scroll">
+              <SpreadsheetGrid
+                key={attempt}
+                grid={run.grid}
+                onAction={run.dispatch}
+                allowedActions={challenge.allowedActions}
+                focusRef={gridFocusRef}
+                pointerDisabled={blockPointer}
+                density={settings.grid.density}
+                gridlineStrength={settings.grid.gridlineStrength}
+                largeTargets={settings.accessibility.largeTargets}
+              />
+            </div>
 
             {/* This one *is* meant to cover the grid: the run is over, and the grid is done. */}
             {run.result !== null && (

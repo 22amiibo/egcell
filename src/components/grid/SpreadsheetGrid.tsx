@@ -433,12 +433,17 @@ export function SpreadsheetGrid({
       tabIndex={0}
       ref={containerRef}
       onKeyDown={handleKeyDown}
-      className={`relative w-max touch-none overflow-hidden rounded-md border-t border-l ${gridlineClass} bg-canvas select-none`}
+      // No `overflow-hidden` here. It made this element the nearest scroll container, so the frozen
+      // row numbers stuck to a box that never scrolls — they anchor to the scroller outside instead,
+      // which is the one the player actually moves. The scroller does the clipping now.
+      className={`relative w-max touch-none rounded-md border-t border-l ${gridlineClass} bg-canvas select-none`}
     >
       <div role="row" className="flex">
+        {/* The corner. Frozen with the row numbers beneath it, and above them, or the numbers would
+            scroll up under a transparent gap where this used to be. */}
         <div
           aria-hidden
-          className={`border-r border-b ${gridlineClass} bg-surface-raised`}
+          className={`sticky left-0 z-20 border-r border-b ${gridlineClass} bg-surface-raised`}
           style={{
             width: presentation.metrics.rowHeaderWidth,
             height: presentation.metrics.columnHeaderHeight,
@@ -502,7 +507,7 @@ export function SpreadsheetGrid({
         <div role="row" className="flex" style={{ height: presentation.metrics.rowHeight }}>
           <div
             aria-hidden
-            className={`border-r border-b ${gridlineClass} bg-surface-raised`}
+            className={`sticky left-0 z-10 border-r border-b ${gridlineClass} bg-surface-raised`}
             style={{
               width: presentation.metrics.rowHeaderWidth,
               height: presentation.metrics.rowHeight,

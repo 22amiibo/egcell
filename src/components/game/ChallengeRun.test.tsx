@@ -70,6 +70,14 @@ describe("ChallengeRun practice frame", () => {
     // A cue that cannot leave the grid's box can only ever be drawn over the grid.
     expect(screen.getByTestId("grid-stage")).not.toContainElement(layer);
 
+    // The sheet scrolls inside its own box. Without this, a wide grid overflows the centred column
+    // it lives in, and a centred item that overflows does it in *both* directions: the row numbers
+    // and column A end up at a negative x, where there is no scroll position to reach them.
+    const scroller = screen.getByTestId("grid-scroll");
+
+    expect(scroller).toHaveClass("overflow-x-auto", "max-w-full");
+    expect(scroller).toContainElement(grid);
+
     fireEvent.keyDown(grid, { key: "ArrowDown" });
 
     expect(layer).toHaveAttribute("data-event", "shortcut");

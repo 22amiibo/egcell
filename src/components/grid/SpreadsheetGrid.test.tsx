@@ -12,6 +12,17 @@ function pointerMeta(command: GridCommandId): ActionMeta {
   return { command, inputMethod: "pointer", via: "grid", chord: null, controlId: null };
 }
 
+describe("SpreadsheetGrid, on a sheet wider than the window", () => {
+  it("freezes the row numbers and the corner, so scrolling right cannot strand the player", () => {
+    // A difficulty-5 sheet is wider than the run column. Scrolled right, an unfrozen row-number
+    // column slides off the left and the grid becomes a wall of values with no addresses — which is
+    // exactly what the player was looking at. Excel freezes them; so do we.
+    render(<SpreadsheetGrid grid={createRevenueGrid()} onAction={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Select row 1" })).toHaveClass("sticky", "left-0");
+  });
+});
+
 describe("SpreadsheetGrid, when a filter matches nothing", () => {
   /** Every data row hidden — the state in the bug report. */
   function filteredToNothing() {

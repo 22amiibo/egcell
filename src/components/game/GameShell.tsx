@@ -249,12 +249,15 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
 
   return (
     <main className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between gap-6 border-b border-line px-6 py-3">
+      {/* Wraps rather than running off the edge. Unwrapped, this row was wider than a 1280px laptop
+          and Settings hung off the right of the window — the page grew a horizontal scrollbar for the
+          sake of a nav bar, and the whole layout could be dragged sideways. */}
+      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-line px-6 py-3">
         <span className="text-[13px] font-semibold tracking-tight text-ink">
           Excel Speed Trainer
         </span>
 
-        <div className="flex items-center gap-5 text-[12px] text-muted">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-muted">
           {play.kind === "single" && (
             <label className="flex items-center gap-2">
               <span className="sr-only">Challenge</span>
@@ -357,7 +360,11 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
       </header>
 
       <div className="flex flex-1 justify-center px-6 py-10">
-        <div className="w-full max-w-4xl">
+        {/* Wide enough for a hard sheet. A difficulty-5 grid is around 1290px, and at 4xl (896px) the
+            run column was narrower than the thing it holds — which is what pushed the grid out of its
+            own container to begin with. It still scrolls inside itself when a sheet outgrows even
+            this, but on a normal laptop the whole sheet now fits without scrolling at all. */}
+        <div className="w-full max-w-6xl">
           {/*
             Keyed by what is being played, so switching challenge, mode, or session length mounts
             a fresh run rather than inheriting the old clock, grid, and result.

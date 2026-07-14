@@ -29,7 +29,10 @@ function RowHeaderComponent({
       onClick={() => onSelect(row)}
       style={{ width: metrics.rowHeaderWidth, height: metrics.rowHeight }}
       className={[
-        "border-r border-b text-[12px] font-medium tabular-nums",
+        // Frozen, the way Excel freezes it. The row number is how a player says where they are, so
+        // it has to survive scrolling right across a wide sheet: the moment it scrolls away, the
+        // grid is a wall of values with no addresses.
+        "sticky left-0 z-10 border-r border-b text-[12px] font-medium tabular-nums",
         gridlineClass,
         isSelected
           ? "bg-accent/25 text-ink"

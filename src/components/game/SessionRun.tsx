@@ -223,8 +223,10 @@ function SessionTask({
         />
       </div>
 
-      <div className="flex items-start gap-4">
-        <div className="flex flex-col">
+      {/* `w-full` so the row is bounded by the frame instead of by its own content; see ChallengeRun. */}
+      <div className="flex w-full items-start gap-4">
+        {/* `min-w-0` so this column can shrink below the grid's natural width; see ChallengeRun. */}
+        <div className="flex min-w-0 flex-col">
           {/* Above the grid, in the flow. See RunFeedbackLayer: laid over the grid, these cues sat on
               the column headers and on the last row. */}
           <RunFeedbackLayer
@@ -236,16 +238,19 @@ function SessionTask({
             showShortcut={showShortcut}
           />
 
-          <div className="relative" data-testid="grid-stage">
-            <SpreadsheetGrid
-              grid={run.grid}
-              onAction={run.dispatch}
-              allowedActions={challenge.allowedActions}
-              focusRef={gridFocusRef}
-              density={gridDensity}
-              gridlineStrength={gridlineStrength}
-              largeTargets={largeTargets}
-            />
+          <div className="relative max-w-full" data-testid="grid-stage">
+            {/* The sheet scrolls in here rather than overflowing the centred column. */}
+            <div className="max-w-full overflow-x-auto" data-testid="grid-scroll">
+              <SpreadsheetGrid
+                grid={run.grid}
+                onAction={run.dispatch}
+                allowedActions={challenge.allowedActions}
+                focusRef={gridFocusRef}
+                density={gridDensity}
+                gridlineStrength={gridlineStrength}
+                largeTargets={largeTargets}
+              />
+            </div>
           </div>
         </div>
 
