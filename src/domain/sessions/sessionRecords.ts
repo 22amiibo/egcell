@@ -7,10 +7,11 @@ import {
 import type { JsonStorage } from "@/lib/storage";
 
 /**
- * v2: seeded queues replaced deterministic list slices, so v1 session records measure a different
- * game and are deliberately left behind under the old key. Per-challenge records are untouched.
+ * v3: the combo multiplier joined session task scoring, so v2 records measure a different race
+ * and are deliberately left behind under the old key — the same move v2 made when seeded queues
+ * replaced list slices. Per-challenge records are untouched.
  */
-export const SESSION_RECORDS_KEY = "excel-speed-trainer:v2:session-records";
+export const SESSION_RECORDS_KEY = "excel-speed-trainer:v3:session-records";
 
 export type SessionRecord = {
   mode: SessionMode;

@@ -19,7 +19,16 @@ import { SESSION_DIFFICULTY, buildSessionQueue } from "@/data/challenges/queue";
 import type { Challenge } from "@/domain/challenges/challengeTypes";
 import type { GridDensity, Settings } from "@/domain/settings/themes";
 import { createNewSessionSeed } from "@/domain/random/seeds";
+import { compareRoute } from "@/domain/routes/compareRoute";
+import { getRoutes } from "@/domain/routes/routeCache";
 import { runRecordForSession, type NewRunRecord } from "@/domain/runs/runRecord";
+import {
+  advanceCombo,
+  comboMultiplier,
+  comboOutcomeFrom,
+  COMBO_RESET,
+  type ComboState,
+} from "@/domain/scoring/combo";
 import { sessionRecordFromResult } from "@/domain/sessions/sessionRecords";
 import { buildSessionResult } from "@/domain/sessions/sessionResult";
 import {
@@ -38,6 +47,7 @@ import { useGameRun, type FinishedRun } from "@/hooks/useGameRun";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
 import type { LocalSessionRecords, SessionRecordSubmission } from "@/hooks/useLocalSessionRecords";
 import { useSettings } from "@/hooks/useSettings";
+import { useWarmRoutes } from "@/hooks/useWarmRoutes";
 import { getPlatform } from "@/lib/platform";
 import {
   getSoundCue,
@@ -86,6 +96,10 @@ type SessionTaskProps = {
   /** The session's assist, not the task's: help revealed on one task assists the whole session. */
   assist: Assist;
   onFinished: (finished: FinishedRun, outcome: TaskOutcome) => void;
+  /** Read at finish time (hotkey plan §1a.14): the streak *entering* this task scores it. */
+  getComboMultiplier: () => number;
+  /** The driver's streak right now, for the live feedback lane. */
+  comboStreak: number;
   /** Epoch milliseconds when the session clock runs out, or null for sprints. */
   deadlineAtMs: number | null;
   /** True once the session is over: the grid freezes and the skip control goes away. */
@@ -117,6 +131,8 @@ function SessionTask({
   records,
   assist,
   onFinished,
+  getComboMultiplier,
+  comboStreak,
   deadlineAtMs,
   frozen,
   sessionStartedAt,
@@ -163,8 +179,13 @@ function SessionTask({
     recordPersonalBest: false,
     assist: assist.assist,
     onFinished: handleFinished,
+    getComboMultiplier,
   });
   const path = useFastestPath(challenge, run.events, assist.stage === "revealed");
+
+  // Warms the route cache off the render path, so `compareRoute` at finish time — and the combo
+  // judgment it feeds — is a cache hit rather than a fresh solve (see useWarmRoutes).
+  useWarmRoutes(challenge);
 
   const { finishNow } = run;
 
@@ -219,9 +240,7 @@ function SessionTask({
           completedTasks={completedTasks + run.validation.completionPercent}
           totalTasks={totalTasks}
           pbMs={null}
-          // Stopgap: Task 0.6 rewires sessions to a real streak. Until then this is a fixed 0,
-          // not a derived fake number.
-          combo={0}
+          combo={comboStreak}
           enabled={liveStatsEnabled}
         />
       </div>
@@ -235,9 +254,7 @@ function SessionTask({
           <RunFeedbackLayer
             event={feedbackEvent}
             reducedMotion={reducedMotion}
-            // Stopgap: Task 0.6 rewires sessions to a real streak. Until then this is a fixed 0,
-            // not the derived fake number it used to be.
-            combo={0}
+            combo={comboStreak}
             shortcutLabel={chordLabelForEvent(run.events.at(-1), getPlatform())}
             showCombo={showCombo}
             showShortcut={showShortcut}
@@ -329,6 +346,13 @@ export function SessionRun({
 
   const tasksRef = useRef<SessionTaskResult[]>([]);
 
+  // The combo lives outside React state for the same reason the run clock does: the multiplier
+  // must be read at the *next* task's finish time, not at whatever render happened to be current
+  // when it changed. `comboStreak` mirrors it into state purely so the feedback lane re-renders.
+  const comboRef = useRef<ComboState>(COMBO_RESET);
+  const [comboStreak, setComboStreak] = useState(0);
+  const getComboMultiplier = useCallback(() => comboMultiplier(comboRef.current), []);
+
   const [runSeed, setRunSeed] = useState<string>(() => seedOverride ?? createSessionSeed());
 
   const queue = useMemo(() => buildSessionQueue(sessionMode, runSeed), [sessionMode, runSeed]);
@@ -385,15 +409,41 @@ export function SessionRun({
 
       tasksRef.current = next;
       setTasks(next);
+
       const replayEvents = finished.submission.replayEvents;
+      // The solve was warmed off the render path (`useWarmRoutes`), so this is a cache hit rather
+      // than the difficulty-5 cost of a fresh search landing here, mid-session.
+      const routes = getRoutes(challenge);
+      const comparison = compareRoute(replayEvents, routes, getPlatform());
+      // Unknown waste (`confidence: "low"`) never breaks a combo or inflates the mistake count —
+      // the engine's ignorance is not the player's fault.
+      const highConfidenceExtraActions =
+        comparison.confidence === "high" ? comparison.extraActions : 0;
+
       setFinishedTaskStats((current) => [
         ...current,
         {
           actions: replayEvents.length,
           shortcutActions: replayEvents.filter((event) => event.inputMethod === "keyboard").length,
-          mistakes: Math.round(replayEvents.length * (1 - finished.validation.accuracy)),
+          mistakes: highConfidenceExtraActions,
         },
       ]);
+
+      // The multiplier scores the streak *entering* a task; the driver advances it only after that
+      // task is fully consumed (hotkey plan §1a.14). A skip or an expiry breaks the chain outright,
+      // whatever the grid happened to look like at that moment.
+      const comboOutcome = comboOutcomeFrom({
+        elapsedMs: finished.elapsedMs,
+        targetSeconds: challenge.scoring.targetSeconds,
+        extraActions: comparison.confidence === "high" ? comparison.extraActions : null,
+        corrections: 0,
+      });
+
+      comboRef.current = advanceCombo(
+        comboRef.current,
+        taskOutcome === "completed" ? comboOutcome : { underTarget: false, clean: false },
+      );
+      setComboStreak(comboRef.current.streak);
 
       const sprintDone = plan.kind === "task-count" && next.length >= plan.taskCount;
       // In a timed run the queue only stops when the clock does. The wall clock is checked here
@@ -415,9 +465,11 @@ export function SessionRun({
 
   const retry = useCallback(() => {
     tasksRef.current = [];
+    comboRef.current = COMBO_RESET;
 
     setTasks([]);
     setFinishedTaskStats([]);
+    setComboStreak(0);
     setTaskIndex(0);
     setOutcome(null);
     setAttempt((current) => current + 1);
@@ -464,9 +516,9 @@ export function SessionRun({
           completedTasks: outcome.result.tasksCompleted,
           totalTasks: outcome.result.taskCount,
           pbMs: outcome.submission?.previousBest?.bestElapsedMs ?? null,
-          // Stopgap: Task 0.6 rewires sessions to a real streak. `SessionResultCard` does not
-          // read `combo` off this object today.
-          combo: 0,
+          // The streak at session end. `SessionResultCard` does not read `combo` off this object
+          // today, but the value is real rather than a placeholder that would rot silently.
+          combo: comboStreak,
         });
 
   return (
@@ -511,6 +563,8 @@ export function SessionRun({
           records={personalRecords}
           assist={assist}
           onFinished={handleTaskFinished}
+          getComboMultiplier={getComboMultiplier}
+          comboStreak={comboStreak}
           deadlineAtMs={deadlineAtMs}
           frozen={outcome !== null}
           sessionStartedAt={sessionStartedAt}

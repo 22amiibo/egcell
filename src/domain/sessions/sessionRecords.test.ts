@@ -22,6 +22,12 @@ function record(overrides: Partial<SessionRecord> = {}): SessionRecord {
   };
 }
 
+describe("SESSION_RECORDS_KEY", () => {
+  it("moved to v3 when the combo changed the race", () => {
+    expect(SESSION_RECORDS_KEY).toBe("excel-speed-trainer:v3:session-records");
+  });
+});
+
 describe("betterSessionRecord", () => {
   it("prefers the higher score", () => {
     const incumbent = record({ bestScore: 4000 });

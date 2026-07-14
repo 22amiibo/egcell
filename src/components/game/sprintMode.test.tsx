@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { GameShell } from "@/components/game/GameShell";
 import { buildSessionQueue } from "@/data/challenges/queue";
+import { scoreRun } from "@/domain/scoring/scoreRun";
 import { solveChallengeDom } from "@/test/solveVariantDom";
 
 /**
@@ -121,5 +122,55 @@ describe("sprint mode", () => {
     await userEvent.click(screen.getByRole("button", { name: "Speed" }));
     expect(screen.getByTestId("best-time")).toHaveTextContent("best");
     expect(screen.getByTestId("best-time")).not.toHaveTextContent("pts");
+  });
+
+  it("scores the second task with the combo multiplier after a clean, instant first clear", async () => {
+    render(<GameShell />);
+
+    await startSprintFive();
+
+    const queue = sprintQueue();
+
+    // Every DOM-solved task in this seeded queue walks a route with zero extra actions
+    // (`compareRoute` confidence "high", `extraActions: 0`), so the first clear is clean and the
+    // streak advances to 1 entering task two. `completeAllFiveTasks` drives the whole sprint so
+    // the result card — the only place a per-task score renders — has something to show.
+    completeAllFiveTasks();
+
+    expect(screen.getByTestId("session-result-card")).toBeVisible();
+
+    fireEvent.click(screen.getByText("Task breakdown"));
+
+    const details = screen.getByText("Task breakdown").closest("details");
+
+    if (details === null) {
+      throw new Error("Expected a details element around the task breakdown.");
+    }
+
+    const rows = details.querySelectorAll("li");
+    const secondRowText = rows[1]?.textContent ?? "";
+    const scoreMatch = secondRowText.match(/([\d,]+) pts$/);
+
+    if (scoreMatch === null) {
+      throw new Error(`No score found in the second breakdown row: "${secondRowText}"`);
+    }
+
+    const secondTaskScore = Number(scoreMatch[1].replace(/,/g, ""));
+    const secondTask = queue.tasks[1].variant;
+
+    // Both tasks finish in a handful of synchronous milliseconds, well under `scoreRun`'s 0.5s
+    // fastest-credited floor, so a bare (no-combo) run at the same target and base points has the
+    // identical speed component — the only thing left for the multiplier to move is the 1.1x.
+    const bareScore = scoreRun({
+      elapsedMs: 0,
+      correctness: 1,
+      completionPercent: 1,
+      accuracy: 1,
+      basePoints: secondTask.scoring.basePoints,
+      targetSeconds: secondTask.scoring.targetSeconds,
+      comboMultiplier: 1,
+    }).score;
+
+    expect(secondTaskScore).toBe(Math.round(bareScore * 1.1));
   });
 });
