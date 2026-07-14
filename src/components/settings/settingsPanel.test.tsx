@@ -33,6 +33,7 @@ describe("the settings panel", () => {
       "Grid",
       "Gameplay",
       "Scoring",
+      "Help",
       "Feedback",
       "Sound",
       "Accessibility",
@@ -45,8 +46,14 @@ describe("the settings panel", () => {
     expect(screen.getByLabelText("Grid density")).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Scoring" }));
-    expect(screen.getByLabelText("Mouse policy")).toBeInTheDocument();
     expect(screen.getByLabelText("Hotkey strictness")).toBeInTheDocument();
+    // Mouse policy is gone: it duplicated hotkeyStrictness, nothing ever read it, and it
+    // contradicted DECISIONS.md outright (§10).
+    expect(screen.queryByLabelText("Mouse policy")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Help" }));
+    expect(screen.getByLabelText("Confirm before revealing")).toBeChecked();
+    expect(screen.getByLabelText("Auto-reveal in Practice")).not.toBeChecked();
 
     await user.click(screen.getByRole("tab", { name: "Feedback" }));
     expect(screen.getByLabelText("Live stats")).toBeChecked();

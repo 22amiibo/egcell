@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Toolbar } from "@/components/game/Toolbar";
@@ -60,7 +60,7 @@ describe("Toolbar filters", () => {
     const { onAction } = renderToolbar({ row: FIRST_DATA_ROW, col: STATUS_COL });
 
     expect(screen.queryByTestId("filter-hint")).not.toBeInTheDocument();
-    filterButton().click();
+    fireEvent.click(filterButton(), { detail: 1 });
 
     expect(onAction).toHaveBeenCalledWith(
       {
@@ -82,7 +82,7 @@ describe("Toolbar filters", () => {
   it("offers the greater-than filter only on a number cell", () => {
     const { onAction } = renderToolbar({ row: FIRST_DATA_ROW, col: REVENUE_COL });
 
-    filterAboveButton().click();
+    fireEvent.click(filterAboveButton(), { detail: 1 });
 
     expect(onAction).toHaveBeenCalledWith(
       {
@@ -125,7 +125,7 @@ describe("Toolbar formatting", () => {
 
     render(<Toolbar challenge={formatChallenge} grid={grid} onAction={onAction} />);
 
-    screen.getByRole("button", { name: "Bold" }).click();
+    fireEvent.click(screen.getByRole("button", { name: "Bold" }), { detail: 1 });
 
     expect(onAction).toHaveBeenCalledWith(
       {
@@ -161,7 +161,7 @@ describe("Toolbar formatting", () => {
       />,
     );
 
-    screen.getByRole("button", { name: "Bold" }).click();
+    fireEvent.click(screen.getByRole("button", { name: "Bold" }), { detail: 1 });
 
     expect(focus).toHaveBeenCalledWith({ preventScroll: true });
   });
@@ -175,11 +175,63 @@ describe("Toolbar formatting", () => {
 
     render(<Toolbar challenge={formatChallenge} grid={grid} onAction={onAction} />);
 
-    screen.getByRole("button", { name: "Bold" }).click();
+    fireEvent.click(screen.getByRole("button", { name: "Bold" }), { detail: 1 });
 
     expect(onAction).toHaveBeenCalledWith(
       expect.objectContaining({ format: { bold: true } }),
       expect.objectContaining({ command: "APPLY_BOLD" }),
     );
+  });
+});
+
+describe("who pressed it", () => {
+  const formatChallenge: Challenge = {
+    ...filterChallenge,
+    id: "test.format",
+    allowedActions: ["select-cell", "set-format"],
+  };
+  const selected: GridState = {
+    ...createRevenueGrid(),
+    selection: { kind: "range", range: { start: { row: 0, col: 0 }, end: { row: 0, col: 4 } } },
+  };
+
+  it("records a Tab-and-Enter toolbar press as keyboard, not as a click", () => {
+    // `detail` is 0 when a button is activated from the keyboard and non-zero for a real click. It
+    // is the only evidence there is, and it matters: in Hotkey Mode a keyboard-only player who tabs
+    // to Bold would otherwise be recorded as having used the mouse, and would lose the record they
+    // earned by using the interface exactly as it was designed (§6.6).
+    const onAction = vi.fn();
+
+    render(
+      <Toolbar challenge={formatChallenge} grid={selected} onAction={onAction} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Bold" }), { detail: 0 });
+
+    expect(onAction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ inputMethod: "keyboard", via: "toolbar" }),
+    );
+  });
+
+  it("refuses a click, but not a keypress, when the pointer is off", () => {
+    // Hotkey Mode at `ranked`. The mode bars the mouse, not the toolbar: locking a keyboard player
+    // out of a control they can reach with Tab would be a rule against nobody.
+    const onAction = vi.fn();
+
+    render(
+      <Toolbar
+        challenge={formatChallenge}
+        grid={selected}
+        onAction={onAction}
+        pointerDisabled
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Bold" }), { detail: 1 });
+    expect(onAction).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Bold" }), { detail: 0 });
+    expect(onAction).toHaveBeenCalledTimes(1);
   });
 });

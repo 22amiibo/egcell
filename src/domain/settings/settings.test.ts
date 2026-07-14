@@ -16,9 +16,23 @@ describe("expanded settings", () => {
     expect(DEFAULT_SETTINGS.sound.rankedPromotion).toBe(true);
     expect(DEFAULT_SETTINGS.sound.dailyComplete).toBe(true);
     expect(DEFAULT_SETTINGS.feedback.liveStats).toBe(true);
-    expect(DEFAULT_SETTINGS.scoring.mousePolicy).toBe("allowed");
     expect(DEFAULT_SETTINGS.scoring.hotkeyStrictness).toBe("encouraged");
+    expect(DEFAULT_SETTINGS.help.confirmBeforeReveal).toBe(true);
+    expect(DEFAULT_SETTINGS.help.autoRevealInPractice).toBe(false);
     expect(coerceSettings(DEFAULT_SETTINGS)).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it("drops mousePolicy, and a stored one, with no migration", () => {
+    // It was a duplicate of `hotkeyStrictness` that nothing ever read, and it contradicted
+    // DECISIONS.md head-on (§10). `coerceSettings` is total and rebuilds each section from the keys
+    // it knows, so a blob written by an older build simply loses the key on its next load.
+    const stored = {
+      ...DEFAULT_SETTINGS,
+      scoring: { ...DEFAULT_SETTINGS.scoring, mousePolicy: "penalized" },
+    };
+
+    expect(coerceSettings(stored)).toEqual(DEFAULT_SETTINGS);
+    expect("mousePolicy" in coerceSettings(stored).scoring).toBe(false);
   });
 
   it("migrates legacy theme-only settings", () => {

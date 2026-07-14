@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 
 import { ChallengePrompt } from "@/components/game/ChallengePrompt";
 import { HelpControl, HelpPanel } from "@/components/game/HelpPanel";
@@ -16,6 +23,8 @@ import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { Toolbar } from "@/components/game/Toolbar";
 import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
 import type { Challenge, ChallengeMode } from "@/domain/challenges/challengeTypes";
+import { hotkeyVerdict } from "@/domain/routes/hotkeyEligibility";
+import { getRoutes } from "@/domain/routes/routeCache";
 import { useAssist } from "@/hooks/useAssist";
 import { useFastestPath } from "@/hooks/useFastestPath";
 import { useGameRun, type FinishedRun } from "@/hooks/useGameRun";
@@ -43,7 +52,21 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
     autoReveal: mode === "practice" && settings.help.autoRevealInPractice,
     confirmBeforeReveal: settings.help.confirmBeforeReveal,
   });
-  const run = useGameRun(challenge, mode, records, { onFinished, assist: assist.assist });
+  const hotkey = mode === "hotkey";
+  const strictness = settings.scoring.hotkeyStrictness;
+  // The count is a property of the challenge, not of the player, so showing it before the run gives
+  // nothing away and is not assistance (§7.4). It is also the one place the solver runs *before* a
+  // run rather than after — memoised per challenge and seed, so it is paid once.
+  const hotkeyRoutes = useMemo(() => (hotkey ? getRoutes(challenge) : null), [hotkey, challenge]);
+  const run = useGameRun(challenge, mode, records, {
+    onFinished,
+    assist: assist.assist,
+    // A pointer-tainted Hotkey run still plays, still grades, and still scores. It simply banks no
+    // Hotkey record: route quality and correctness never touch (§6.2).
+    requireKeyboardPure: hotkey && strictness !== "encouraged",
+  });
+  const verdict = hotkeyVerdict(run.events, strictness);
+  const blockPointer = hotkey && verdict.blocksPointer;
   // The solve is paid for only once the run is already unranked, so it can never cost a scored run a
   // frame (§6.3) — `useFastestPath` takes that as a parameter rather than as a promise.
   const path = useFastestPath(challenge, run.events, assist.stage === "revealed");
@@ -99,7 +122,20 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
         data-testid="prompt-rail"
         className="flex min-h-14 w-full items-end justify-between gap-8"
       >
-        <ChallengePrompt challenge={challenge} />
+        <div className="flex flex-col gap-1">
+          <ChallengePrompt challenge={challenge} />
+
+          {hotkey && (
+            <p className="text-[11px] text-muted" data-testid="hotkey-objective">
+              {hotkeyRoutes === null
+                ? "Keyboard only"
+                : `Keyboard only · ${hotkeyRoutes[0].optimalActions} optimal action${
+                    hotkeyRoutes[0].optimalActions === 1 ? "" : "s"
+                  }`}
+              {blockPointer && " · the pointer is off in this mode"}
+            </p>
+          )}
+        </div>
 
         <div className="flex items-center gap-3">
           {assist.stage === "revealed" && <UnrankedBadge />}
@@ -137,6 +173,7 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
           onAction={run.dispatch}
           allowedActions={challenge.allowedActions}
           focusRef={gridFocusRef}
+          pointerDisabled={blockPointer}
           density={settings.grid.density}
           gridlineStrength={settings.grid.gridlineStrength}
           largeTargets={settings.accessibility.largeTargets}
@@ -180,6 +217,7 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
           grid={run.grid}
           onAction={run.dispatch}
           gridFocusRef={gridFocusRef}
+          pointerDisabled={blockPointer}
         />
       </div>
     </div>

@@ -7,6 +7,7 @@ import type { ActionMeta } from "@/domain/commands/commandTypes";
 import { gridReducer } from "@/domain/grid/gridReducer";
 import type { GridAction, GridState } from "@/domain/grid/gridTypes";
 import { isPersonalRecordEligible } from "@/domain/records/personalRecords";
+import { isKeyboardPure } from "@/domain/routes/hotkeyEligibility";
 import type { PersonalRecord } from "@/domain/records/recordTypes";
 import { getRunEligibility } from "@/domain/runs/runEligibility";
 import { RUN_RECORD_VERSION, type RunAssist } from "@/domain/runs/runRecord";
@@ -67,6 +68,14 @@ export type GameRunOptions = {
    * simply never banks a record (§6.2).
    */
   assist?: RunAssist;
+  /**
+   * Hotkey Mode at `strict` or `ranked`: a run that touched the pointer banks no record.
+   *
+   * The check lives here rather than in the caller because only here is the *finished* event list
+   * known. A caller computing purity from its last render would judge the run without the action
+   * that ended it — and a run whose final act was a click would bank a keyboard-only record.
+   */
+  requireKeyboardPure?: boolean;
   /** Fires once when the run completes through play. Not fired by `finishNow`, whose caller already holds the result. */
   onFinished?: (finished: FinishedRun) => void;
 };
@@ -81,7 +90,12 @@ export function useGameRun(
   records: LocalPersonalRecords,
   options: GameRunOptions = {},
 ): GameRun {
-  const { recordPersonalBest = true, assist = "none", onFinished } = options;
+  const {
+    recordPersonalBest = true,
+    assist = "none",
+    requireKeyboardPure = false,
+    onFinished,
+  } = options;
 
   const [clock] = useState(createRunClock);
   const [grid, setGrid] = useState<GridState>(challenge.initialGrid);
@@ -146,8 +160,13 @@ export function useGameRun(
         integrity: "ok",
       });
 
+      // Purity is a record-book rule of one mode, not a grading rule of the game: the run still
+      // completed, still scored, and still lands in the log. It simply does not bank a Hotkey best.
+      const pure = !requireKeyboardPure || isKeyboardPure(eventsRef.current);
+
       if (
         recordPersonalBest &&
+        pure &&
         eligibility.countsForPersonalBest &&
         isPersonalRecordEligible(challenge, validation)
       ) {
@@ -181,7 +200,7 @@ export function useGameRun(
 
       return { validation, score, elapsedMs, previousBest, isNewRecord, assist, submission };
     },
-    [challenge, mode, submit, getBest, recordPersonalBest, assist],
+    [challenge, mode, submit, getBest, recordPersonalBest, assist, requireKeyboardPure],
   );
 
   const dispatch = useCallback(

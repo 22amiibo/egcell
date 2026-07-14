@@ -154,3 +154,34 @@ describe("readPersonalRecords and writePersonalRecords", () => {
     expect(Object.keys(loaded)).toEqual([recordKey(challenge.id, "main-speed")]);
   });
 });
+
+describe("a Hotkey record survives a reload", () => {
+  it("is read back from storage rather than discarded as corrupt", () => {
+    // The whole reason the type guard had to learn "hotkey" the same day the mode arrived. A guard
+    // that does not recognise a mode reads its records as malformed and drops them silently — the
+    // player would simply find their Hotkey book empty one morning, with nothing to blame and no
+    // error to search for. This test is what makes that failure loud.
+    const storage = createMemoryJsonStorage();
+    const hotkey = record({ mode: "hotkey", bestScore: 1610 });
+
+    writePersonalRecords(storage, { [recordKey(challenge.id, "hotkey")]: hotkey });
+
+    expect(readPersonalRecords(storage)[recordKey(challenge.id, "hotkey")]).toEqual(hotkey);
+  });
+
+  it("keeps the Hotkey book apart from the Speed book", () => {
+    // Records are keyed by mode, so a keyboard-only best can never be mistaken for a mouse-assisted
+    // one — and a Speed best can never be beaten by a Hotkey run, or the other way round.
+    const storage = createMemoryJsonStorage();
+
+    writePersonalRecords(storage, {
+      [recordKey(challenge.id, "main-speed")]: record({ bestScore: 900 }),
+      [recordKey(challenge.id, "hotkey")]: record({ mode: "hotkey", bestScore: 1610 }),
+    });
+
+    const store = readPersonalRecords(storage);
+
+    expect(store[recordKey(challenge.id, "main-speed")]?.bestScore).toBe(900);
+    expect(store[recordKey(challenge.id, "hotkey")]?.bestScore).toBe(1610);
+  });
+});

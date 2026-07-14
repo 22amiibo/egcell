@@ -437,7 +437,6 @@ export function themeCssVars(tokens: ThemeTokens): Record<string, string> {
 export const SETTINGS_KEY = "excel-speed-trainer:v1:settings";
 
 export type GridDensity = "compact" | "comfortable" | "large";
-export type MousePolicy = "allowed" | "penalized" | "disabled";
 export type HotkeyStrictness = "encouraged" | "strict" | "ranked";
 export type PromptPosition = "top" | "left" | "bottom";
 export type DefaultMode =
@@ -469,7 +468,6 @@ export type Settings = {
     skipBehavior: "practice-only" | "allowed" | "disabled";
   };
   scoring: {
-    mousePolicy: MousePolicy;
     hotkeyStrictness: HotkeyStrictness;
     mistakePenalty: "light" | "standard" | "strict";
   };
@@ -537,7 +535,6 @@ export const DEFAULT_SETTINGS: Settings = {
     skipBehavior: "practice-only",
   },
   scoring: {
-    mousePolicy: "allowed",
     hotkeyStrictness: "encouraged",
     mistakePenalty: "standard",
   },
@@ -672,11 +669,6 @@ export function coerceSettings(value: unknown): Settings {
       ),
     },
     scoring: {
-      mousePolicy: oneOf(
-        scoring.mousePolicy,
-        ["allowed", "penalized", "disabled"] as const,
-        DEFAULT_SETTINGS.scoring.mousePolicy,
-      ),
       hotkeyStrictness: oneOf(
         scoring.hotkeyStrictness,
         ["encouraged", "strict", "ranked"] as const,

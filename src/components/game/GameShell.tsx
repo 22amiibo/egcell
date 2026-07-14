@@ -42,6 +42,7 @@ type PlaySelection =
 const PLAY_OPTIONS: Array<{ key: string; label: string; selection: PlaySelection }> = [
   { key: "speed", label: "Speed", selection: { kind: "single", mode: "main-speed" } },
   { key: "practice", label: "Practice", selection: { kind: "single", mode: "practice" } },
+  { key: "hotkey", label: "Hotkey", selection: { kind: "single", mode: "hotkey" } },
   { key: "sprint-5", label: "Sprint 5", selection: { kind: "session", mode: "sprint-5" } },
   { key: "sprint-10", label: "Sprint 10", selection: { kind: "session", mode: "sprint-10" } },
   { key: "timed-30", label: "30s", selection: { kind: "session", mode: "timed-30" } },

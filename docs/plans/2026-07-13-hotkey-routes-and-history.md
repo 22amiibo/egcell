@@ -252,6 +252,16 @@ Phase 4's acceptance test — *every generated variant and every classic yields 
 
 **`aria-description` is not supported on a button**, which the a11y lint catches. The revealed control's warning ("Hiding the path does not change that") is attached with `aria-describedby` pointing at a visually-hidden span instead. The point stands and is what matters: a screen-reader user who presses "Hide fastest path" must not be left believing they just handed the ranking back.
 
+### 1a.14 Phase 7 addendum: the toolbar was lying about who pressed it
+
+**`Toolbar` recorded every activation as `inputMethod: "pointer"`, including keyboard ones.** §6.6 says a keyboard-activated toolbar button "counts as **keyboard** (purity intact) but not as a **shortcut** (coaching still fires)" — and the toolbar hardcoded `"pointer"` on every path, so it could not have. Until Phase 7 nothing read the field this way and the lie was inert; the moment Hotkey Mode existed it would have **cost a keyboard-only player the record they earned**, for tabbing to Bold and pressing Enter. The fix is the only evidence the DOM offers: a click event's `detail` is `0` for a keyboard activation and non-zero for a real click. Two existing toolbar tests were asserting the wrong thing here for the same reason — they drove the button with `element.click()`, which is also `detail: 0`. They now say `detail: 1` where they mean the mouse, and there is a new test for the keyboard case.
+
+**Purity is checked inside `useGameRun`, not by the caller.** The obvious shape — `ChallengeRun` computes purity from `run.events` and passes `recordPersonalBest` — is wrong, and subtly: the option is read during the dispatch that *finishes* the run, so it reflects the render before it, and the finishing action is missing. A run whose last act was a click would bank a keyboard-only record. `useGameRun` gains `requireKeyboardPure`, and checks `eventsRef.current` at the moment it builds the result, which is the only place the finished event list exists.
+
+**The Hotkey queue filter is a guard on the drill in hand, not a sweep of the whole queue.** §7's task list says "filter the queue to keyboard-complete drills". Solving every variant in the queue up front would cost a solve apiece (up to half a second each, §1a.12) before the first frame. Since Phase 2's acceptance test already proves *every* shipped challenge is keyboard-solvable, `isHotkeyPlayable` is applied to the challenge the player is about to run — one solve, which Hotkey Mode needs anyway for the prompt rail's optimal-action count. `hotkeyPlayableChallenges` exists for a caller that genuinely wants to filter a list, and a test pins that all 23 classics pass, so the day a command lands without a keyboard route, that test fails rather than a player getting trapped in an unwinnable drill.
+
+**`mousePolicy` is deleted, and its deletion is pinned by a test.** It duplicated `hotkeyStrictness`, nothing ever read it, and it contradicted `DECISIONS.md` (§10.1). `coerceSettings` is total and rebuilds each section from the keys it knows, so a settings blob written by an older build simply loses the key on its next load — no migration, no version bump.
+
 ## 2. Current-state findings
 
 ### 2.1 Stack

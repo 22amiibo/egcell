@@ -71,6 +71,12 @@ type SpreadsheetGridProps = {
   density?: GridDensity;
   gridlineStrength?: Settings["grid"]["gridlineStrength"];
   largeTargets?: boolean;
+  /**
+   * Hotkey Mode at `ranked` strictness: pointer input on the grid is ignored, so the question of
+   * whether a run was keyboard-pure cannot arise. Never set outside Hotkey Mode — a mouse player
+   * must not be locked out of the rest of the game.
+   */
+  pointerDisabled?: boolean;
 };
 
 const GRIDLINE_CLASSES: Record<Settings["grid"]["gridlineStrength"], string> = {
@@ -87,6 +93,7 @@ export function SpreadsheetGrid({
   density = "comfortable",
   gridlineStrength = "standard",
   largeTargets = false,
+  pointerDisabled = false,
 }: SpreadsheetGridProps) {
   // A run is an aiming test. Snapshot presentation on mount so a settings update cannot move a
   // target under the pointer or selection outline while that run is active.
@@ -170,6 +177,21 @@ export function SpreadsheetGrid({
     draggedRef.current = false;
   }, []);
 
+  /**
+   * Every pointer-originated dispatch goes through here, so `ranked` strictness has one gate rather
+   * than four. The keyboard path does not: the mode bars the mouse, not the player.
+   */
+  const emitPointer = useCallback(
+    (action: GridAction, meta: ActionMeta) => {
+      if (pointerDisabled) {
+        return;
+      }
+
+      onAction(action, meta);
+    },
+    [pointerDisabled, onAction],
+  );
+
   const extendDrag = useCallback(
     (cell: CellAddress, event: PointerEvent<HTMLButtonElement>) => {
       const anchor = anchorRef.current;
@@ -193,7 +215,7 @@ export function SpreadsheetGrid({
       }
 
       updateRefsForAction(action, cell, keyAnchorRef, keyFocusRef);
-      onAction(action, {
+      emitPointer(action, {
         command: "DRAG_SELECT_RANGE",
         inputMethod: "pointer",
         via: "grid",
@@ -201,7 +223,7 @@ export function SpreadsheetGrid({
         controlId: null,
       });
     },
-    [grid, onAction],
+    [grid, emitPointer],
   );
 
   const selectCell = useCallback(
@@ -221,7 +243,7 @@ export function SpreadsheetGrid({
       }
 
       updateRefsForAction(action, cell, keyAnchorRef, keyFocusRef);
-      onAction(action, {
+      emitPointer(action, {
         command: "CLICK_CELL",
         inputMethod: "pointer",
         via: "grid",
@@ -229,7 +251,7 @@ export function SpreadsheetGrid({
         controlId: null,
       });
     },
-    [grid, onAction],
+    [grid, emitPointer],
   );
 
   // Clicking a column header means "this column's data", the same as it does in Excel.
@@ -243,7 +265,7 @@ export function SpreadsheetGrid({
       }
 
       updateRefsForAction(action, base, keyAnchorRef, keyFocusRef);
-      onAction(action, {
+      emitPointer(action, {
         command: "CLICK_COLUMN_HEADER",
         inputMethod: "pointer",
         via: "grid",
@@ -251,7 +273,7 @@ export function SpreadsheetGrid({
         controlId: null,
       });
     },
-    [grid, onAction],
+    [grid, emitPointer],
   );
 
   const selectRow = useCallback(
@@ -264,7 +286,7 @@ export function SpreadsheetGrid({
       }
 
       updateRefsForAction(action, base, keyAnchorRef, keyFocusRef);
-      onAction(action, {
+      emitPointer(action, {
         command: "CLICK_ROW_HEADER",
         inputMethod: "pointer",
         via: "grid",
@@ -272,7 +294,7 @@ export function SpreadsheetGrid({
         controlId: null,
       });
     },
-    [grid, onAction],
+    [grid, emitPointer],
   );
 
   const handleKeyDown = useCallback(

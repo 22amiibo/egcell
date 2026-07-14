@@ -225,7 +225,6 @@ export function SettingsPanel() {
 
             {category === "scoring" && (
               <div>
-                <SettingControl label="Mouse policy" htmlFor="mouse-policy"><SelectControl id="mouse-policy" label="Mouse policy" value={settings.scoring.mousePolicy} options={[{ value: "allowed", label: "Allowed" }, { value: "penalized", label: "Penalized" }, { value: "disabled", label: "Disabled" }]} onChange={(value) => updateSection("scoring", { mousePolicy: value as Settings["scoring"]["mousePolicy"] })} /></SettingControl>
                 <SettingControl label="Hotkey strictness" htmlFor="hotkey-strictness"><SelectControl id="hotkey-strictness" label="Hotkey strictness" value={settings.scoring.hotkeyStrictness} options={[{ value: "encouraged", label: "Encouraged" }, { value: "strict", label: "Strict" }, { value: "ranked", label: "Ranked" }]} onChange={(value) => updateSection("scoring", { hotkeyStrictness: value as Settings["scoring"]["hotkeyStrictness"] })} /></SettingControl>
                 <SettingControl label="Mistake penalty" htmlFor="mistake-penalty"><SelectControl id="mistake-penalty" label="Mistake penalty" value={settings.scoring.mistakePenalty} options={[{ value: "light", label: "Light" }, { value: "standard", label: "Standard" }, { value: "strict", label: "Strict" }]} onChange={(value) => updateSection("scoring", { mistakePenalty: value as Settings["scoring"]["mistakePenalty"] })} /></SettingControl>
               </div>

@@ -57,7 +57,12 @@ function isPersonalRecord(value: unknown): value is PersonalRecord {
 
   return (
     typeof candidate.challengeId === "string" &&
-    (candidate.mode === "main-speed" || candidate.mode === "practice") &&
+    // Every ranked mode belongs here, or its records vanish on reload: a guard that does not know a
+    // mode reads its records as corrupt and quietly throws them away, and the player simply finds
+    // the book empty one morning with nothing to blame.
+    (candidate.mode === "main-speed" ||
+      candidate.mode === "practice" ||
+      candidate.mode === "hotkey") &&
     typeof candidate.bestScore === "number" &&
     typeof candidate.bestElapsedMs === "number" &&
     typeof candidate.bestCorrectness === "number" &&

@@ -15,7 +15,12 @@ export type ChallengeFamily =
   | "sort-filter"
   | "formula"
   | "mixed";
-export type ChallengeMode = "main-speed" | "practice";
+/**
+ * Hotkey is an ordinary ranked mode with its own record book, not a modifier on Speed. Its records
+ * are keyed by mode exactly as every other book's are, so a keyboard-only best can never be mistaken
+ * for a mouse-assisted one — and a Speed best can never be beaten by a Hotkey run.
+ */
+export type ChallengeMode = "main-speed" | "practice" | "hotkey";
 export type ChallengeDifficulty = 1 | 2 | 3 | 4 | 5;
 
 export type TimingPolicy =

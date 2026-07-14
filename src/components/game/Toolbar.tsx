@@ -3,7 +3,7 @@
 import type { RefObject } from "react";
 
 import type { Challenge } from "@/domain/challenges/challengeTypes";
-import type { ActionMeta, GridCommandId } from "@/domain/commands/commandTypes";
+import type { ActionMeta, ActionSource, GridCommandId } from "@/domain/commands/commandTypes";
 import { resolveCommand } from "@/domain/commands/resolveCommand";
 import { comparableValue } from "@/domain/grid/cellValues";
 import type { GridAction, GridActionKind, GridState } from "@/domain/grid/gridTypes";
@@ -19,6 +19,8 @@ type ToolbarProps = {
    * is no grid to refocus.
    */
   gridFocusRef?: RefObject<HTMLDivElement | null>;
+  /** Hotkey Mode at `ranked` strictness: the mouse is refused, the keyboard is not. */
+  pointerDisabled?: boolean;
 };
 
 function ToolbarButton({
@@ -29,7 +31,7 @@ function ToolbarButton({
 }: {
   label: string;
   title: string;
-  onClick: () => void;
+  onClick: (source: ActionSource) => void;
   disabled: boolean;
 }) {
   return (
@@ -37,7 +39,11 @@ function ToolbarButton({
       type="button"
       title={title}
       aria-label={title}
-      onClick={onClick}
+      // `detail` is 0 when a button is activated from the keyboard (Enter or Space on a focused
+      // button) and non-zero for a real click. It is the only evidence there is — and without it a
+      // keyboard-only player who tabs to Bold is recorded as having used the mouse, and in Hotkey
+      // Mode loses the record they earned by using the interface exactly as designed (§6.6).
+      onClick={(event) => onClick(event.detail === 0 ? "keyboard" : "pointer")}
       disabled={disabled}
       className="rounded border border-line bg-surface px-2.5 py-1 text-[12px] font-medium text-ink transition-colors hover:bg-surface-raised disabled:cursor-not-allowed disabled:text-muted/50 disabled:hover:bg-surface"
     >
@@ -50,7 +56,13 @@ function ToolbarButton({
  * Only the actions a challenge allows are offered. A selection challenge therefore renders no
  * toolbar at all, which keeps the surface honest: a control the challenge cannot use never appears.
  */
-export function Toolbar({ challenge, grid, onAction, gridFocusRef }: ToolbarProps) {
+export function Toolbar({
+  challenge,
+  grid,
+  onAction,
+  gridFocusRef,
+  pointerDisabled = false,
+}: ToolbarProps) {
   const allows = (kind: GridActionKind) => challenge.allowedActions.includes(kind);
 
   const canFormat = allows("set-format");
@@ -80,7 +92,15 @@ export function Toolbar({ challenge, grid, onAction, gridFocusRef }: ToolbarProp
   // The toolbar has no anchor/focus of its own — every command acts on wherever the active cell
   // already is, exactly as `resolveCommand`'s guards (a blank filter cell, an empty selection)
   // already expect from a caller with no independent tracking.
-  const emit = (command: GridCommandId, controlId: string) => {
+  const emit = (command: GridCommandId, controlId: string, source: ActionSource) => {
+    // Hotkey Mode at `ranked` strictness refuses pointer input outright, so the question of purity
+    // cannot arise. A button activated from the keyboard still works — the mode bars the mouse, not
+    // the toolbar, and locking a keyboard player out of a control they can reach with Tab would be
+    // a rule against nobody.
+    if (pointerDisabled && source === "pointer") {
+      return;
+    }
+
     const action = resolveCommand(command, {
       grid,
       focus: grid.activeCell,
@@ -88,7 +108,7 @@ export function Toolbar({ challenge, grid, onAction, gridFocusRef }: ToolbarProp
     });
 
     if (action !== null) {
-      onAction(action, { command, inputMethod: "pointer", via: "toolbar", chord: null, controlId });
+      onAction(action, { command, inputMethod: source, via: "toolbar", chord: null, controlId });
       gridFocusRef?.current?.focus({ preventScroll: true });
     }
   };
@@ -109,25 +129,25 @@ export function Toolbar({ challenge, grid, onAction, gridFocusRef }: ToolbarProp
             // genuinely different operation, tagged APPLY_BOLD so a route replay reaches the same
             // state the click actually produced (formatting.unbold-header has no mouse-only solve
             // because of exactly this; see the plan's §1a.9/§7.5/§12).
-            onClick={() => emit("APPLY_BOLD", "toolbar-bold")}
+            onClick={(source) => emit("APPLY_BOLD", "toolbar-bold", source)}
           />
           <ToolbarButton
             label="$"
             title="Format as currency"
             disabled={bounds === null}
-            onClick={() => emit("FORMAT_CURRENCY", "toolbar-currency")}
+            onClick={(source) => emit("FORMAT_CURRENCY", "toolbar-currency", source)}
           />
           <ToolbarButton
             label="%"
             title="Format as percent"
             disabled={bounds === null}
-            onClick={() => emit("FORMAT_PERCENT", "toolbar-percent")}
+            onClick={(source) => emit("FORMAT_PERCENT", "toolbar-percent", source)}
           />
           <ToolbarButton
             label="Date"
             title="Format as date"
             disabled={bounds === null}
-            onClick={() => emit("FORMAT_DATE", "toolbar-date")}
+            onClick={(source) => emit("FORMAT_DATE", "toolbar-date", source)}
           />
         </>
       )}
@@ -138,13 +158,13 @@ export function Toolbar({ challenge, grid, onAction, gridFocusRef }: ToolbarProp
             label="A to Z"
             title="Sort low to high"
             disabled={false}
-            onClick={() => emit("SORT_ASC", "toolbar-sort-asc")}
+            onClick={(source) => emit("SORT_ASC", "toolbar-sort-asc", source)}
           />
           <ToolbarButton
             label="Z to A"
             title="Sort high to low"
             disabled={false}
-            onClick={() => emit("SORT_DESC", "toolbar-sort-desc")}
+            onClick={(source) => emit("SORT_DESC", "toolbar-sort-desc", source)}
           />
         </>
       )}
@@ -156,20 +176,20 @@ export function Toolbar({ challenge, grid, onAction, gridFocusRef }: ToolbarProp
             title="Filter to the selected value"
             // Excel's "filter by selected cell's value". A blank cell has nothing to filter to.
             disabled={filterValue === null}
-            onClick={() => emit("FILTER_TO_VALUE", "toolbar-filter-equals")}
+            onClick={(source) => emit("FILTER_TO_VALUE", "toolbar-filter-equals", source)}
           />
           <ToolbarButton
             label="Filter >"
             title="Filter above the selected value"
             // A threshold only means something for a number.
             disabled={typeof filterValue !== "number"}
-            onClick={() => emit("FILTER_ABOVE_VALUE", "toolbar-filter-above")}
+            onClick={(source) => emit("FILTER_ABOVE_VALUE", "toolbar-filter-above", source)}
           />
           <ToolbarButton
             label="Clear"
             title="Clear filters"
             disabled={grid.filters.length === 0}
-            onClick={() => emit("CLEAR_FILTERS", "toolbar-clear-filters")}
+            onClick={(source) => emit("CLEAR_FILTERS", "toolbar-clear-filters", source)}
           />
           {filterHint !== null && (
             <span data-testid="filter-hint" className="pl-1 text-[11px] text-muted">
