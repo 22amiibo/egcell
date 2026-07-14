@@ -48,15 +48,26 @@ function spilledOutside(
   // The tolerance follows the range's own axis, and it has to: a column of data spans every data
   // row, so "shares a row with the range" would forgive every cell in the table — Ctrl+A would walk
   // straight back in through the other door. A column tolerates its column; a row tolerates its row.
-  const tolerateColumn = height >= width;
-  const tolerateRow = width >= height;
+  //
+  // Strictly *longer*, not merely as long: a range with no long axis has no axis to forgive. A
+  // one-cell target is the reachable case (height and width both zero), and `>=` would have handed it
+  // both bands at once — a plus shape through the sheet, nineteen cells forgiven for a one-cell ask,
+  // which is the whole thing this function exists to refuse. A square block is strict for the same
+  // reason. Tolerance is for the axis a player must sweep to select the target, and a square has none.
+  const tolerateColumn = height > width;
+  const tolerateRow = width > height;
 
   for (let row = 0; row < grid.rowCount; row += 1) {
     for (let col = 0; col < grid.colCount; col += 1) {
       const inColumns = col >= range.start.col && col <= range.end.col;
       const inRows = row >= range.start.row && row <= range.end.row;
 
-      if ((tolerateColumn && inColumns) || (tolerateRow && inRows)) {
+      // The target itself is not a spill — stated outright, because the bands must not be trusted to
+      // imply it. While the wider side always won, one band or the other necessarily covered the
+      // range and this was true by accident; the moment a range has no long side to forgive, both
+      // bands are off and the accident becomes a validator that fails a player for formatting
+      // precisely the cells it asked them to format.
+      if ((inColumns && inRows) || (tolerateColumn && inColumns) || (tolerateRow && inRows)) {
         continue;
       }
 

@@ -169,20 +169,45 @@ function localDay(atMs: number): string {
  * count, a mean, and a best, so the totals and the trends still add up to the same numbers they did
  * the day before the fold.
  *
+ * The budget is therefore spent on *ordinary* runs: records are set aside first, and the oldest
+ * ordinary runs are folded until what remains fits. The first version of this took the oldest
+ * `excess` rows and put the records among them back at the front — which meant those records sat
+ * inside the very window the next fold re-examined, were preserved again, and were never consumed.
+ * The log settled at the limit *plus every record ever earned*, growing for as long as the player
+ * kept improving. Nothing was lost, but the cap was not a cap, and the write that eventually
+ * overflows the storage quota is one this module deliberately swallows.
+ *
+ * So the bound is honest but conditional: `RUN_LOG_LIMIT` rows, unless the player holds more records
+ * than that, in which case the records win and the log is exactly their records. That is the right
+ * way round — a cap may cost a player their history, but it may not cost them their bests.
+ *
  * This is the only code in the system that removes a run row. It is written so that nothing a player
  * earned can be lost by it, and the tests count the totals on both sides of the fold to prove it.
  */
 function foldOldest(log: RunLog): RunLog {
-  const excess = log.runs.length - RUN_LOG_LIMIT;
+  const records = log.runs.reduce((count, run) => (run.isNewRecord ? count + 1 : count), 0);
+  const ordinaryBudget = Math.max(0, RUN_LOG_LIMIT - records);
+  let toFold = Math.max(0, log.runs.length - records - ordinaryBudget);
 
-  if (excess <= 0) {
+  if (toFold === 0) {
     return log;
   }
 
-  const oldest = log.runs.slice(0, excess);
-  const kept = log.runs.slice(excess);
-  const keptVerbatim = oldest.filter((run) => run.isNewRecord);
-  const foldable = oldest.filter((run) => !run.isNewRecord);
+  const foldable: RunRecord[] = [];
+  const kept: RunRecord[] = [];
+
+  // One pass, oldest first, so `kept` stays in the chronological order the rest of the module reads
+  // it in. A record is never a candidate, however old it is.
+  for (const run of log.runs) {
+    if (!run.isNewRecord && toFold > 0) {
+      foldable.push(run);
+      toFold -= 1;
+      continue;
+    }
+
+    kept.push(run);
+  }
+
   const byDay = new Map<string, RunRollup>();
 
   for (const rollup of log.rollups) {
@@ -218,7 +243,7 @@ function foldOldest(log: RunLog): RunLog {
   return {
     ...log,
     rollups: [...byDay.values()].sort((left, right) => left.day.localeCompare(right.day)),
-    runs: [...keptVerbatim, ...kept],
+    runs: kept,
   };
 }
 

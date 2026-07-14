@@ -217,6 +217,41 @@ describe("formatting spill", () => {
 
     expect(result.isComplete).toBe(true);
   });
+
+  // No shipped challenge targets a square range today, so this is the primitive being held to its
+  // rule rather than a live route being defended. The tolerance forgives the axis a player must
+  // sweep to select the target; a one-cell target has no such axis, and a rule of "the longer side
+  // wins" would have handed it *both* — a plus shape through the sheet, nineteen cells forgiven for
+  // a one-cell ask. The next person to write a single-cell formatting challenge should find this
+  // decided, not discover it.
+  const oneCell: Challenge = {
+    ...region,
+    validation: {
+      kind: "formatting",
+      range: { start: { row: 1, col: REGION_COL }, end: { row: 1, col: REGION_COL } },
+      requiredFormat: { bold: true },
+    },
+  };
+
+  it("gives a one-cell target no axis to forgive", () => {
+    const result = play(oneCell, {
+      kind: "set-format",
+      range: { start: { row: 0, col: REGION_COL }, end: { row: 11, col: REGION_COL } },
+      format: { bold: true },
+    });
+
+    expect(result.isComplete).toBe(false);
+  });
+
+  it("passes a one-cell target when exactly that cell is formatted", () => {
+    const result = play(oneCell, {
+      kind: "set-format",
+      range: { start: { row: 1, col: REGION_COL }, end: { row: 1, col: REGION_COL } },
+      format: { bold: true },
+    });
+
+    expect(result.isComplete).toBe(true);
+  });
 });
 
 describe("sort", () => {

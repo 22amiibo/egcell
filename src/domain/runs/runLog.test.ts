@@ -325,6 +325,31 @@ describe("the daily fold, past the limit", () => {
     expect(log.runs.some((run) => run.score === 9999 && run.isNewRecord)).toBe(true);
   });
 
+  it("holds the limit even when the runs it may not fold are the oldest ones", () => {
+    // The two invariants above are easy to satisfy one at a time, and the first version of the fold
+    // did exactly that: it kept the records by putting them back at the *front* of the log — inside
+    // the window the next fold re-examined. They were preserved again, and again, and never
+    // consumed. The log settled at the limit plus every record the player had ever set, and grew for
+    // as long as they kept improving. Both invariants, or neither: that is the test that finds it.
+    const log = bigLog(RUN_LOG_LIMIT + 50, (index) => (index < 40 ? { isNewRecord: true } : {}));
+
+    expect(log.runs.length).toBeLessThanOrEqual(RUN_LOG_LIMIT);
+    expect(log.runs.filter((run) => run.isNewRecord)).toHaveLength(40);
+    expect(selectTotals(log)).toEqual({
+      runs: RUN_LOG_LIMIT + 50,
+      tasksCompleted: RUN_LOG_LIMIT + 50,
+    });
+  });
+
+  it("lets the records win when the records alone outrun the cap", () => {
+    // The bound is conditional, deliberately. A cap may cost a player their history; it may not cost
+    // them their bests. A player whose every run is a record keeps every row.
+    const log = bigLog(RUN_LOG_LIMIT + 50, () => ({ isNewRecord: true }));
+
+    expect(log.runs).toHaveLength(RUN_LOG_LIMIT + 50);
+    expect(log.rollups).toHaveLength(0);
+  });
+
   it("folds a day into its count, its mean, and its best — not into its last run", () => {
     const log = bigLog(RUN_LOG_LIMIT + 10, (index) => ({ score: 1000 + index }));
     const folded = log.rollups.reduce((sum, rollup) => sum + rollup.runs, 0);
