@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   filterEastRegionChallenge,
+  formattingBoldFirstDataRowChallenge,
   formattingBoldHeaderChallenge,
+  formattingBoldRegionColumnChallenge,
   formattingCurrencyRevenueChallenge,
+  formattingUnboldHeaderChallenge,
   navigationLastRevenueCellChallenge,
   sortRevenueHighToLowChallenge,
 } from "@/data/challenges";
@@ -134,6 +137,85 @@ describe("formatting", () => {
     });
 
     expect(result.isComplete).toBe(false);
+  });
+});
+
+/**
+ * The route solver found this hole: "Make the Region names bold" was solvable by selecting the whole
+ * table and pressing Ctrl+B — two actions, *fewer* than doing it properly, and it graded as a pass.
+ * With scoring keyed to action count, bolding the sheet was the winning play.
+ *
+ * The rule that closed it is a line, and a line has two sides. Both are pinned here: format past the
+ * range's own column or row and the run fails; stay inside it — which is exactly what Ctrl+Space and
+ * Shift+Space do — and it still passes. Only one of those halves is a bug fix. The other is every
+ * player who was already doing it the fast, correct way.
+ */
+describe("formatting spill", () => {
+  const region = formattingBoldRegionColumnChallenge;
+  const header = formattingBoldHeaderChallenge;
+
+  const WHOLE_SHEET = { start: { row: 0, col: 0 }, end: { row: 11, col: 7 } };
+  const WHOLE_TABLE = { start: { row: 0, col: 0 }, end: { row: 6, col: 4 } };
+
+  it("refuses the two-action exploit: bolding the whole table to bold one column", () => {
+    const result = play(region, { kind: "set-format", range: WHOLE_TABLE, format: { bold: true } });
+
+    expect(result.isComplete).toBe(false);
+    expect(result.messages).toContainEqual({
+      kind: "error",
+      text: "That formatted more of the sheet than the challenge asked for.",
+    });
+  });
+
+  it("refuses Ctrl+A across the whole sheet", () => {
+    const result = play(region, { kind: "set-format", range: WHOLE_SHEET, format: { bold: true } });
+
+    expect(result.isComplete).toBe(false);
+  });
+
+  it("still passes Ctrl+Space: the target column, its own header and blanks included", () => {
+    // The spill tolerance exists for exactly this route. Column A holds the Region names (rows 1-6),
+    // but Ctrl+Space takes A1 and the empty cells below the table too. That is not a player reaching
+    // for more of the sheet — it is a player selecting the column they were asked to format.
+    const result = play(region, {
+      kind: "set-format",
+      range: { start: { row: 0, col: REGION_COL }, end: { row: 11, col: REGION_COL } },
+      format: { bold: true },
+    });
+
+    expect(result.isComplete).toBe(true);
+    expect(result.correctness).toBe(1);
+  });
+
+  it("refuses Ctrl+A on a row challenge too, so neither axis is a way back in", () => {
+    // The tolerance follows the range's own axis. A row range forgives its row; if it also forgave
+    // every column the row crosses, Ctrl+A would walk straight back in through the other door.
+    const result = play(header, { kind: "set-format", range: WHOLE_SHEET, format: { bold: true } });
+
+    expect(result.isComplete).toBe(false);
+  });
+
+  it("does not fail a player for formatting the grid arrived with", () => {
+    // This grid ships a bold header. The challenge is the row *below* it, so row 0 is outside the
+    // tolerated band — and a player who bolds exactly what was asked must not be failed for bold
+    // they never applied. Only formatting the player added counts against them.
+    const result = play(formattingBoldFirstDataRowChallenge, {
+      kind: "set-format",
+      range: { start: { row: 1, col: 0 }, end: { row: 1, col: 4 } },
+      format: { bold: true },
+    });
+
+    expect(result.isComplete).toBe(true);
+  });
+
+  it("still passes Shift+Space on the unbold challenge, where the grid row is wider than the table", () => {
+    const result = play(formattingUnboldHeaderChallenge, {
+      kind: "set-format",
+      range: { start: { row: 0, col: 0 }, end: { row: 0, col: 7 } },
+      format: { bold: false },
+    });
+
+    expect(result.isComplete).toBe(true);
   });
 });
 
