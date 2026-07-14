@@ -6,6 +6,7 @@ const MAX_SPEED_MULTIPLIER = 2;
 const FASTEST_CREDITED_SECONDS = 0.5;
 /** Accuracy can only move a quarter of the score. Correctness carries the rest. */
 const ACCURACY_WEIGHT = 0.25;
+const MAX_COMBO_MULTIPLIER = 1.5;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -26,13 +27,15 @@ export function scoreRun(input: ScoreInput): ScoreResult {
   const correctnessMultiplier = input.correctness ** 2;
   const accuracyMultiplier = 1 - ACCURACY_WEIGHT + ACCURACY_WEIGHT * input.accuracy;
   const completionMultiplier = input.completionPercent;
+  const comboMultiplier = clamp(input.comboMultiplier ?? 1, 1, MAX_COMBO_MULTIPLIER);
 
   const score = Math.round(
     input.basePoints *
       speedMultiplier *
       correctnessMultiplier *
       accuracyMultiplier *
-      completionMultiplier,
+      completionMultiplier *
+      comboMultiplier,
   );
 
   return {
@@ -41,5 +44,6 @@ export function scoreRun(input: ScoreInput): ScoreResult {
     correctnessMultiplier,
     completionMultiplier,
     accuracyMultiplier,
+    comboMultiplier,
   };
 }

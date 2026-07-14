@@ -8,6 +8,8 @@ export type ScoreInput = {
   accuracy: number;
   basePoints: number;
   targetSeconds: number;
+  /** Streak multiplier from the combo economy. Absent (1) outside sessions and Ascent. */
+  comboMultiplier?: number;
 };
 
 export type ScoreResult = {
@@ -16,4 +18,5 @@ export type ScoreResult = {
   correctnessMultiplier: number;
   completionMultiplier: number;
   accuracyMultiplier: number;
+  comboMultiplier: number;
 };

@@ -98,4 +98,26 @@ describe("scoreRun", () => {
 
     expect(result.score).toBeGreaterThanOrEqual(0);
   });
+
+  it("multiplies by the combo multiplier, clamped to [1, 1.5]", () => {
+    const base = {
+      elapsedMs: 5000,
+      correctness: 1,
+      completionPercent: 1,
+      accuracy: 1,
+      basePoints: 1000,
+      targetSeconds: 5,
+    };
+
+    const plain = scoreRun(base);
+    const combod = scoreRun({ ...base, comboMultiplier: 1.5 });
+    const overclamped = scoreRun({ ...base, comboMultiplier: 9 });
+    const underclamped = scoreRun({ ...base, comboMultiplier: 0 });
+
+    expect(combod.score).toBe(Math.round(plain.score * 1.5));
+    expect(combod.comboMultiplier).toBe(1.5);
+    expect(overclamped.score).toBe(combod.score);
+    expect(underclamped.score).toBe(plain.score);
+    expect(plain.comboMultiplier).toBe(1);
+  });
 });
