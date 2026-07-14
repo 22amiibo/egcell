@@ -8,6 +8,8 @@ import { gridReducer } from "@/domain/grid/gridReducer";
 import type { GridAction, GridState } from "@/domain/grid/gridTypes";
 import { isPersonalRecordEligible } from "@/domain/records/personalRecords";
 import type { PersonalRecord } from "@/domain/records/recordTypes";
+import { getRunEligibility } from "@/domain/runs/runEligibility";
+import { RUN_RECORD_VERSION } from "@/domain/runs/runRecord";
 import { buildRunResult, type RunResult } from "@/domain/runs/runResult";
 import type { RunEvent, RunState, RunStatus } from "@/domain/runs/runTypes";
 import { scoreRun } from "@/domain/scoring/scoreRun";
@@ -120,7 +122,23 @@ export function useGameRun(
       let previousBest = getBest(challenge.id, mode);
       let isNewRecord = false;
 
-      if (recordPersonalBest && isPersonalRecordEligible(challenge, validation)) {
+      // The policy decides what a run counts for; `isPersonalRecordEligible` is the correctness
+      // floor the challenge itself sets. The policy composes it rather than duplicating it (§5.6).
+      // Note what is *not* consulted: the mode. A Practice run banks a Practice best exactly as a
+      // Speed run banks a Speed one — assistance, not mode identity, unranks a run (§1a.1).
+      const eligibility = getRunEligibility({
+        schemaVersion: RUN_RECORD_VERSION,
+        // Phase 6 threads the real assist state through here. Until Help exists, no run is assisted.
+        assist: "none",
+        outcome: validation.isComplete ? "completed" : "failed",
+        integrity: "ok",
+      });
+
+      if (
+        recordPersonalBest &&
+        eligibility.countsForPersonalBest &&
+        isPersonalRecordEligible(challenge, validation)
+      ) {
         const submission = submit({
           challengeId: challenge.id,
           mode,

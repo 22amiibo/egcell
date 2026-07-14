@@ -19,11 +19,12 @@ import type {
 import type { ChallengeVariant } from "@/domain/challenges/variantTypes";
 import { recordKey } from "@/domain/records/personalRecords";
 import { createNewSessionSeed } from "@/domain/random/seeds";
+import { runRecordForChallenge } from "@/domain/runs/runRecord";
 import type { SessionMode } from "@/domain/sessions/sessionTypes";
 import type { FinishedRun } from "@/hooks/useGameRun";
 import { useLocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
-import { useLocalRunHistory } from "@/hooks/useLocalRunHistory";
 import { useLocalSessionRecords } from "@/hooks/useLocalSessionRecords";
+import { useRunLog } from "@/hooks/useRunLog";
 import { useSettings } from "@/hooks/useSettings";
 import { formatElapsed, formatScore } from "@/lib/format";
 
@@ -127,23 +128,28 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
   const [play, setPlay] = useState<PlaySelection>(PLAY_OPTIONS[0].selection);
   const records = useLocalPersonalRecords();
   const sessionRecords = useLocalSessionRecords();
-  const history = useLocalRunHistory();
+  const history = useRunLog();
   const { isHydrated: settingsReady } = useSettings();
 
   const { record: recordHistory } = history;
 
-  // Every finished single run lands in the local run history, practice included.
+  // Every finished single run lands in the run log, practice included.
   const recordSingleRun = useCallback(
     (finished: FinishedRun) => {
-      recordHistory({
-        modeKey: play.kind === "single" ? play.mode : "main-speed",
-        label: challenge.title,
-        score: finished.score.score,
-        elapsedMs: finished.elapsedMs,
-        completed: true,
-        tasksCompleted: 1,
-        isNewRecord: finished.isNewRecord,
-      });
+      recordHistory(
+        runRecordForChallenge({
+          challenge,
+          mode: play.kind === "single" ? play.mode : "main-speed",
+          score: finished.score.score,
+          elapsedMs: finished.elapsedMs,
+          correctness: finished.validation.correctness,
+          accuracy: finished.validation.accuracy,
+          // Fired from `onFinished`, which only runs when the challenge is actually solved.
+          isComplete: true,
+          isNewRecord: finished.isNewRecord,
+          eventDigest: finished.submission.eventDigest,
+        }),
+      );
     },
     [recordHistory, challenge, play],
   );

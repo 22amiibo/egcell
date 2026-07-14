@@ -3,13 +3,13 @@
 import Link from "next/link";
 
 import { MasteryPanel } from "@/components/profile/MasteryPanel";
-import { challenges } from "@/data/challenges";
-import type { ChallengeFamily } from "@/domain/challenges/challengeTypes";
 import { calculateMastery } from "@/domain/mastery/calculateMastery";
-import type { MasteryRun, SkillFamily } from "@/domain/mastery/masteryTypes";
-import type { RunHistoryEntry } from "@/domain/profile/runHistory";
+import type { MasteryRun } from "@/domain/mastery/masteryTypes";
+import { HISTORY_LIMIT } from "@/domain/profile/runHistory";
+import { selectByMode, selectRecentRuns, selectTotals } from "@/domain/runs/runLog";
+import type { RunRecord } from "@/domain/runs/runRecord";
 import { SESSION_MODES, sessionModeLabel, type SessionMode } from "@/domain/sessions/sessionTypes";
-import { useLocalRunHistory } from "@/hooks/useLocalRunHistory";
+import { useRunLog } from "@/hooks/useRunLog";
 import { formatDateTime, formatElapsed, formatScore } from "@/lib/format";
 
 function modeLabel(modeKey: string): string {
@@ -28,36 +28,17 @@ function modeLabel(modeKey: string): string {
   return modeKey;
 }
 
-const familyByChallengeTitle = new Map(
-  challenges.map((challenge) => [challenge.title, challenge.family]),
-);
-
-function masteryFamily(family: ChallengeFamily | undefined, modeKey: string): SkillFamily {
-  if (modeKey.startsWith("sprint-") || modeKey.startsWith("timed-")) {
-    return "mixed";
-  }
-
-  switch (family) {
-    case "navigation":
-    case "selection":
-    case "formatting":
-    case "sort-filter":
-      return family;
-    case "formula":
-      return "formulas";
-    case "mixed":
-    case undefined:
-      return "mixed";
-  }
-}
-
-function masteryRun(entry: RunHistoryEntry): MasteryRun {
+/**
+ * The title-lookup hack this used to need is gone: a record carries its own `family`, and a session
+ * carries none (it draws across families by design) and falls to "mixed", exactly as before.
+ */
+function masteryRun(run: RunRecord): MasteryRun {
   return {
-    family: masteryFamily(familyByChallengeTitle.get(entry.label), entry.modeKey),
-    score: entry.score,
-    // Older local history predates route metrics. Completion is the only honest accuracy signal
-    // available there, and no shortcut credit is inferred from a title or mode.
-    accuracy: entry.completed ? 1 : 0,
+    family: run.family ?? "mixed",
+    score: run.score,
+    // Route metrics land in Phase 5. Until a run carries one, completion is still the only honest
+    // accuracy signal, and no shortcut credit is inferred from a title or a mode.
+    accuracy: run.completed ? 1 : 0,
     shortcutEfficiency: 0,
   };
 }
@@ -67,9 +48,13 @@ function masteryRun(entry: RunHistoryEntry): MasteryRun {
  * stays a game surface; nothing here is required to play, and none of it leaves the machine.
  */
 export function ProfilePanel() {
-  const { profile } = useLocalRunHistory();
-  const modes = Object.entries(profile.byMode);
-  const mastery = calculateMastery(profile.entries.map(masteryRun));
+  const { log } = useRunLog();
+  const totals = selectTotals(log);
+  const modes = Object.entries(selectByMode(log));
+  // The 50 rows this page has always shown. Phase 8 swaps in `RecentRuns`, which takes the
+  // selector's real 20-row window and its "latest 20 of N" footer (§1a.11).
+  const recent = selectRecentRuns(log, HISTORY_LIMIT);
+  const mastery = calculateMastery(recent.map(masteryRun));
 
   return (
     <main className="flex min-h-screen flex-col">
@@ -95,7 +80,7 @@ export function ProfilePanel() {
           <div className="flex gap-4">
             <div className="flex-1 rounded-lg border border-line bg-surface p-4">
               <p className="text-3xl font-semibold tabular-nums text-ink" data-testid="total-runs">
-                {formatScore(profile.totalRuns)}
+                {formatScore(totals.runs)}
               </p>
               <p className="mt-1 text-[12px] text-muted">total runs</p>
             </div>
@@ -104,7 +89,7 @@ export function ProfilePanel() {
                 className="text-3xl font-semibold tabular-nums text-ink"
                 data-testid="total-completed"
               >
-                {formatScore(profile.totalTasksCompleted)}
+                {formatScore(totals.tasksCompleted)}
               </p>
               <p className="mt-1 text-[12px] text-muted">challenges completed</p>
             </div>
@@ -156,11 +141,11 @@ export function ProfilePanel() {
               Recent runs
             </h2>
 
-            {profile.entries.length === 0 ? (
+            {recent.length === 0 ? (
               <p className="text-[13px] text-muted">No runs recorded yet.</p>
             ) : (
               <ol data-testid="run-history" className="flex flex-col rounded-lg border border-line">
-                {profile.entries.map((run) => (
+                {recent.map((run) => (
                   <li
                     key={run.id}
                     className="flex items-baseline justify-between gap-4 border-b border-line px-3 py-2 text-[13px] last:border-b-0"

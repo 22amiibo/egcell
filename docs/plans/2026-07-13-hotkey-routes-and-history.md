@@ -211,6 +211,18 @@ The user-supplied dependency chain for this session (registry → rich event rec
 
 **`FORMAT_DATE` matches its siblings.** §5.2 said "Ctrl only"; read against `FORMAT_CURRENCY`/`FORMAT_PERCENT` — the identical macOS-screenshot class — "Ctrl only" describes the **label**, not the handling: both existing siblings accept `mod` (Ctrl or Cmd) and only *display* `Ctrl` on macOS, because the OS eats `Cmd+Shift+3/4/5` before the page ever sees it, so accepting `mod` costs nothing and stays consistent. `FORMAT_DATE` ships the same way — `chords: [{ key: "#", mod: true, shift: true }, { key: "3", mod: true, shift: true }]`, `ctrlOnly("Shift + 3")` label — rather than introducing a third, differently-handled pattern among three siblings that all hit the same OS collision.
 
+### 1a.11 Phase 3 addendum: four small reconciliations
+
+**`getRunEligibility` takes the fields it reads, not a whole `RunRecord`.** §5.6 types it `getRunEligibility(run: RunRecord)`, and §5.6's own `useGameRun` snippet then calls it *before a `RunRecord` exists* — the PB gate runs inside `buildFinished`, which knows the validation and the mode but not the record's id, timestamp, label, or route fields. Rather than fabricate a half-record to satisfy a type, the signature becomes `getRunEligibility(run: RunEligibilityInput)`, where `RunEligibilityInput = Pick<RunRecord, "schemaVersion" | "assist" | "outcome" | "integrity">` — exactly the four fields the five rules read, and nothing else. A `RunRecord` structurally satisfies it, so every call site §5.6 imagined still compiles unchanged. This is a narrowing of the input, not a change to the policy: the rules, their order, and their outputs are as §5.6/§1a.4 state them, and the function still cannot see `modeKey`, which is the property that matters (§1a.1).
+
+**`domain/stats/categories.ts` ships in Phase 3 with the registry only; `METRICS` lands in Phase 9.** Phase 3 must denormalise `categoryId` at write time (§5.4), which needs `PerformanceCategoryId` and the `modeKey → category` mapping to exist. It does not need `METRICS`, whose `value(run)` projections read route fields that are null until Phase 5 and are consumed by nothing until the Phase 9 chart. The file is created now with `PERFORMANCE_CATEGORIES` and `categoryIdForMode`; `METRICS` is appended to the same file in Phase 9. §5.8's shape is otherwise unchanged, and the disjointness test it calls for ships now, with the registry it tests.
+
+**`ProfilePanel` keeps its 50-row list through Phase 3.** §5.5 fixes `RECENT_RUNS_LIMIT` at 20 and requires the cap live in the selector, and Phase 8's `RecentRuns` component is what consumes it (with the "latest 20 of N" footer). Phase 3's acceptance is that *the profile page renders identically from a different store* — so Phase 3's `ProfilePanel` passes an explicit limit of `HISTORY_LIMIT` (50, the v1 cap it renders today) to `selectRecentRuns`, and Phase 8 drops that argument when the real component arrives. `selectRecentRuns`'s default stays 20 and is tested at 20, as specified. The alternative — silently cutting the visible list from 50 rows to 20 in a phase whose stated acceptance is "renders identically" — would make the acceptance criterion a lie.
+
+**The migration must carry v1's `byMode` forward too, not just its totals — §9.5 step 3 is incomplete.** §9.5 preserves `totalRuns`/`totalTasksCompleted` past the 50-cap, and stops there. But v1's `byMode` has exactly the same property and for exactly the same reason: `recordRun` folded each run's best score and best time into `byMode` *before* trimming the entry list (`runHistory.ts:45-74`), so a best set by a run the cap later destroyed still stands in the aggregate and **cannot be recovered from the rows that survived**. A migration that rebuilds the profile's "bests by mode" table from the imported rows alone therefore takes a record away from the player — a player with nine Speed runs whose best scored 1450 would open the upgraded profile and find 980. So the log gains `priorByMode: Record<string, ProfileModeStats>`, populated by the migration with v1's aggregates and with each mode's run count reduced by the rows the migration imported (so the counts do not double, exactly as `priorTotals` does), and `selectByMode` folds the log's runs on top of it. This was caught by the existing `profilePanel.test.tsx`, which seeds precisely that shape; it is a genuine gap in the plan, not in the test.
+
+**`outcome` and `completed` are not the same question, and sessions prove it.** `RunOutcome` answers *did this run reach its natural end and get graded* — the thing eligibility rule 3 keys on. `completed` answers *was every task in it finished*, which is what the profile's per-mode stats already mean today. A sprint the player skipped through finished normally and earned a real score: it is `outcome: "completed"`, `completed: false`, and it belongs on the performance graph. A timed session that ran its clock out is likewise `outcome: "completed"` — expiry *is* how a timed session ends. In Phase 3 nothing writes `"failed"` or `"expired"` yet, because the only two write sites (a finished single challenge, a finished session) are both natural ends; rule 3 becomes reachable in Phase 6/7, when an abandoned run is logged for the first time. The field exists now so the schema never has to change to accommodate it.
+
 ## 2. Current-state findings
 
 ### 2.1 Stack
@@ -1381,11 +1393,12 @@ The brief's recommended order is followed with **one change: the missing keyboar
 
 **Tasks.**
 1. `RunRecord` + type guards. Route fields nullable, null until Phase 5.
-2. **`getRunEligibility` — write its tests first.** This function is the product.
+2. **`getRunEligibility` — write its tests first.** This function is the product. Its input is the four fields it reads, not a whole record (§1a.11).
 3. The `runLog` store (`useSyncExternalStore`, empty server snapshot — the established pattern) + the four selectors.
 4. `migrateRunHistory`, **leaving `run-history:v1` on disk**.
 5. Repoint `useGameRun`'s PB gate at the policy.
-6. Repoint `ProfilePanel`'s totals at the log.
+6. Repoint `ProfilePanel`'s totals at the log. It keeps its 50-row list until Phase 8's `RecentRuns` lands (§1a.11) — the acceptance below is that the page renders *identically*.
+7. `domain/stats/categories.ts`, registry only, so `categoryId` can be denormalised at write time. `METRICS` waits for Phase 9 (§1a.11).
 
 **Tests.** The Eligibility, Run-log, and Migration blocks. Integration: a completed run lands in the log with the right `categoryId` and `family`; the profile's totals are identical before and after migration.
 **Acceptance.** The profile page renders identically, from a different store, with the old key still on disk.

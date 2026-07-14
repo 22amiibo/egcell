@@ -17,6 +17,7 @@ import { SESSION_DIFFICULTY, buildSessionQueue } from "@/data/challenges/queue";
 import type { Challenge } from "@/domain/challenges/challengeTypes";
 import type { GridDensity, Settings } from "@/domain/settings/themes";
 import { createNewSessionSeed } from "@/domain/random/seeds";
+import { runRecordForSession, type NewRunRecord } from "@/domain/runs/runRecord";
 import { sessionRecordFromResult } from "@/domain/sessions/sessionRecords";
 import { buildSessionResult } from "@/domain/sessions/sessionResult";
 import {
@@ -31,7 +32,6 @@ import { calculateLiveRunStats } from "@/domain/stats/liveRunStats";
 import { createRunClock } from "@/hooks/runClock";
 import { useGameRun, type FinishedRun } from "@/hooks/useGameRun";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
-import type { NewRunEntry } from "@/hooks/useLocalRunHistory";
 import type { LocalSessionRecords, SessionRecordSubmission } from "@/hooks/useLocalSessionRecords";
 import { useSettings } from "@/hooks/useSettings";
 import { getPlatform } from "@/lib/platform";
@@ -46,8 +46,8 @@ type SessionRunProps = {
   sessionMode: SessionMode;
   personalRecords: LocalPersonalRecords;
   sessionRecords: LocalSessionRecords;
-  /** Lets the shell log the finished session to the local run history. */
-  recordHistory?: (entry: NewRunEntry) => void;
+  /** Lets the shell log the finished session to the run log. */
+  recordHistory?: (entry: NewRunRecord) => void;
   /**
    * Pins the queue seed, for tests and shared runs. With an override, retry re-races the exact
    * same queue; without one, every attempt draws a fresh queue, like a fresh Monkeytype test.
@@ -319,20 +319,15 @@ export function SessionRun({
       });
       const submission = submitSessionRecord(sessionRecordFromResult(result, SESSION_DIFFICULTY));
 
-      recordHistory?.({
-        modeKey: sessionMode,
-        label: sessionModeLabel(sessionMode),
-        score: result.totalScore,
-        elapsedMs: result.totalElapsedMs,
-        // A sprint with skips is a finished session but not a completed one. A timed run always
-        // ran its full course.
-        completed:
-          SESSION_PLANS[sessionMode].kind === "task-count"
-            ? result.tasksCompleted === result.taskCount
-            : true,
-        tasksCompleted: result.tasksCompleted,
-        isNewRecord: submission.isNewRecord,
-      });
+      // A sprint with skips is a finished session but not a completed one; a timed run always ran
+      // its full course. `runRecordForSession` owns that distinction now (§1a.11).
+      recordHistory?.(
+        runRecordForSession({
+          mode: sessionMode,
+          result,
+          isNewRecord: submission.isNewRecord,
+        }),
+      );
 
       setOutcome({ result, submission });
     },
