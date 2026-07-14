@@ -76,6 +76,13 @@ export type GameRunOptions = {
    * that ended it — and a run whose final act was a click would bank a keyboard-only record.
    */
   requireKeyboardPure?: boolean;
+  /**
+   * The combo multiplier this task should be scored with, read at the moment the run finishes —
+   * a callback, not a value, for the same reason `requireKeyboardPure` is checked inside
+   * `buildFinished` (hotkey plan §1a.14): a value captured at render time would predate the
+   * finishing action. Only PR-free callers (sessions, Ascent) pass it.
+   */
+  getComboMultiplier?: () => number;
   /** Fires once when the run completes through play. Not fired by `finishNow`, whose caller already holds the result. */
   onFinished?: (finished: FinishedRun) => void;
 };
@@ -94,6 +101,7 @@ export function useGameRun(
     recordPersonalBest = true,
     assist = "none",
     requireKeyboardPure = false,
+    getComboMultiplier,
     onFinished,
   } = options;
 
@@ -139,6 +147,7 @@ export function useGameRun(
         accuracy: validation.accuracy,
         basePoints: challenge.scoring.basePoints,
         targetSeconds: challenge.scoring.targetSeconds,
+        comboMultiplier: getComboMultiplier?.() ?? 1,
       });
 
       let previousBest = getBest(challenge.id, mode);
@@ -200,7 +209,7 @@ export function useGameRun(
 
       return { validation, score, elapsedMs, previousBest, isNewRecord, assist, submission };
     },
-    [challenge, mode, submit, getBest, recordPersonalBest, assist, requireKeyboardPure],
+    [challenge, mode, submit, getBest, recordPersonalBest, assist, requireKeyboardPure, getComboMultiplier],
   );
 
   const dispatch = useCallback(
