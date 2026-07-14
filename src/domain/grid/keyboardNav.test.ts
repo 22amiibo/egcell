@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { gridReducer } from "@/domain/grid/gridReducer";
 import { jumpActive, stepActive } from "@/domain/grid/keyboardNav";
 import type { GridState } from "@/domain/grid/gridTypes";
 import { cellKey } from "@/domain/grid/range";
@@ -75,6 +76,34 @@ describe("stepActive", () => {
 
     expect(stepActive(grid, { row: 3, col: 1 }, "down")).toEqual({ row: 4, col: 1 });
     expect(stepActive(grid, { row: 3, col: 1 }, "up")).toEqual({ row: 2, col: 1 });
+  });
+
+  it("does not walk into the blank sheet below a filtered-to-nothing table", () => {
+    // Navigation walks the same list the grid draws from, which is the whole point of there being
+    // one list: the rows below the table are not drawn while a filter is on, so the cursor cannot
+    // land on them. Arrowing down from the header with nothing matching stays on the header, instead
+    // of dropping the player into a blank row 7 that is not on the screen.
+    const empty = gridReducer(createRevenueGrid(), {
+      kind: "filter-column",
+      col: 0,
+      op: "equals",
+      value: "Atlantis",
+    });
+
+    expect(stepActive(empty, { row: 0, col: 0 }, "down")).toEqual({ row: 0, col: 0 });
+    expect(jumpActive(empty, { row: 0, col: 0 }, "down")).toEqual({ row: 0, col: 0 });
+  });
+
+  it("moves again the moment the filter is cleared", () => {
+    const empty = gridReducer(createRevenueGrid(), {
+      kind: "filter-column",
+      col: 0,
+      op: "equals",
+      value: "Atlantis",
+    });
+    const cleared = gridReducer(empty, { kind: "clear-filters" });
+
+    expect(stepActive(cleared, { row: 0, col: 0 }, "down")).toEqual({ row: 1, col: 0 });
   });
 });
 

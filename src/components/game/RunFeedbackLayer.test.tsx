@@ -15,14 +15,22 @@ const MOVE_DOWN: RunEvent = {
 };
 
 describe("RunFeedbackLayer", () => {
-  it("uses a reduced-motion, pointer-transparent overlay without changing grid dimensions", () => {
+  it("is a lane, not an overlay: it takes up space instead of floating over the grid", () => {
+    // This used to assert `absolute inset-0` — the class list that pinned every cue to a corner of
+    // the grid, landing CHECK INPUT squarely on the column headers. The contract is now the opposite
+    // one: the layer sits in the flow, so there is no geometry in which it can cover a header, a
+    // cell, or a filter caret, at any viewport.
     render(<RunFeedbackLayer event="success" reducedMotion />);
 
     const layer = screen.getByTestId("run-feedback-layer");
 
     expect(layer).toHaveAttribute("data-motion", "reduced");
     expect(layer).toHaveAttribute("data-event", "success");
-    expect(layer).toHaveClass("absolute", "inset-0", "pointer-events-none");
+    expect(layer).toHaveClass("pointer-events-none");
+    expect(layer).not.toHaveClass("absolute");
+    // Reserved height: the lane is the same size whether or not a cue is in it, so the grid cannot
+    // jump when one appears. That is the one thing the overlay was genuinely good for.
+    expect(layer).toHaveClass("h-8");
     expect(screen.getByText("Correct")).toBeVisible();
   });
 

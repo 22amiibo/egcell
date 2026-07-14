@@ -27,7 +27,7 @@ import type {
 } from "@/domain/grid/gridTypes";
 import type { GridDensity, Settings } from "@/domain/settings/themes";
 import { cellKey } from "@/domain/grid/range";
-import { isCellSelected, renderedRows } from "@/domain/grid/selectors";
+import { isCellSelected, renderedRows, visibleDataRows } from "@/domain/grid/selectors";
 
 /** Commands whose action the challenge can disable, the same way the toolbar gates its buttons. */
 const SET_FORMAT_COMMANDS = new Set<GridCommandId>([
@@ -419,6 +419,10 @@ export function SpreadsheetGrid({
 
   const isRowSelected = (row: number) => grid.selection.kind === "row" && grid.selection.row === row;
 
+  // A filter is applied and it matched nothing. Not the same as an empty sheet: the table is still
+  // there, and so is the filter — which is why the run is not touched and the headers stay.
+  const noMatchingRows = grid.filters.length > 0 && visibleDataRows(grid).length === 0;
+
   return (
     <div
       role="grid"
@@ -489,6 +493,35 @@ export function SpreadsheetGrid({
           ))}
         </div>
       ))}
+
+      {/* Nothing matched. Said plainly, inside the table, where the rows would have been — the
+          headers stay, the filter stays applied, and the player can clear it and try again. The
+          blank rows below the table are no longer drawn (see `renderedRows`), so this is the only
+          thing under the header, and it cannot be mistaken for a result. */}
+      {noMatchingRows && (
+        <div role="row" className="flex" style={{ height: presentation.metrics.rowHeight }}>
+          <div
+            aria-hidden
+            className={`border-r border-b ${gridlineClass} bg-surface-raised`}
+            style={{
+              width: presentation.metrics.rowHeaderWidth,
+              height: presentation.metrics.rowHeight,
+            }}
+          />
+          <div
+            role="gridcell"
+            aria-colspan={grid.colCount}
+            data-testid="no-matching-rows"
+            className={`flex items-center border-r border-b ${gridlineClass} px-3 text-[12px] text-muted italic`}
+            style={{
+              width: grid.colCount * presentation.metrics.colWidth,
+              height: presentation.metrics.rowHeight,
+            }}
+          >
+            No matching rows
+          </div>
+        </div>
+      )}
 
       <SelectionOverlay grid={grid} metrics={presentation.metrics} />
 

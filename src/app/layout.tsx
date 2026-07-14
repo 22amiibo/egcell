@@ -45,7 +45,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     // The boot script and the applier both write style onto <html> outside React's knowledge,
     // which is the documented case for suppressing the hydration warning on this one element.
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen antialiased">
+      {/* And on <body> for a reason that is not ours at all. `suppressHydrationWarning` covers the
+          element it is written on and never its children, so the flag above does nothing here.
+          Browser extensions add classes to <body> before React hydrates: a real one appended
+          `kapture-loaded` to exactly this className and cost the dev overlay an issue. The mismatch
+          is cosmetic — React keeps the class either way, and no overlay exists in production — but
+          an overlay that cries wolf about someone else's extension is one a developer learns to
+          ignore, and the next issue it reports will be ours. Scoped to this element's own
+          attributes: a genuine mismatch anywhere in the tree below still reports. */}
+      <body className="min-h-screen antialiased" suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
         <ThemeApplier />
         {children}

@@ -166,38 +166,44 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
       </p>
 
       <div className="flex items-start gap-4">
-        <div className="relative" data-testid="grid-stage">
-        <SpreadsheetGrid
-          key={attempt}
-          grid={run.grid}
-          onAction={run.dispatch}
-          allowedActions={challenge.allowedActions}
-          focusRef={gridFocusRef}
-          pointerDisabled={blockPointer}
-          density={settings.grid.density}
-          gridlineStrength={settings.grid.gridlineStrength}
-          largeTargets={settings.accessibility.largeTargets}
-        />
-        <RunFeedbackLayer
-          event={feedbackEvent}
-          reducedMotion={settings.accessibility.reducedMotion}
-          combo={actionCount - mistakes}
-          shortcutLabel={chordLabelForEvent(run.events.at(-1), getPlatform())}
-          showCombo={settings.feedback.combo}
-          showShortcut={settings.feedback.shortcutFlash}
-        />
+        <div className="flex flex-col">
+          {/* The lane sits above the grid and owns its own height, so a cue can never cover a header,
+              a cell, or a filter caret — and can never move the grid by appearing. */}
+          <RunFeedbackLayer
+            event={feedbackEvent}
+            reducedMotion={settings.accessibility.reducedMotion}
+            combo={actionCount - mistakes}
+            shortcutLabel={chordLabelForEvent(run.events.at(-1), getPlatform())}
+            showCombo={settings.feedback.combo}
+            showShortcut={settings.feedback.shortcutFlash}
+          />
 
-        {run.result !== null && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-canvas/70 backdrop-blur-[2px]">
-            <ResultCard
-              challenge={challenge}
-              mode={mode}
-              run={run.result}
-              onRetry={retry}
-              onNext={onNext}
+          <div className="relative" data-testid="grid-stage">
+            <SpreadsheetGrid
+              key={attempt}
+              grid={run.grid}
+              onAction={run.dispatch}
+              allowedActions={challenge.allowedActions}
+              focusRef={gridFocusRef}
+              pointerDisabled={blockPointer}
+              density={settings.grid.density}
+              gridlineStrength={settings.grid.gridlineStrength}
+              largeTargets={settings.accessibility.largeTargets}
             />
+
+            {/* This one *is* meant to cover the grid: the run is over, and the grid is done. */}
+            {run.result !== null && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-canvas/70 backdrop-blur-[2px]">
+                <ResultCard
+                  challenge={challenge}
+                  mode={mode}
+                  run={run.result}
+                  onRetry={retry}
+                  onNext={onNext}
+                />
+              </div>
+            )}
           </div>
-        )}
         </div>
 
         {/* The rail's width is held from mount, so revealing the path cannot shift the grid sideways

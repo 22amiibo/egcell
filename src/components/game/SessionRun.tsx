@@ -224,16 +224,9 @@ function SessionTask({
       </div>
 
       <div className="flex items-start gap-4">
-        <div className="relative" data-testid="grid-stage">
-          <SpreadsheetGrid
-            grid={run.grid}
-            onAction={run.dispatch}
-            allowedActions={challenge.allowedActions}
-            focusRef={gridFocusRef}
-            density={gridDensity}
-            gridlineStrength={gridlineStrength}
-            largeTargets={largeTargets}
-          />
+        <div className="flex flex-col">
+          {/* Above the grid, in the flow. See RunFeedbackLayer: laid over the grid, these cues sat on
+              the column headers and on the last row. */}
           <RunFeedbackLayer
             event={feedbackEvent}
             reducedMotion={reducedMotion}
@@ -242,6 +235,18 @@ function SessionTask({
             showCombo={showCombo}
             showShortcut={showShortcut}
           />
+
+          <div className="relative" data-testid="grid-stage">
+            <SpreadsheetGrid
+              grid={run.grid}
+              onAction={run.dispatch}
+              allowedActions={challenge.allowedActions}
+              focusRef={gridFocusRef}
+              density={gridDensity}
+              gridlineStrength={gridlineStrength}
+              largeTargets={largeTargets}
+            />
+          </div>
         </div>
 
         {/* Width held from mount, so revealing the path cannot shift the grid mid-task (§7.2). */}

@@ -5,8 +5,10 @@ import {
   columnRangeWithinUsedRange,
   getCell,
   isCellSelected,
+  renderedRows,
   rowRangeWithinUsedRange,
   selectionBounds,
+  visibleDataRows,
 } from "@/domain/grid/selectors";
 import { createRevenueGrid } from "@/test/fixtures/revenueGrid";
 
@@ -119,5 +121,54 @@ describe("isCellSelected", () => {
 
   it("is false everywhere when nothing is selected", () => {
     expect(isCellSelected(createRevenueGrid(), { row: 0, col: 0 })).toBe(false);
+  });
+});
+
+describe("renderedRows, once a filter is on", () => {
+  // The revenue grid is 12 rows on an 8-column sheet, but the table only occupies rows 0-6. Rows
+  // 7-11 are the empty sheet below it — and they are what made a filtered-to-nothing grid look
+  // broken: they are not data, so no filter ever hides them, and they sat there under the header
+  // looking exactly like rows the filter had returned.
+  it("draws the empty sheet below the table when no filter is on", () => {
+    expect(renderedRows(createRevenueGrid())).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  });
+
+  it("stops at the end of the table once a filter is on", () => {
+    const filtered = gridReducer(createRevenueGrid(), {
+      kind: "filter-column",
+      col: 0,
+      op: "equals",
+      value: "East",
+    });
+
+    expect(visibleDataRows(filtered).length).toBeGreaterThan(0);
+    expect(renderedRows(filtered).every((row) => row <= 6)).toBe(true);
+  });
+
+  it("draws the header and nothing else when a filter matches no rows", () => {
+    // The screenshot state: every data row hidden, and the blank tail rows left behind pretending to
+    // be the result. The header survives — the player must still be able to reach the filter menu on
+    // it — and there is nothing under it to misread.
+    const empty = gridReducer(createRevenueGrid(), {
+      kind: "filter-column",
+      col: 0,
+      op: "equals",
+      value: "Atlantis",
+    });
+
+    expect(visibleDataRows(empty)).toEqual([]);
+    expect(renderedRows(empty)).toEqual([0]);
+  });
+
+  it("brings the whole sheet back when the filter is cleared", () => {
+    const empty = gridReducer(createRevenueGrid(), {
+      kind: "filter-column",
+      col: 0,
+      op: "equals",
+      value: "Atlantis",
+    });
+    const cleared = gridReducer(empty, { kind: "clear-filters" });
+
+    expect(renderedRows(cleared)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   });
 });

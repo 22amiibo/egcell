@@ -84,7 +84,21 @@ export function chordLabelForEvent(event: RunEvent | undefined, platform: Platfo
   return chordLabel(event.command, platform);
 }
 
-/** Visual-only feedback overlay. Absolute positioning guarantees it never changes grid geometry. */
+/**
+ * The feedback lane: a row of its own, directly above the grid.
+ *
+ * It used to be an `absolute inset-0` layer *over* the grid, with every cue pinned to a corner of
+ * that box — the label at `top-3`, the streak at `top-3 right-3`, the chord at `bottom-3 right-3`.
+ * Those are the coordinates of the column headers and the last row. So the cue reading CHECK INPUT
+ * sat on top of the very column the player was being told to check, covering its filter caret.
+ * Feedback that hides the thing it is about is worse than no feedback — and no offset fixes it,
+ * because the overlay was exactly the size of the grid: every corner of it was a corner of the grid,
+ * at every viewport.
+ *
+ * A lane cannot overlap anything, because it takes up space instead of floating over it. The height
+ * is reserved whether or not a cue is showing, so the grid never jumps when one appears — which is
+ * what the absolute positioning was really buying, and the only part of it worth keeping.
+ */
 export function RunFeedbackLayer({
   event,
   reducedMotion,
@@ -99,17 +113,22 @@ export function RunFeedbackLayer({
       data-event={event ?? "idle"}
       data-motion={reducedMotion ? "reduced" : "full"}
       aria-live="polite"
-      className="pointer-events-none absolute inset-0 z-10 overflow-hidden"
+      className="pointer-events-none flex h-8 w-full shrink-0 items-center gap-2 overflow-hidden"
     >
       {event !== null && (
         <span
-          className={`run-feedback-cue absolute top-3 left-1/2 -translate-x-1/2 rounded border bg-surface/90 px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase shadow-sm ${EVENT_COLORS[event]}`}
+          className={`run-feedback-cue min-w-0 shrink truncate rounded border bg-surface/90 px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase shadow-sm ${EVENT_COLORS[event]}`}
         >
           {EVENT_LABELS[event]}
         </span>
       )}
-      {showCombo && <ComboIndicator combo={combo} />}
+
+      {/* Holds the two right-hand cues at the far end, so a long chord label eats the slack in the
+          middle of the lane instead of pushing the streak counter out of it. */}
+      <span className="flex-1" />
+
       {showShortcut && shortcutLabel !== null && <ShortcutFlash label={shortcutLabel} />}
+      {showCombo && <ComboIndicator combo={combo} />}
     </div>
   );
 }

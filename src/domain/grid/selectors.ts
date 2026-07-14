@@ -103,12 +103,27 @@ export function isRowHidden(grid: GridState, row: number): boolean {
   return grid.hiddenRows.includes(row);
 }
 
-/** Every row the grid actually draws, top to bottom. A filtered-out row is not drawn at all. */
+/**
+ * Every row the grid actually draws, top to bottom. A filtered-out row is not drawn at all.
+ *
+ * **While a filter is on, the blank rows below the table are not drawn either.** A filter answers a
+ * question about the table, and the rows past the used range are not part of the table — they are
+ * the empty sheet it happens to sit on. Left in, they read as the answer: filter a table down to
+ * nothing and what remains on screen is row 1, then rows 10 to 13, blank. The player sees four empty
+ * rows handed back by their filter and concludes the app broke; the honest answer was that nothing
+ * matched, and `SpreadsheetGrid` now says so in words.
+ *
+ * Keyboard navigation walks this same list (`keyboardNav.axisPositions`), so the cursor cannot step
+ * into a row that is no longer drawn: the two cannot disagree, because there is only one list. No
+ * validator reads it — what this hides changes what the player sees, never what they are graded on.
+ */
 export function renderedRows(grid: GridState): number[] {
   const hidden = new Set(grid.hiddenRows);
+  const lastRow =
+    grid.filters.length > 0 ? normalizeRange(grid.usedRange).end.row : grid.rowCount - 1;
   const rows: number[] = [];
 
-  for (let row = 0; row < grid.rowCount; row += 1) {
+  for (let row = 0; row <= lastRow; row += 1) {
     if (!hidden.has(row)) {
       rows.push(row);
     }

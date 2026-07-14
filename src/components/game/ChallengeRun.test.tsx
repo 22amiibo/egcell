@@ -65,7 +65,10 @@ describe("ChallengeRun practice frame", () => {
     const layer = screen.getByTestId("run-feedback-layer");
 
     expect(layer).toHaveAttribute("data-event", "taskAppear");
-    expect(screen.getByTestId("grid-stage")).toContainElement(layer);
+    // Outside the grid box, deliberately. This used to assert the opposite — that the feedback live
+    // *inside* the grid stage — which is exactly how the cue came to be drawn on the column headers.
+    // A cue that cannot leave the grid's box can only ever be drawn over the grid.
+    expect(screen.getByTestId("grid-stage")).not.toContainElement(layer);
 
     fireEvent.keyDown(grid, { key: "ArrowDown" });
 
