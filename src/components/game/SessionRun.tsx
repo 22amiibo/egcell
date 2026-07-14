@@ -219,6 +219,9 @@ function SessionTask({
           completedTasks={completedTasks + run.validation.completionPercent}
           totalTasks={totalTasks}
           pbMs={null}
+          // Stopgap: Task 0.6 rewires sessions to a real streak. Until then this is a fixed 0,
+          // not a derived fake number.
+          combo={0}
           enabled={liveStatsEnabled}
         />
       </div>
@@ -232,7 +235,9 @@ function SessionTask({
           <RunFeedbackLayer
             event={feedbackEvent}
             reducedMotion={reducedMotion}
-            combo={taskActions - taskMistakes}
+            // Stopgap: Task 0.6 rewires sessions to a real streak. Until then this is a fixed 0,
+            // not the derived fake number it used to be.
+            combo={0}
             shortcutLabel={chordLabelForEvent(run.events.at(-1), getPlatform())}
             showCombo={showCombo}
             showShortcut={showShortcut}
@@ -459,6 +464,9 @@ export function SessionRun({
           completedTasks: outcome.result.tasksCompleted,
           totalTasks: outcome.result.taskCount,
           pbMs: outcome.submission?.previousBest?.bestElapsedMs ?? null,
+          // Stopgap: Task 0.6 rewires sessions to a real streak. `SessionResultCard` does not
+          // read `combo` off this object today.
+          combo: 0,
         });
 
   return (

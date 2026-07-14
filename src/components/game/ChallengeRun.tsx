@@ -154,6 +154,7 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
           completedTasks={run.validation.completionPercent}
           totalTasks={1}
           pbMs={records.getBest(challenge.id, mode)?.bestElapsedMs ?? null}
+          combo={0}
           enabled={settings.feedback.liveStats}
         />
       </div>
@@ -178,7 +179,11 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
           <RunFeedbackLayer
             event={feedbackEvent}
             reducedMotion={settings.accessibility.reducedMotion}
-            combo={actionCount - mistakes}
+            // Singles have no streak to show: a single challenge has no run-to-run continuity, so
+            // this is not a stopgap the way SessionTask's is — there is nothing here for Task 0.6
+            // to wire up. `ComboIndicator` hides below 2, so the lane simply stops showing a fake
+            // number rather than showing a real zero.
+            combo={0}
             shortcutLabel={chordLabelForEvent(run.events.at(-1), getPlatform())}
             showCombo={settings.feedback.combo}
             showShortcut={settings.feedback.shortcutFlash}

@@ -51,7 +51,7 @@ describe("ChallengeRun practice frame", () => {
     expect(grid.compareDocumentPosition(toolbar)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it("turns keyboard run events into shortcut and combo feedback without leaving the grid stage", () => {
+  it("turns keyboard run events into shortcut feedback without leaving the grid stage", () => {
     render(
       <ChallengeRun
         challenge={formattingBoldHeaderChallenge}
@@ -87,7 +87,9 @@ describe("ChallengeRun practice frame", () => {
 
     fireEvent.keyDown(grid, { key: "ArrowRight" });
 
-    expect(screen.getByTestId("combo-indicator")).toHaveTextContent("2 streak");
+    // Singles have no streak: combo is a fixed 0 here, not `actionCount - mistakes`, so the
+    // indicator (which hides below 2) never appears — no fake number, not even a real zero.
+    expect(screen.queryByTestId("combo-indicator")).not.toBeInTheDocument();
   });
 
   it("plays a synthesized cue only after sound is enabled", async () => {

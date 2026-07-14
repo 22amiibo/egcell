@@ -18,6 +18,8 @@ export type LiveRunStatsInput = {
   completedTasks: number;
   totalTasks: number;
   pbMs: number | null;
+  /** The driver's current streak, supplied by the run — never derived here. */
+  combo: number;
 };
 
 const nonNegative = (value: number): number =>
@@ -40,7 +42,7 @@ export function calculateLiveRunStats(input: LiveRunStatsInput): LiveRunStats {
     epm: elapsedMs === 0 ? 0 : Math.round((completedTasks * 60_000) / elapsedMs),
     accuracy: actions === 0 ? 100 : percent(correctActions, actions),
     shortcutEfficiency: percent(shortcutActions, actions),
-    combo: Math.max(Math.round(correctActions), 0),
+    combo: nonNegative(input.combo),
     mistakes,
     completedTasks,
     totalTasks,

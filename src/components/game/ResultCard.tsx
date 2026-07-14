@@ -67,6 +67,9 @@ export function ResultCard({ challenge, mode, run, onRetry, onNext }: ResultCard
     completedTasks: run.validation.completionPercent,
     totalTasks: 1,
     pbMs: run.previousBest?.bestElapsedMs ?? null,
+    // This card does not display combo — the feedback lane above the grid already owns that
+    // cue during the run — so there is no real streak to plumb through here.
+    combo: 0,
   });
   const pbDelta =
     stats.pbDeltaMs === null

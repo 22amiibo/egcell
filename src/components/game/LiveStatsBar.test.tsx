@@ -12,6 +12,7 @@ const props = {
   completedTasks: 10,
   totalTasks: 10,
   pbMs: 32_000,
+  combo: 5,
 };
 
 describe("LiveStatsBar", () => {
