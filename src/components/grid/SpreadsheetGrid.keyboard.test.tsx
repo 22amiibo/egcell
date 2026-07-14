@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
 import type { ActionMeta, GridCommandId } from "@/domain/commands/commandTypes";
 import type { GridAction, GridState } from "@/domain/grid/gridTypes";
-import { createRevenueGrid } from "@/test/fixtures/revenueGrid";
+import { FIRST_DATA_ROW, STATUS_COL, createRevenueGrid } from "@/test/fixtures/revenueGrid";
 
 function renderGrid(grid: GridState, allowedActions?: GridAction["kind"][]) {
   const onAction = vi.fn<(action: GridAction, meta: ActionMeta) => void>();
@@ -207,6 +207,25 @@ describe("formatting shortcuts", () => {
     );
   });
 
+  it("applies the date format with Ctrl+Shift+3", () => {
+    const grid: GridState = {
+      ...createRevenueGrid({ revenueFormat: "general" }),
+      selection: { kind: "range", range: { start: { row: 1, col: 2 }, end: { row: 6, col: 2 } } },
+    };
+    const { onAction, container } = renderGrid(grid, ["set-format"]);
+
+    fireEvent.keyDown(container, { key: "3", ctrlKey: true, shiftKey: true });
+
+    expect(onAction).toHaveBeenCalledWith(
+      {
+        kind: "set-format",
+        range: { start: { row: 1, col: 2 }, end: { row: 6, col: 2 } },
+        format: { numberFormat: "date" },
+      },
+      keyboardMeta("FORMAT_DATE", "mod+shift+3"),
+    );
+  });
+
   it("ignores formatting shortcuts when the challenge does not allow set-format", () => {
     const grid: GridState = {
       ...createRevenueGrid(),
@@ -225,5 +244,62 @@ describe("formatting shortcuts", () => {
       { kind: "select-cell", cell: { row: 1, col: 0 } },
       keyboardMeta("MOVE_DOWN", "ArrowDown"),
     );
+  });
+});
+
+describe("filter toggle shortcut (mod+Shift+L)", () => {
+  it("filters to the active cell's value when no filters exist yet", () => {
+    const grid: GridState = {
+      ...createRevenueGrid(),
+      activeCell: { row: FIRST_DATA_ROW, col: STATUS_COL },
+    };
+    const { onAction, container } = renderGrid(grid, ["filter-column"]);
+
+    fireEvent.keyDown(container, { key: "l", ctrlKey: true, shiftKey: true });
+
+    expect(onAction).toHaveBeenCalledWith(
+      { kind: "filter-column", col: STATUS_COL, op: "equals", value: "Complete" },
+      keyboardMeta("TOGGLE_FILTER", "mod+shift+l"),
+    );
+  });
+
+  it("clears filters instead, when filters already exist — the toggle half of TOGGLE_FILTER", () => {
+    const grid: GridState = {
+      ...createRevenueGrid(),
+      activeCell: { row: FIRST_DATA_ROW, col: STATUS_COL },
+      filters: [{ col: STATUS_COL, op: "equals", value: "Complete" }],
+    };
+    const { onAction, container } = renderGrid(grid, ["filter-column", "clear-filters"]);
+
+    fireEvent.keyDown(container, { key: "l", metaKey: true, shiftKey: true });
+
+    expect(onAction).toHaveBeenCalledWith(
+      { kind: "clear-filters" },
+      keyboardMeta("TOGGLE_FILTER", "mod+shift+l"),
+    );
+  });
+
+  it("does nothing on a blank active cell — matching the toolbar's own filter guard", () => {
+    const grid: GridState = {
+      ...createRevenueGrid(),
+      activeCell: { row: FIRST_DATA_ROW, col: 6 },
+    };
+    const { onAction, container } = renderGrid(grid, ["filter-column"]);
+
+    fireEvent.keyDown(container, { key: "l", ctrlKey: true, shiftKey: true });
+
+    expect(onAction).not.toHaveBeenCalled();
+  });
+
+  it("is gated by allowedActions, resolved against whichever branch it would actually take", () => {
+    const grid: GridState = {
+      ...createRevenueGrid(),
+      activeCell: { row: FIRST_DATA_ROW, col: STATUS_COL },
+    };
+    const { onAction, container } = renderGrid(grid, ["select-cell"]);
+
+    fireEvent.keyDown(container, { key: "l", ctrlKey: true, shiftKey: true });
+
+    expect(onAction).not.toHaveBeenCalled();
   });
 });

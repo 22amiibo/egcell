@@ -201,6 +201,16 @@ The user-supplied dependency chain for this session (registry → rich event rec
 
 §11 Phase 1 changes: the toolbar's Bold button routes through the ordinary `emit(command, controlId)` helper like every other toolbar button (no special-cased bypass), calling `emit("APPLY_BOLD", "toolbar-bold")`. The acceptance line below is corrected to say so.
 
+### 1a.10 Phase 2: `TOGGLE_FILTER`, and widening `hotkeyEligible` to menu-reachable commands
+
+**`TOGGLE_FILTER` is a new command, not a shared chord on two existing ones.** §5.2's table describes `mod+Shift+L` as firing `CLEAR_FILTERS` when filters exist and `FILTER_TO_VALUE` otherwise — read literally, that would mean binding one chord to two different `chords` arrays and picking between them at match time, which `matchChord` cannot do (it never reads grid state; §1a.2 keeps it that way deliberately). Instead `mod+Shift+L` fires exactly one command, `TOGGLE_FILTER`, keyboard-only (`chords: [{ key: "l", mod: true, shift: true }]`), and `resolveCommand` — which does have `context.grid` — branches on `grid.filters.length` to decide whether the resolved action is `clear-filters` or `filter-column`. This is the same shape as `TOGGLE_BOLD` (§1a.9's sibling, not its violation): one physical input, one command id, a state-dependent resolved action, fully reproducible by `resolveCommand` from the same context every time. It is distinct from `FILTER_TO_VALUE` and `CLEAR_FILTERS` the same way `TOGGLE_BOLD` is distinct from `APPLY_BOLD` — those two command ids remain the ones the toolbar and `FilterMenu` (below) use, each unconditional; `TOGGLE_FILTER` is the keyboard-only toggle layered on top.
+
+**`hotkeyEligible` stays derived, but the derivation widens.** Phase 1 defined it as `chords.length > 0`, never hand-set (§1a of the original plan). Phase 2 introduces `FilterMenu` — reachable by `Alt+↓` (a real chord, `OPEN_FILTER_MENU`) and then `↑`/`↓`/`Enter` inside it — as the *only* keyboard route for `SORT_ASC`, `SORT_DESC`, `FILTER_TO_VALUE`, and `FILTER_ABOVE_VALUE` (`CLEAR_FILTERS` also gets a route this way, alongside `TOGGLE_FILTER`'s direct chord). None of those four has, or needs, a top-level chord of its own — Excel doesn't bind "sort ascending" to a bare key either, it lives in the dropdown. If `hotkeyEligible` stayed `chords.length > 0` unmodified, those four would read `false` forever, and §1a.6's acceptance test — "replays a command sequence built only from `hotkeyEligible: true` commands" — could never mark the sort-filter family `keyboardComplete`, defeating the entire point of this phase. The fix keeps the field derived, not hand-set, by widening what it's derived *from*: `commandRegistry.ts` exports `FILTER_MENU_COMMANDS`, the literal list of the five commands `FilterMenu` offers (the same list `FilterMenu` itself renders from — one structural source, not a second hand-maintained list), and `define()` computes `hotkeyEligible: chords.length > 0 || FILTER_MENU_COMMANDS.has(id)`. `KEYBOARD_COMMANDS` (the Phase 4 solver's search space) is updated to filter on `hotkeyEligible` directly rather than re-deriving from `chords.length` a second time, so the two notions of "keyboard-reachable" cannot drift apart the way the hand-authored route notes already have.
+
+**`FilterMenu` has no focus or keydown handling of its own.** `SpreadsheetGrid`'s existing `handleKeyDown` — the grid's own DOM focus never moves — intercepts `↑`/`↓`/`Enter`/`Escape` while the menu is open and updates a local highlighted-index/open-state pair; the menu itself is a presentational listbox reflecting that state. "Focus returns to the grid after every menu command" holds trivially because focus never left it. Only the toolbar (a separate, native-`<button>`-focusing surface) needs an explicit refocus after `emit`, via a `gridFocusRef` prop wired through `ChallengeRun`/`SessionRun` into `SpreadsheetGrid`'s existing (previously unused) `focusRef` prop.
+
+**`FORMAT_DATE` matches its siblings.** §5.2 said "Ctrl only"; read against `FORMAT_CURRENCY`/`FORMAT_PERCENT` — the identical macOS-screenshot class — "Ctrl only" describes the **label**, not the handling: both existing siblings accept `mod` (Ctrl or Cmd) and only *display* `Ctrl` on macOS, because the OS eats `Cmd+Shift+3/4/5` before the page ever sees it, so accepting `mod` costs nothing and stays consistent. `FORMAT_DATE` ships the same way — `chords: [{ key: "#", mod: true, shift: true }, { key: "3", mod: true, shift: true }]`, `ctrlOnly("Shift + 3")` label — rather than introducing a third, differently-handled pattern among three siblings that all hit the same OS collision.
+
 ## 2. Current-state findings
 
 ### 2.1 Stack
@@ -568,6 +578,7 @@ export type GridCommandId =
   | "TOGGLE_BOLD" | "FORMAT_CURRENCY" | "FORMAT_PERCENT" | "FORMAT_DATE"
   | "OPEN_FILTER_MENU" | "SORT_ASC" | "SORT_DESC"
   | "FILTER_TO_VALUE" | "FILTER_ABOVE_VALUE" | "CLEAR_FILTERS"
+  | "TOGGLE_FILTER" // mod+Shift+L, keyboard-only; see §1a.10
   // pointer-origin; never searched by the solver
   | "APPLY_BOLD" // toolbar's Bold button — sets bold on unconditionally; see §1a.9
   | "CLICK_CELL" | "DRAG_SELECT_RANGE" | "CLICK_COLUMN_HEADER" | "CLICK_ROW_HEADER";
@@ -622,13 +633,15 @@ The chords Phase 2 adds, and why each is safe:
 
 | Command | Chord | Rationale |
 |---|---|---|
-| `OPEN_FILTER_MENU` | `Alt` + `↓` | Excel's filter dropdown. `Alt+↓`/`Alt+↑` are free in browsers. **`Alt+←`/`Alt+→` are browser history navigation and must never be bound.** |
-| `SORT_ASC` / `SORT_DESC` | inside the menu (`↑`/`↓`, `Enter`) | No new global chord. Mirrors Excel, where sort lives in the filter dropdown — and matches the brief's own example route exactly. |
-| `FILTER_TO_VALUE` | menu, or `mod` + `Shift` + `L` | Excel's AutoFilter chord. Unreserved in Chrome, Firefox, and Safari. |
-| `CLEAR_FILTERS` | `mod` + `Shift` + `L` when filters exist | Same chord, toggle semantics, exactly like Excel. |
-| `FORMAT_DATE` | `Ctrl` + `Shift` + `3` (**Ctrl only**) | Excel's date format. `Cmd+Shift+3` is a macOS screenshot and cannot be intercepted. Same class of exception as the existing `Ctrl+Space` (`DECISIONS.md:100`) — this becomes the third. |
+| `OPEN_FILTER_MENU` | `Alt` + `↓` | Excel's filter dropdown. `Alt+↓`/`Alt+↑` are free in browsers. **`Alt+←`/`Alt+→` are browser history navigation and must never be bound.** `matchChord` gains a specificity rule (§1a.2) so `Alt+↓` doesn't also satisfy plain `MOVE_DOWN`. |
+| `SORT_ASC` / `SORT_DESC` | inside the menu (`↑`/`↓`, `Enter`) | No new global chord — menu-reachable only (§1a.10). Mirrors Excel, where sort lives in the filter dropdown — and matches the brief's own example route exactly. |
+| `FILTER_TO_VALUE` | inside the menu | No new global chord — menu-reachable only (§1a.10). Excel's AutoFilter. |
+| `FILTER_ABOVE_VALUE` | inside the menu | No new global chord — menu-reachable only (§1a.10). |
+| `CLEAR_FILTERS` | inside the menu, when filters exist | Menu-reachable only (§1a.10); also produced directly by `TOGGLE_FILTER` below. |
+| `TOGGLE_FILTER` | `mod` + `Shift` + `L` | A new command, not a shared chord on `FILTER_TO_VALUE`/`CLEAR_FILTERS` — see §1a.10 for why. Excel's AutoFilter chord, toggle semantics. Unreserved in Chrome, Firefox, and Safari. |
+| `FORMAT_DATE` | `mod` + `Shift` + `3` (label: **Ctrl only**) | Excel's date format. `Cmd+Shift+3` is a macOS screenshot and cannot be intercepted, so the macOS *label* reads `Ctrl` — same pattern as `FORMAT_CURRENCY`/`FORMAT_PERCENT` below, handling still accepts `mod` (§1a.10). Same class of exception as the existing `Ctrl+Space` (`DECISIONS.md:100`). |
 
-The same reasoning retroactively fixes currency and percent: `Cmd+Shift+4/5` are macOS screenshots, so the **macOS label must read `Ctrl+Shift+4`**. Handling still accepts both — a labelling fix, not a behaviour change, and only possible now that a platform-aware label layer exists.
+The same reasoning retroactively fixes currency and percent: `Cmd+Shift+4/5` are macOS screenshots, so the **macOS label must read `Ctrl+Shift+4`**. Handling still accepts both — a labelling fix, not a behaviour change, and only possible now that a platform-aware label layer exists. (This label fix already shipped in Phase 1's `commandRegistry.ts`, ahead of this section; confirmed here, not redone.)
 
 ### 5.3 The run event
 
@@ -1344,14 +1357,15 @@ The brief's recommended order is followed with **one change: the missing keyboar
 **Changed.** `keymap.ts` (`+Alt+↓`, `+mod+Shift+L`, `+Ctrl+Shift+3`), `SpreadsheetGrid.tsx`, `Toolbar.tsx`, `ColumnHeader.tsx` (a caret opens the same menu by mouse — parity).
 
 **Tasks.**
-1. Bind `FORMAT_DATE` to `Ctrl+Shift+3`, **Ctrl only**, with the macOS-screenshot note. Amend `DECISIONS.md` — this is the third single-modifier exception.
-2. Fix the macOS **labels** for `Ctrl+Shift+4`/`5`. Handling unchanged.
-3. Build `FilterMenu`; bind `Alt+↓`. **Never bind `Alt+←`/`Alt+→`.**
-4. Bind `mod+Shift+L`: filters present → `CLEAR_FILTERS`; else → `FILTER_TO_VALUE` on the active cell.
-5. **Return focus to the grid after every toolbar and menu command** (§2.3, fact 3), so a hybrid route does not go dead mid-run.
-6. Gate all of it by `challenge.allowedActions`, exactly as `set-format` already is (`SpreadsheetGrid.tsx:177`, `DECISIONS.md:239`).
+1. Bind `FORMAT_DATE` to `mod+Shift+3` (label: Ctrl only), with the macOS-screenshot note, matching `FORMAT_CURRENCY`/`FORMAT_PERCENT` exactly (§1a.10). Amend `DECISIONS.md` to document all three screenshot-colliding chords (`Ctrl+Space` plus the `Shift+3/4/5` family) in one place.
+2. Confirm the macOS **labels** for `Ctrl+Shift+4`/`5` — already `ctrlOnly` in Phase 1's `commandRegistry.ts`; no code change, just verification.
+3. Build `FilterMenu`; bind `Alt+↓` to `OPEN_FILTER_MENU`. **Never bind `Alt+←`/`Alt+→`.** `matchChord` gains the specificity rule §1a.2 called out (a chord that constrains `alt` wins a tie over one that doesn't).
+4. Add `TOGGLE_FILTER`, bound to `mod+Shift+L`: `resolveCommand` returns `clear-filters` when `grid.filters.length > 0`, else `filter-column` on the active cell's value (§1a.10 — a new command, not a shared chord on two existing ones).
+5. **Return focus to the grid after every toolbar and menu command** (§2.3, fact 3), so a hybrid route does not go dead mid-run. The menu needs no explicit refocus (§1a.10 — it never takes focus from the grid); the toolbar gets a `gridFocusRef` prop, wired from `ChallengeRun`/`SessionRun` into `SpreadsheetGrid`'s existing `focusRef`.
+6. Gate all of it by `challenge.allowedActions`, exactly as `set-format` already is (`SpreadsheetGrid.tsx:177`, `DECISIONS.md:239`): `FORMAT_DATE` already routes through the existing `set-format` gate; `TOGGLE_FILTER` and `FilterMenu`'s own options are newly gated the same way, by `sort-column`/`filter-column`/`clear-filters`.
+7. Widen `hotkeyEligible`'s derivation and unify it with `KEYBOARD_COMMANDS` (§1a.10) — still fully derived, never hand-set.
 
-**Tests.** All five families solvable with zero pointer events (five tests, replayed through the reducer). The menu is arrow-navigable and restores focus. `Alt+←` is not bound. A blank active cell disables `FILTER_TO_VALUE`, matching the toolbar's existing rule (`Toolbar.tsx:62`). E2E: solve a sort-filter drill with no mouse.
+**Tests.** All five families solvable with zero pointer events (five tests, replayed through the real reducer and the real validator per §1a.6). The menu is arrow-navigable; `Alt+↓` opens it and does not also fire `MOVE_DOWN`. `Alt+←` is not bound. A blank active cell disables `FILTER_TO_VALUE`/`TOGGLE_FILTER`'s filter branch, matching the toolbar's existing rule (`Toolbar.tsx:62`). `APPLY_BOLD`-style regression: `TOGGLE_FILTER` reproduces `clear-filters` vs `filter-column` correctly from either grid state. E2E: solve a sort-filter drill with no mouse.
 **Acceptance.** `keyboardComplete` is true for all 21 seeded templates and all 23 classics.
 **Dependencies.** Phase 1. **Risk.** A new chord collides with a browser or OS shortcut — mitigated by the enumeration in §5.2 and by manual checks on Chrome/Firefox/Safari across Windows and macOS. **Rollback.** Revert; the toolbar routes are untouched and everything still plays.
 
@@ -1561,13 +1575,14 @@ Work top to bottom. Do not start a phase until the one above it is green.
 - [ ] All 493 existing tests still pass, unchanged.
 
 **Phase 2 — Keyboard completeness**
-- [ ] `Ctrl+Shift+3` → `FORMAT_DATE` (Ctrl only; document the macOS-screenshot exception).
-- [ ] Fix the macOS **labels** for `Ctrl+Shift+4`/`5`.
-- [ ] `FilterMenu` (`role="listbox"`), opened by `Alt+↓` and by a header caret.
-- [ ] `mod+Shift+L` toggles filter/clear.
-- [ ] **Never bind `Alt+←`/`Alt+→`.**
+- [ ] `mod+Shift+3` → `FORMAT_DATE` (label: Ctrl only, matching `FORMAT_CURRENCY`/`FORMAT_PERCENT`; document the macOS-screenshot exception in `DECISIONS.md`).
+- [ ] Confirm the macOS **labels** for `Ctrl+Shift+4`/`5` (already shipped in Phase 1).
+- [ ] `FilterMenu` (`role="listbox"`), opened by `Alt+↓` and by a header caret; no focus/keydown of its own (§1a.10).
+- [ ] `TOGGLE_FILTER`, a new command bound to `mod+Shift+L`, toggles filter/clear via `resolveCommand` (§1a.10 — not a shared chord on `FILTER_TO_VALUE`/`CLEAR_FILTERS`).
+- [ ] **Never bind `Alt+←`/`Alt+→`.** `matchChord` specificity rule so `Alt+↓` doesn't also fire `MOVE_DOWN`.
 - [ ] **Focus returns to the grid after every toolbar and menu command.**
-- [ ] All five families solvable with zero pointer events.
+- [ ] `hotkeyEligible`/`KEYBOARD_COMMANDS` widened to menu-reachable commands, still fully derived (§1a.10).
+- [ ] All five families solvable with zero pointer events, replayed through the real reducer and validator.
 
 **Phase 3 — Run model and policy**
 - [ ] `RunRecord`, type guards, `RUN_LOG_KEY`.

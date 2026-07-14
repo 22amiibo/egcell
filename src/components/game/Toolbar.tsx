@@ -1,5 +1,7 @@
 "use client";
 
+import type { RefObject } from "react";
+
 import type { Challenge } from "@/domain/challenges/challengeTypes";
 import type { ActionMeta, GridCommandId } from "@/domain/commands/commandTypes";
 import { resolveCommand } from "@/domain/commands/resolveCommand";
@@ -11,6 +13,12 @@ type ToolbarProps = {
   challenge: Challenge;
   grid: GridState;
   onAction: (action: GridAction, meta: ActionMeta) => void;
+  /**
+   * Native toolbar buttons steal DOM focus from the grid (§2.3 fact 3 of the plan) — a hybrid route
+   * would otherwise go dead the moment a player touches the toolbar. Omitted in tests, where there
+   * is no grid to refocus.
+   */
+  gridFocusRef?: RefObject<HTMLDivElement | null>;
 };
 
 function ToolbarButton({
@@ -42,7 +50,7 @@ function ToolbarButton({
  * Only the actions a challenge allows are offered. A selection challenge therefore renders no
  * toolbar at all, which keeps the surface honest: a control the challenge cannot use never appears.
  */
-export function Toolbar({ challenge, grid, onAction }: ToolbarProps) {
+export function Toolbar({ challenge, grid, onAction, gridFocusRef }: ToolbarProps) {
   const allows = (kind: GridActionKind) => challenge.allowedActions.includes(kind);
 
   const canFormat = allows("set-format");
@@ -81,6 +89,7 @@ export function Toolbar({ challenge, grid, onAction }: ToolbarProps) {
 
     if (action !== null) {
       onAction(action, { command, inputMethod: "pointer", via: "toolbar", chord: null, controlId });
+      gridFocusRef?.current?.focus({ preventScroll: true });
     }
   };
 

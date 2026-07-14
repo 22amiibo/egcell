@@ -89,21 +89,31 @@ function chordString(chord: Chord, event: ChordEvent): string {
 }
 
 /**
- * Classifies a keydown into the command it fires, if any. Iterates the registry in its own
- * (insertion) order, so which command wins a tie is deterministic and reproducible — there is no
- * tie among today's chords, but Phase 2's `Alt+↓` will need a specificity rule here, not an
- * ordering accident.
+ * Classifies a keydown into the command it fires, if any. Collects every chord that matches, then
+ * prefers the one that explicitly constrains `alt` — otherwise-unconstrained `MOVE_DOWN` and
+ * explicit `Alt+↓` (`OPEN_FILTER_MENU`) both match an Alt+ArrowDown event (§1a.2's undeclared-alt
+ * rule), and the specificity check is what makes `Alt+↓` win instead of an insertion-order
+ * accident. Ties among equally-specific chords fall back to registry (insertion) order, which is
+ * deterministic and reproducible — no chord shipped before Phase 2 ever ties this way.
  */
 export function matchChord(event: ChordEvent): { command: GridCommandId; chord: string } | null {
+  let best: { command: GridCommandId; chord: string; specificity: number } | null = null;
+
   for (const definition of Object.values(COMMAND_REGISTRY)) {
     for (const chord of definition.chords) {
-      if (chordMatches(chord, event)) {
-        return { command: definition.id, chord: chordString(chord, event) };
+      if (!chordMatches(chord, event)) {
+        continue;
+      }
+
+      const specificity = chord.alt === true ? 1 : 0;
+
+      if (best === null || specificity > best.specificity) {
+        best = { command: definition.id, chord: chordString(chord, event), specificity };
       }
     }
   }
 
-  return null;
+  return best === null ? null : { command: best.command, chord: best.chord };
 }
 
 /** What to show for a command's chord on a platform. Null when no keyboard route exists yet. */

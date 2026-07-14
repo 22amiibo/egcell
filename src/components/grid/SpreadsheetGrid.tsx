@@ -12,9 +12,10 @@ import {
 
 import { CellView } from "@/components/grid/CellView";
 import { ColumnHeader } from "@/components/grid/ColumnHeader";
+import { FilterMenu, filterMenuOptions } from "@/components/grid/FilterMenu";
 import { RowHeader } from "@/components/grid/RowHeader";
 import { SelectionOverlay } from "@/components/grid/SelectionOverlay";
-import { getGridMetrics } from "@/components/grid/gridMetrics";
+import { cellLeft, getGridMetrics } from "@/components/grid/gridMetrics";
 import type { ActionMeta, GridCommandId } from "@/domain/commands/commandTypes";
 import { matchChord } from "@/domain/commands/keymap";
 import { resolveCommand } from "@/domain/commands/resolveCommand";
@@ -126,6 +127,39 @@ export function SpreadsheetGrid({
   useEffect(() => {
     containerRef.current?.focus({ preventScroll: true });
   }, [containerRef]);
+
+  const allows = useCallback(
+    (kind: GridActionKind) => allowedActions === undefined || allowedActions.includes(kind),
+    [allowedActions],
+  );
+
+  // FilterMenu owns no focus or keydown of its own (§1a.10 of the plan) — handleKeyDown below
+  // intercepts arrows/Enter/Escape while it's open, so DOM focus never leaves the grid container.
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const [filterMenuHighlight, setFilterMenuHighlight] = useState(0);
+  const menuOptions = filterMenuOptions(grid, allows);
+  const highlightedIndex = Math.min(filterMenuHighlight, Math.max(menuOptions.length - 1, 0));
+
+  const closeFilterMenu = useCallback(() => {
+    setFilterMenuOpen(false);
+    setFilterMenuHighlight(0);
+  }, []);
+
+  // The header caret's mouse click steals DOM focus (`ChallengeRun.tsx`'s toolbar has the same
+  // problem, §2.3 fact 3) — refocusing the container is what lets the grid's own keydown handler,
+  // not a stray listener on the button, drive the menu that click just opened. Not a useCallback:
+  // the ref read inside it (containerRef.current) is exactly what the React Compiler's manual-
+  // memoization check and react-hooks/exhaustive-deps disagree about, so this is left for the
+  // compiler to memoize on its own rather than hand-writing a dependency array either rule accepts.
+  function openFilterMenu(): void {
+    if (menuOptions.length === 0) {
+      return;
+    }
+
+    setFilterMenuOpen(true);
+    setFilterMenuHighlight(0);
+    containerRef.current?.focus({ preventScroll: true });
+  }
 
   // A drag can end anywhere, including outside the grid or outside the window. Without this, letting
   // go off-grid would leave the anchor set and the next hover would keep extending the old range.
@@ -255,8 +289,58 @@ export function SpreadsheetGrid({
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
-      const allows = (kind: GridActionKind) =>
-        allowedActions === undefined || allowedActions.includes(kind);
+      // The menu owns arrows/Enter/Escape while it's open — it has no keydown listener of its own
+      // (§1a.10), so every other key is a no-op rather than falling through to grid movement.
+      if (filterMenuOpen) {
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          setFilterMenuHighlight((index) => Math.min(index + 1, Math.max(menuOptions.length - 1, 0)));
+          return;
+        }
+
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          setFilterMenuHighlight((index) => Math.max(index - 1, 0));
+          return;
+        }
+
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeFilterMenu();
+          return;
+        }
+
+        if (event.key === "Enter") {
+          event.preventDefault();
+
+          const option = menuOptions[highlightedIndex];
+
+          closeFilterMenu();
+
+          if (option === undefined) {
+            return;
+          }
+
+          const focus = keyFocusRef.current ?? grid.activeCell;
+          const anchor = keyAnchorRef.current ?? grid.activeCell;
+          const action = resolveCommand(option.command, { grid, focus, anchor });
+
+          if (action === null) {
+            return;
+          }
+
+          updateRefsForAction(action, focus, keyAnchorRef, keyFocusRef);
+          onAction(action, {
+            command: option.command,
+            inputMethod: "keyboard",
+            via: "menu",
+            chord: null,
+            controlId: null,
+          });
+        }
+
+        return;
+      }
 
       const match = matchChord(event);
 
@@ -266,10 +350,27 @@ export function SpreadsheetGrid({
 
       const { command, chord } = match;
 
+      if (command === "OPEN_FILTER_MENU") {
+        if (menuOptions.length > 0) {
+          event.preventDefault();
+          setFilterMenuOpen(true);
+          setFilterMenuHighlight(0);
+        }
+
+        return;
+      }
+
       // Movement is never gated: it is how the player gets around. Only the set-format commands
-      // can be disallowed, exactly as the toolbar's own buttons are — and, as before, a disallowed
-      // chord is not prevented at all, so the browser is free to do whatever it would otherwise.
+      // and the sort/filter commands below can be disallowed, exactly as the toolbar's own buttons
+      // are — and, as before, a disallowed chord is not prevented at all, so the browser is free to
+      // do whatever it would otherwise.
       if (SET_FORMAT_COMMANDS.has(command) && !allows("set-format")) {
+        return;
+      }
+
+      // TOGGLE_FILTER's resolved action depends on grid state, so which permission gates it does
+      // too — resolved the same way `resolveCommand` itself will resolve it a few lines down.
+      if (command === "TOGGLE_FILTER" && !allows(grid.filters.length > 0 ? "clear-filters" : "filter-column")) {
         return;
       }
 
@@ -292,7 +393,15 @@ export function SpreadsheetGrid({
         controlId: null,
       });
     },
-    [grid, onAction, allowedActions],
+    [
+      grid,
+      onAction,
+      allows,
+      filterMenuOpen,
+      menuOptions,
+      highlightedIndex,
+      closeFilterMenu,
+    ],
   );
 
   const isColumnSelected = (col: number) =>
@@ -330,6 +439,10 @@ export function SpreadsheetGrid({
             onSelect={selectColumn}
             metrics={presentation.metrics}
             gridlineClass={gridlineClass}
+            // Only the active column shows the caret: FilterMenu always acts on the active cell
+            // (§1a.10), so a caret on another column would open a menu that doesn't operate on it.
+            showFilterCaret={col === grid.activeCell.col && menuOptions.length > 0}
+            onOpenFilterMenu={openFilterMenu}
           />
         ))}
       </div>
@@ -368,6 +481,17 @@ export function SpreadsheetGrid({
       ))}
 
       <SelectionOverlay grid={grid} metrics={presentation.metrics} />
+
+      {filterMenuOpen && (
+        <FilterMenu
+          options={menuOptions}
+          highlightedIndex={highlightedIndex}
+          style={{
+            left: cellLeft(presentation.metrics, grid.activeCell.col),
+            top: presentation.metrics.columnHeaderHeight,
+          }}
+        />
+      )}
     </div>
   );
 }

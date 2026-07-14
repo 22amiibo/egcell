@@ -25,11 +25,29 @@ type Definition = {
   reserved?: string;
 };
 
-/** `hotkeyEligible` follows structurally from whether a keyboard route exists — never set by hand. */
+/**
+ * `FilterMenu`'s own option list (`components/grid/FilterMenu.tsx`) — the structural source for
+ * which commands are keyboard-reachable only through that menu, not a second hand-maintained list.
+ * None of these has a top-level chord of its own; Excel doesn't bind "sort ascending" to a bare key
+ * either, it lives in the dropdown (`Alt+↓`, `OPEN_FILTER_MENU`, is the real chord).
+ */
+export const FILTER_MENU_COMMANDS: ReadonlySet<GridCommandId> = new Set([
+  "SORT_ASC",
+  "SORT_DESC",
+  "FILTER_TO_VALUE",
+  "FILTER_ABOVE_VALUE",
+  "CLEAR_FILTERS",
+]);
+
+/**
+ * `hotkeyEligible` follows structurally from whether a keyboard route exists — never set by hand.
+ * A route is either a top-level chord, or membership in `FILTER_MENU_COMMANDS` (reachable via
+ * `Alt+↓` then arrows/Enter) — the only two ways a command is keyboard-reachable today.
+ */
 function define(entry: Definition): CommandDefinition {
   return {
     ...entry,
-    hotkeyEligible: entry.chords.length > 0,
+    hotkeyEligible: entry.chords.length > 0 || FILTER_MENU_COMMANDS.has(entry.id),
     recordable: true,
     inputVerifiable: true,
     cost: 1,
@@ -42,10 +60,10 @@ function define(entry: Definition): CommandDefinition {
  * `resolveCommand`, the Hotkey Mode gate, and the Phase 4 solver cannot drift from one another the
  * way the hand-authored route notes already have (§1 of the plan).
  *
- * Only `OPEN_FILTER_MENU` has no input path at all yet — the menu UI ships in Phase 2. Every other
- * command below is reachable today, through the exact chord or toolbar button the shipped game
- * already has; Phase 2 adds chords to the toolbar-only entries (`FORMAT_DATE`, `SORT_ASC`,
- * `SORT_DESC`, `FILTER_TO_VALUE`, `FILTER_ABOVE_VALUE`, `CLEAR_FILTERS`), it does not add commands.
+ * Every command is reachable by keyboard as of Phase 2: `FORMAT_DATE` and the new `TOGGLE_FILTER`
+ * get top-level chords; `OPEN_FILTER_MENU` (`Alt+↓`) opens `FilterMenu`, which is the only route to
+ * `SORT_ASC`, `SORT_DESC`, `FILTER_TO_VALUE`, `FILTER_ABOVE_VALUE`, and `CLEAR_FILTERS` — tracked in
+ * `FILTER_MENU_COMMANDS` above, not a bare `chords.length > 0` check.
  */
 export const COMMAND_REGISTRY: Record<GridCommandId, CommandDefinition> = {
   MOVE_UP: define({ id: "MOVE_UP", chords: [{ key: "ArrowUp" }], label: plain("↑") }),
@@ -150,54 +168,64 @@ export const COMMAND_REGISTRY: Record<GridCommandId, CommandDefinition> = {
     label: ctrlOnly("Shift + 5"),
     pointerControlId: "toolbar-percent",
   }),
+  // Cmd+Shift+3 is a macOS screenshot and never reaches the browser, same class as
+  // Ctrl+Shift+4/5 below — the macOS label reads Ctrl, handling accepts either (DECISIONS.md).
   FORMAT_DATE: define({
     id: "FORMAT_DATE",
-    chords: [],
-    label: null,
+    chords: [
+      { key: "#", mod: true, shift: true },
+      { key: "3", mod: true, shift: true },
+    ],
+    label: ctrlOnly("Shift + 3"),
     pointerControlId: "toolbar-date",
-    reserved: "Bound to Ctrl+Shift+3 in Phase 2 (Ctrl only — Cmd+Shift+3 is a macOS screenshot).",
   }),
 
+  // Excel's filter dropdown. Alt+←/Alt+→ are browser history navigation and must never be bound —
+  // only Alt+↓ (and only Alt+↓) gets a chord. `matchChord`'s specificity rule (keymap.ts) is what
+  // lets this win over plain MOVE_DOWN, whose chord leaves `alt` unconstrained (§1a.2).
   OPEN_FILTER_MENU: define({
     id: "OPEN_FILTER_MENU",
-    chords: [],
-    label: null,
-    reserved: "Phase 2 — the filter/sort menu UI does not exist yet.",
+    chords: [{ key: "ArrowDown", alt: true }],
+    label: { windows: "Alt + ↓", mac: "Option + ↓" },
   }),
+  // No top-level chord — reachable only inside FilterMenu (arrows to highlight, Enter to apply),
+  // hence FILTER_MENU_COMMANDS above rather than `chords.length > 0` for hotkeyEligible.
   SORT_ASC: define({
     id: "SORT_ASC",
     chords: [],
     label: null,
     pointerControlId: "toolbar-sort-asc",
-    reserved: "Bound inside the Phase 2 filter menu.",
   }),
   SORT_DESC: define({
     id: "SORT_DESC",
     chords: [],
     label: null,
     pointerControlId: "toolbar-sort-desc",
-    reserved: "Bound inside the Phase 2 filter menu.",
   }),
   FILTER_TO_VALUE: define({
     id: "FILTER_TO_VALUE",
     chords: [],
     label: null,
     pointerControlId: "toolbar-filter-equals",
-    reserved: "Bound to mod+Shift+L in Phase 2.",
   }),
   FILTER_ABOVE_VALUE: define({
     id: "FILTER_ABOVE_VALUE",
     chords: [],
     label: null,
     pointerControlId: "toolbar-filter-above",
-    reserved: "Bound inside the Phase 2 filter menu.",
   }),
   CLEAR_FILTERS: define({
     id: "CLEAR_FILTERS",
     chords: [],
     label: null,
     pointerControlId: "toolbar-clear-filters",
-    reserved: "Bound to mod+Shift+L (toggle) in Phase 2.",
+  }),
+  // Keyboard-only toggle, not a shared chord on FILTER_TO_VALUE/CLEAR_FILTERS — see the doc
+  // comment on GridCommandId's "TOGGLE_FILTER" member and the plan's §1a.10.
+  TOGGLE_FILTER: define({
+    id: "TOGGLE_FILTER",
+    chords: [{ key: "l", mod: true, shift: true }],
+    label: mod("Shift + L"),
   }),
 
   // Toolbar-only: always sets bold on. See the comment on GridCommandId's "APPLY_BOLD" member —
@@ -215,7 +243,11 @@ export const COMMAND_REGISTRY: Record<GridCommandId, CommandDefinition> = {
   CLICK_ROW_HEADER: define({ id: "CLICK_ROW_HEADER", chords: [], label: null }),
 };
 
-/** The Phase 4 solver's search space — derived, never a second hand-maintained list. */
+/**
+ * The Phase 4 solver's search space — derived from `hotkeyEligible`, not re-derived from
+ * `chords.length` a second time, so the two notions of "keyboard-reachable" cannot drift apart
+ * (a command reachable only through `FilterMenu` is `hotkeyEligible` but has `chords: []`).
+ */
 export const KEYBOARD_COMMANDS: GridCommandId[] = Object.values(COMMAND_REGISTRY)
-  .filter((definition) => definition.chords.length > 0)
+  .filter((definition) => definition.hotkeyEligible)
   .map((definition) => definition.id);

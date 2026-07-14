@@ -34,6 +34,13 @@ export type GridCommandId =
   | "FILTER_TO_VALUE"
   | "FILTER_ABOVE_VALUE"
   | "CLEAR_FILTERS"
+  /**
+   * `mod+Shift+L`, keyboard-only. A toggle, not a shared chord on `FILTER_TO_VALUE`/`CLEAR_FILTERS`:
+   * `resolveCommand` resolves it to `clear-filters` when filters exist, else `filter-column` on the
+   * active cell's value — the same shape as `TOGGLE_BOLD` (see `APPLY_BOLD`'s comment below), one
+   * physical input producing a state-dependent action, always reproducible from the same context.
+   */
+  | "TOGGLE_FILTER"
   // Pointer-origin only; never searched by the route solver.
   /**
    * The toolbar's Bold button: always sets bold on, regardless of the selection's current state.

@@ -48,6 +48,34 @@ describe("matchChord", () => {
   it("does not treat Cmd+Space as Ctrl+Space — Cmd+Space is Spotlight, an existing exception", () => {
     expect(matchChord(keydown({ key: " ", code: "Space", metaKey: true }))).toBeNull();
   });
+
+  it("prefers Alt+↓'s OPEN_FILTER_MENU over plain MOVE_DOWN's unconstrained alt (the §1a.2 specificity rule)", () => {
+    const match = matchChord(keydown({ key: "ArrowDown", altKey: true }));
+
+    expect(match?.command).toBe("OPEN_FILTER_MENU");
+  });
+
+  it("still fires MOVE_DOWN for a plain ArrowDown with no Alt held", () => {
+    expect(matchChord(keydown({ key: "ArrowDown" }))?.command).toBe("MOVE_DOWN");
+  });
+
+  it("matches Ctrl+Shift+3 and Cmd+Shift+3 to FORMAT_DATE, by key or by code", () => {
+    expect(matchChord(keydown({ key: "3", ctrlKey: true, shiftKey: true }))?.command).toBe(
+      "FORMAT_DATE",
+    );
+    expect(matchChord(keydown({ key: "#", metaKey: true, shiftKey: true }))?.command).toBe(
+      "FORMAT_DATE",
+    );
+  });
+
+  it("matches mod+Shift+L to TOGGLE_FILTER", () => {
+    expect(matchChord(keydown({ key: "l", ctrlKey: true, shiftKey: true }))?.command).toBe(
+      "TOGGLE_FILTER",
+    );
+    expect(matchChord(keydown({ key: "l", metaKey: true, shiftKey: true }))?.command).toBe(
+      "TOGGLE_FILTER",
+    );
+  });
 });
 
 describe("chordLabel", () => {
@@ -56,13 +84,20 @@ describe("chordLabel", () => {
     expect(chordLabel("JUMP_DOWN", "mac")).toBe("Cmd + ↓");
   });
 
-  it("keeps the currency/percent chords Ctrl-only on both platforms, since Cmd+Shift+4/5 are macOS screenshots", () => {
+  it("keeps the currency/percent/date chords Ctrl-only-labelled on both platforms, since Cmd+Shift+3/4/5 are macOS screenshots", () => {
     expect(chordLabel("FORMAT_CURRENCY", "windows")).toBe("Ctrl + Shift + 4");
     expect(chordLabel("FORMAT_CURRENCY", "mac")).toBe("Ctrl + Shift + 4");
+    expect(chordLabel("FORMAT_DATE", "windows")).toBe("Ctrl + Shift + 3");
+    expect(chordLabel("FORMAT_DATE", "mac")).toBe("Ctrl + Shift + 3");
   });
 
-  it("returns null for a command with no keyboard route yet", () => {
-    expect(chordLabel("OPEN_FILTER_MENU", "windows")).toBeNull();
-    expect(chordLabel("FORMAT_DATE", "mac")).toBeNull();
+  it("labels OPEN_FILTER_MENU with Option on mac, Alt on windows", () => {
+    expect(chordLabel("OPEN_FILTER_MENU", "windows")).toBe("Alt + ↓");
+    expect(chordLabel("OPEN_FILTER_MENU", "mac")).toBe("Option + ↓");
+  });
+
+  it("returns null for a command with no top-level chord — menu-only commands included", () => {
+    expect(chordLabel("SORT_ASC", "windows")).toBeNull();
+    expect(chordLabel("CLEAR_FILTERS", "mac")).toBeNull();
   });
 });

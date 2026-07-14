@@ -40,6 +40,30 @@ test.describe("keyboard-only play", () => {
     await expect(page.getByTestId("result-card")).toBeVisible();
   });
 
+  test("solves a sort-filter challenge with zero mouse events, via the FilterMenu", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.getByLabel("Challenge").selectOption({ label: "Show only Complete rows" });
+    await expect(page.getByRole("grid", { name: "Spreadsheet" })).toBeFocused();
+
+    // A1 -> Status column, on a Complete row.
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowRight");
+
+    // Alt+↓ opens FilterMenu; Sort A-Z, Sort Z-A, then Filter to "Complete".
+    await page.keyboard.press("Alt+ArrowDown");
+    await expect(page.getByRole("listbox")).toBeVisible();
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+
+    await expect(page.getByTestId("result-card")).toBeVisible();
+  });
+
   test("mouse selection still works after keyboard use", async ({ page }) => {
     await page.goto("/");
     await page.getByLabel("Challenge").selectOption({ label: "Select the Revenue column" });

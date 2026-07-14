@@ -461,4 +461,19 @@ Reasoning:
 Consequences:
 
 - Phase 1 and Phase 2 should optimize for selection fidelity.
+
+## 2026-07-13: Three Single-Modifier Chords, All For The Same Reason
+
+Decision: `Ctrl+Space` (`SELECT_COLUMN`) and the `Ctrl+Shift+3/4/5` format chords (`FORMAT_DATE`/`FORMAT_CURRENCY`/`FORMAT_PERCENT`) are the only chords in the game that are ever Ctrl-only or Ctrl-labelled, instead of the usual Cmd-or-Ctrl story (`DECISIONS.md:96`).
+
+Reasoning:
+
+- `Cmd+Space` is Spotlight and never reaches the browser, so `SELECT_COLUMN` genuinely cannot accept it — handling itself is Ctrl-only there.
+- `Cmd+Shift+3/4/5` are macOS screenshot shortcuts and also never reach the browser, but the *handling* still accepts `mod` (Ctrl or Cmd) for all three format chords — only the macOS **label** reads `Ctrl`, so the player is never told to press a chord the OS eats. Labelling is the fix, not a code path that special-cases the platform.
+- Keeping all three chords in one entry makes the pattern legible: a chord is single-modifier only when the excluded modifier collides with something at the OS level, never for any other reason.
+
+Consequences:
+
+- Any future chord that collides with an OS-level shortcut on either platform follows this same shape: keep handling as `mod` wherever the OS allows it, and only narrow the *label* (or, where the OS genuinely blocks the chord outright as with `Ctrl+Space`, the handling too).
+- `commandRegistry.ts` is the single place these three decisions live in code (`ctrlOnly()`-labelled or `ctrl`-only entries); this decision is the single place they live in prose.
 - Other challenge families wait until this loop is verified.

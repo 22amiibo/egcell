@@ -131,6 +131,9 @@ function SessionTask({
   // A task reports its result exactly once, whichever of completion, skip, or the session
   // deadline gets there first.
   const reportedRef = useRef(false);
+  // Toolbar clicks steal DOM focus (§2.3 fact 3 of the plan); this is how it's returned so a
+  // hybrid keyboard+toolbar route doesn't go dead mid-task.
+  const gridFocusRef = useRef<HTMLDivElement>(null);
 
   const report = useCallback(
     (finished: FinishedRun, outcome: TaskOutcome) => {
@@ -216,6 +219,7 @@ function SessionTask({
           grid={run.grid}
           onAction={run.dispatch}
           allowedActions={challenge.allowedActions}
+          focusRef={gridFocusRef}
           density={gridDensity}
           gridlineStrength={gridlineStrength}
           largeTargets={largeTargets}
@@ -231,7 +235,12 @@ function SessionTask({
       </div>
 
       <div className="flex min-h-9 w-full items-center justify-between gap-4">
-        <Toolbar challenge={challenge} grid={run.grid} onAction={run.dispatch} />
+        <Toolbar
+          challenge={challenge}
+          grid={run.grid}
+          onAction={run.dispatch}
+          gridFocusRef={gridFocusRef}
+        />
         <span aria-hidden className="flex-1" />
         {!frozen && (
           <button

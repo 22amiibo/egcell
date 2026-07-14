@@ -11,6 +11,13 @@ type ColumnHeaderProps = {
   onSelect: (col: number) => void;
   metrics: GridMetrics;
   gridlineClass: string;
+  /**
+   * Only the active column ever sets this — `FilterMenu` always acts on the active cell (plan
+   * §1a.10), so a caret on another column would open a menu that doesn't operate on the column
+   * it's attached to.
+   */
+  showFilterCaret: boolean;
+  onOpenFilterMenu: () => void;
 };
 
 function ColumnHeaderComponent({
@@ -20,24 +27,42 @@ function ColumnHeaderComponent({
   onSelect,
   metrics,
   gridlineClass,
+  showFilterCaret,
+  onOpenFilterMenu,
 }: ColumnHeaderProps) {
   return (
-    <button
-      type="button"
-      aria-label={`Select column ${label}`}
-      aria-pressed={isSelected}
-      onClick={() => onSelect(col)}
+    <div
       style={{ width: metrics.colWidth, height: metrics.columnHeaderHeight }}
       className={[
-        "border-r border-b text-[12px] font-medium",
+        "flex border-r border-b",
         gridlineClass,
-        isSelected
-          ? "bg-accent/25 text-ink"
-          : "bg-surface-raised text-muted hover:bg-line hover:text-ink",
+        isSelected ? "bg-accent/25" : "bg-surface-raised",
       ].join(" ")}
     >
-      {label}
-    </button>
+      <button
+        type="button"
+        aria-label={`Select column ${label}`}
+        aria-pressed={isSelected}
+        onClick={() => onSelect(col)}
+        className={[
+          "flex-1 text-[12px] font-medium",
+          isSelected ? "text-ink" : "text-muted hover:bg-line hover:text-ink",
+        ].join(" ")}
+      >
+        {label}
+      </button>
+      {showFilterCaret && (
+        <button
+          type="button"
+          aria-label="Sort and filter"
+          title="Sort and filter"
+          onClick={onOpenFilterMenu}
+          className="px-1 text-[10px] text-muted hover:bg-line hover:text-ink"
+        >
+          ▾
+        </button>
+      )}
+    </div>
   );
 }
 

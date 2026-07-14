@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChallengePrompt } from "@/components/game/ChallengePrompt";
 import { LiveStatsBar } from "@/components/game/LiveStatsBar";
@@ -36,6 +36,9 @@ type ChallengeRunProps = {
 export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: ChallengeRunProps) {
   const run = useGameRun(challenge, mode, records, { onFinished });
   const { settings } = useSettings();
+  // Toolbar clicks steal DOM focus (§2.3 fact 3 of the plan); this is how it's returned so a
+  // hybrid keyboard+toolbar route doesn't go dead mid-run.
+  const gridFocusRef = useRef<HTMLDivElement>(null);
   const actionCount = run.events.length;
   const shortcutActionCount = run.events.filter(
     (event) => event.inputMethod === "keyboard",
@@ -89,6 +92,7 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
           grid={run.grid}
           onAction={run.dispatch}
           allowedActions={challenge.allowedActions}
+          focusRef={gridFocusRef}
           density={settings.grid.density}
           gridlineStrength={settings.grid.gridlineStrength}
           largeTargets={settings.accessibility.largeTargets}
@@ -116,7 +120,12 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
       </div>
 
       <div className="flex min-h-9 w-full justify-start">
-        <Toolbar challenge={challenge} grid={run.grid} onAction={run.dispatch} />
+        <Toolbar
+          challenge={challenge}
+          grid={run.grid}
+          onAction={run.dispatch}
+          gridFocusRef={gridFocusRef}
+        />
       </div>
     </div>
   );

@@ -19,8 +19,11 @@ export type CommandContext = {
   anchor: CellAddress;
 };
 
-/** A data row's own value, or null when the cell is blank or in the header — Toolbar's filter guard, in one place. */
-function filterableValue(grid: GridState, cell: CellAddress): string | number | null {
+/**
+ * A data row's own value, or null when the cell is blank or in the header — Toolbar's filter guard,
+ * in one place. Exported so `FilterMenu` can compute the same enablement without a third copy.
+ */
+export function filterableValue(grid: GridState, cell: CellAddress): string | number | null {
   const { first, last } = dataRowBounds(grid);
 
   if (cell.row < first || cell.row > last) {
@@ -169,6 +172,21 @@ export function resolveCommand(
     }
     case "CLEAR_FILTERS":
       return { kind: "clear-filters" };
+
+    // A toggle, not a shared chord on FILTER_TO_VALUE/CLEAR_FILTERS: mod+Shift+L clears when
+    // filters exist, else filters to the active cell's value — the same shape as TOGGLE_BOLD
+    // (§1a.10), one physical input, a state-dependent action, reproducible from this context alone.
+    case "TOGGLE_FILTER": {
+      if (grid.filters.length > 0) {
+        return { kind: "clear-filters" };
+      }
+
+      const value = filterableValue(grid, focus);
+
+      return value === null
+        ? null
+        : { kind: "filter-column", col: focus.col, op: "equals", value };
+    }
 
     case "CLICK_CELL":
       return { kind: "select-cell", cell: focus };

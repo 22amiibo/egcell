@@ -143,6 +143,29 @@ describe("Toolbar formatting", () => {
     );
   });
 
+  it("returns focus to the grid after a click, via the gridFocusRef prop", () => {
+    const onAction = vi.fn();
+    const grid: GridState = {
+      ...createRevenueGrid(),
+      selection: { kind: "range", range: { start: { row: 0, col: 0 }, end: { row: 0, col: 4 } } },
+    };
+    const focus = vi.fn();
+    const gridFocusRef = { current: { focus } as unknown as HTMLDivElement };
+
+    render(
+      <Toolbar
+        challenge={formatChallenge}
+        grid={grid}
+        onAction={onAction}
+        gridFocusRef={gridFocusRef}
+      />,
+    );
+
+    screen.getByRole("button", { name: "Bold" }).click();
+
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+  });
+
   it("does not unbold an all-bold selection — unlike TOGGLE_BOLD, APPLY_BOLD is not a toggle", () => {
     const onAction = vi.fn();
     const grid: GridState = {
