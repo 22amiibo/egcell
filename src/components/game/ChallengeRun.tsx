@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { ChallengePrompt } from "@/components/game/ChallengePrompt";
+import { HelpControl, HelpPanel } from "@/components/game/HelpPanel";
 import { LiveStatsBar } from "@/components/game/LiveStatsBar";
 import { ResultCard } from "@/components/game/ResultCard";
+import { UnrankedBadge } from "@/components/game/UnrankedBadge";
 import {
   chordLabelForEvent,
   feedbackEventForRun,
@@ -14,6 +16,8 @@ import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { Toolbar } from "@/components/game/Toolbar";
 import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
 import type { Challenge, ChallengeMode } from "@/domain/challenges/challengeTypes";
+import { useAssist } from "@/hooks/useAssist";
+import { useFastestPath } from "@/hooks/useFastestPath";
 import { useGameRun, type FinishedRun } from "@/hooks/useGameRun";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
 import { useSettings } from "@/hooks/useSettings";
@@ -34,8 +38,15 @@ type ChallengeRunProps = {
  * fresh run rather than carrying the old clock and grid across.
  */
 export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: ChallengeRunProps) {
-  const run = useGameRun(challenge, mode, records, { onFinished });
   const { settings } = useSettings();
+  const assist = useAssist({
+    autoReveal: mode === "practice" && settings.help.autoRevealInPractice,
+    confirmBeforeReveal: settings.help.confirmBeforeReveal,
+  });
+  const run = useGameRun(challenge, mode, records, { onFinished, assist: assist.assist });
+  // The solve is paid for only once the run is already unranked, so it can never cost a scored run a
+  // frame (§6.3) — `useFastestPath` takes that as a parameter rather than as a promise.
+  const path = useFastestPath(challenge, run.events, assist.stage === "revealed");
   // Toolbar clicks steal DOM focus (§2.3 fact 3 of the plan); this is how it's returned so a
   // hybrid keyboard+toolbar route doesn't go dead mid-run.
   const gridFocusRef = useRef<HTMLDivElement>(null);
@@ -62,14 +73,39 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
     setAttempt((current) => current + 1);
   }, [run]);
 
+  // `?` asks for help, `Escape` backs out of the confirmation. This listens on the run surface, not
+  // inside the grid: the grid owns the game's keys, and a help shortcut buried in its keydown
+  // handler would be a key the grid has to know about but does not own.
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "?" && assist.stage !== "revealed") {
+      event.preventDefault();
+      assist.request();
+      return;
+    }
+
+    if (event.key === "Escape" && assist.stage === "confirming") {
+      event.preventDefault();
+      assist.cancel();
+    }
+  };
+
   return (
-    <div data-testid="practice-frame" className="flex flex-col items-center gap-4">
+    <div
+      data-testid="practice-frame"
+      onKeyDown={onKeyDown}
+      className="flex flex-col items-center gap-4"
+    >
       <div
         data-testid="prompt-rail"
         className="flex min-h-14 w-full items-end justify-between gap-8"
       >
         <ChallengePrompt challenge={challenge} />
-        <TimerDisplay startedAt={run.startedAt} frozenElapsedMs={run.result?.elapsedMs ?? null} />
+
+        <div className="flex items-center gap-3">
+          {assist.stage === "revealed" && <UnrankedBadge />}
+          <HelpControl assist={assist} available={run.result === null} />
+          <TimerDisplay startedAt={run.startedAt} frozenElapsedMs={run.result?.elapsedMs ?? null} />
+        </div>
       </div>
 
       <div className="flex w-full justify-start">
@@ -86,7 +122,15 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
         />
       </div>
 
-      <div className="relative" data-testid="grid-stage">
+      {/* The one live region on this surface already belongs to RunFeedbackLayer, so the unranked
+          announcement is made here as its own polite region rather than by adding a second shouting
+          match over the same words. It is announced once, when the reveal happens. */}
+      <p className="sr-only" role="status" aria-live="polite">
+        {assist.stage === "revealed" ? "Fastest path revealed. This run is now unranked." : ""}
+      </p>
+
+      <div className="flex items-start gap-4">
+        <div className="relative" data-testid="grid-stage">
         <SpreadsheetGrid
           key={attempt}
           grid={run.grid}
@@ -117,6 +161,17 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
             />
           </div>
         )}
+        </div>
+
+        {/* The rail's width is held from mount, so revealing the path cannot shift the grid sideways
+            under the player's hands mid-run (§7.2). Below 1024px it drops under the grid instead. */}
+        <div className="hidden w-64 shrink-0 lg:block">
+          {assist.visible && run.result === null && <HelpPanel path={path} />}
+        </div>
+      </div>
+
+      <div className="w-full lg:hidden">
+        {assist.visible && run.result === null && <HelpPanel path={path} />}
       </div>
 
       <div className="flex min-h-9 w-full justify-start">

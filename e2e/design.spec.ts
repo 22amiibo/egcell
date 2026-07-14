@@ -32,6 +32,7 @@ test("settings categories are reachable with the keyboard", async ({ page }) => 
     "Grid",
     "Gameplay",
     "Scoring",
+    "Help",
     "Feedback",
     "Sound",
     "Accessibility",

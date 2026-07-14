@@ -473,6 +473,17 @@ export type Settings = {
     hotkeyStrictness: HotkeyStrictness;
     mistakePenalty: "light" | "standard" | "strict";
   };
+  help: {
+    /**
+     * Ask before revealing the fastest path mid-run. On by default, and not out of politeness: the
+     * rules forbid un-assisting a run, so one stray click would destroy a personal-best attempt with
+     * no undo (§7.1). A player who finds the prompt tiresome can switch it off; a player who never
+     * meant to click gets their run back.
+     */
+    confirmBeforeReveal: boolean;
+    /** Open Practice runs with the fastest path already showing. Such runs are assisted from the first render, and unranked. */
+    autoRevealInPractice: boolean;
+  };
   feedback: {
     liveStats: boolean;
     combo: boolean;
@@ -529,6 +540,10 @@ export const DEFAULT_SETTINGS: Settings = {
     mousePolicy: "allowed",
     hotkeyStrictness: "encouraged",
     mistakePenalty: "standard",
+  },
+  help: {
+    confirmBeforeReveal: true,
+    autoRevealInPractice: false,
   },
   feedback: {
     liveStats: true,
@@ -596,6 +611,7 @@ export function coerceSettings(value: unknown): Settings {
   const grid = section(value.grid);
   const gameplay = section(value.gameplay);
   const scoring = section(value.scoring);
+  const help = section(value.help);
   const feedback = section(value.feedback);
   const sound = section(value.sound);
   const accessibility = section(value.accessibility);
@@ -670,6 +686,13 @@ export function coerceSettings(value: unknown): Settings {
         scoring.mistakePenalty,
         ["light", "standard", "strict"] as const,
         DEFAULT_SETTINGS.scoring.mistakePenalty,
+      ),
+    },
+    help: {
+      confirmBeforeReveal: bool(help.confirmBeforeReveal, DEFAULT_SETTINGS.help.confirmBeforeReveal),
+      autoRevealInPractice: bool(
+        help.autoRevealInPractice,
+        DEFAULT_SETTINGS.help.autoRevealInPractice,
       ),
     },
     feedback: {

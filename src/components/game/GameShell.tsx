@@ -158,6 +158,9 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
           isNewRecord: finished.isNewRecord,
           eventDigest: finished.submission.eventDigest,
           comparison,
+          // Read from the run rather than re-derived: the run is the only thing that knows whether
+          // the player looked, and `getRunEligibility` reads this same field to unrank it.
+          assist: finished.assist,
         }),
       );
     },

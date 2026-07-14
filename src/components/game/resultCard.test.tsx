@@ -27,6 +27,7 @@ function finishedRun(overrides: Partial<FinishedRun> = {}): FinishedRun {
       accuracy: 1,
       messages: [],
     },
+    assist: "none",
     score,
     elapsedMs: 3000,
     previousBest: undefined,

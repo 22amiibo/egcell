@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
+import { HelpControl, HelpPanel } from "@/components/game/HelpPanel";
 import { LiveStatsBar } from "@/components/game/LiveStatsBar";
+import { UnrankedBadge } from "@/components/game/UnrankedBadge";
 import {
   chordLabelForEvent,
   feedbackEventForRun,
@@ -30,6 +32,8 @@ import {
 } from "@/domain/sessions/sessionTypes";
 import { calculateLiveRunStats } from "@/domain/stats/liveRunStats";
 import { createRunClock } from "@/hooks/runClock";
+import { useAssist, type Assist } from "@/hooks/useAssist";
+import { useFastestPath } from "@/hooks/useFastestPath";
 import { useGameRun, type FinishedRun } from "@/hooks/useGameRun";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
 import type { LocalSessionRecords, SessionRecordSubmission } from "@/hooks/useLocalSessionRecords";
@@ -79,6 +83,8 @@ function toTaskResult(
 type SessionTaskProps = {
   challenge: Challenge;
   records: LocalPersonalRecords;
+  /** The session's assist, not the task's: help revealed on one task assists the whole session. */
+  assist: Assist;
   onFinished: (finished: FinishedRun, outcome: TaskOutcome) => void;
   /** Epoch milliseconds when the session clock runs out, or null for sprints. */
   deadlineAtMs: number | null;
@@ -109,6 +115,7 @@ type SessionTaskProps = {
 function SessionTask({
   challenge,
   records,
+  assist,
   onFinished,
   deadlineAtMs,
   frozen,
@@ -154,8 +161,10 @@ function SessionTask({
 
   const run = useGameRun(challenge, "main-speed", records, {
     recordPersonalBest: false,
+    assist: assist.assist,
     onFinished: handleFinished,
   });
+  const path = useFastestPath(challenge, run.events, assist.stage === "revealed");
 
   const { finishNow } = run;
 
@@ -214,24 +223,31 @@ function SessionTask({
         />
       </div>
 
-      <div className="relative" data-testid="grid-stage">
-        <SpreadsheetGrid
-          grid={run.grid}
-          onAction={run.dispatch}
-          allowedActions={challenge.allowedActions}
-          focusRef={gridFocusRef}
-          density={gridDensity}
-          gridlineStrength={gridlineStrength}
-          largeTargets={largeTargets}
-        />
-        <RunFeedbackLayer
-          event={feedbackEvent}
-          reducedMotion={reducedMotion}
-          combo={taskActions - taskMistakes}
-          shortcutLabel={chordLabelForEvent(run.events.at(-1), getPlatform())}
-          showCombo={showCombo}
-          showShortcut={showShortcut}
-        />
+      <div className="flex items-start gap-4">
+        <div className="relative" data-testid="grid-stage">
+          <SpreadsheetGrid
+            grid={run.grid}
+            onAction={run.dispatch}
+            allowedActions={challenge.allowedActions}
+            focusRef={gridFocusRef}
+            density={gridDensity}
+            gridlineStrength={gridlineStrength}
+            largeTargets={largeTargets}
+          />
+          <RunFeedbackLayer
+            event={feedbackEvent}
+            reducedMotion={reducedMotion}
+            combo={taskActions - taskMistakes}
+            shortcutLabel={chordLabelForEvent(run.events.at(-1), getPlatform())}
+            showCombo={showCombo}
+            showShortcut={showShortcut}
+          />
+        </div>
+
+        {/* Width held from mount, so revealing the path cannot shift the grid mid-task (§7.2). */}
+        <div className="hidden w-64 shrink-0 lg:block">
+          {assist.visible && !frozen && <HelpPanel path={path} />}
+        </div>
       </div>
 
       <div className="flex min-h-9 w-full items-center justify-between gap-4">
@@ -266,6 +282,11 @@ export function SessionRun({
 }: SessionRunProps) {
   const plan = SESSION_PLANS[sessionMode];
   const { settings } = useSettings();
+  // One assist for the whole session, not one per task: the session is a single performance and
+  // banks a single record, so seeing the answer once is seeing it, and there is nothing to unrank
+  // more finely than the session itself. Practice's auto-reveal does not apply — a session is not
+  // Practice, and a session that opened pre-assisted could never be ranked at all.
+  const assist = useAssist({ confirmBeforeReveal: settings.help.confirmBeforeReveal });
 
   const [clock] = useState(createRunClock);
   const sessionStartedAt = useSyncExternalStore(
@@ -281,7 +302,8 @@ export function SessionRun({
   >([]);
   const [outcome, setOutcome] = useState<{
     result: SessionResult;
-    submission: SessionRecordSubmission;
+    /** Null when the session was assisted: no session record was written, and none is claimed. */
+    submission: SessionRecordSubmission | null;
   } | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [gridPresentation] = useState(() => ({
@@ -317,7 +339,14 @@ export function SessionRun({
         totalElapsedMs: now - clock.startedAt(),
         finishedAtMs: now,
       });
-      const submission = submitSessionRecord(sessionRecordFromResult(result, SESSION_DIFFICULTY));
+      // Help revealed on any one task assists the *whole session*. A session banks one record for
+      // one continuous performance, so there is no way to unrank the third task while still ranking
+      // the sprint it belongs to. The honest move is to bank nothing — and to say nothing, rather
+      // than fabricate a submission for a record that was never written.
+      const submission =
+        assist.assist === "revealed"
+          ? null
+          : submitSessionRecord(sessionRecordFromResult(result, SESSION_DIFFICULTY));
 
       // A sprint with skips is a finished session but not a completed one; a timed run always ran
       // its full course. `runRecordForSession` owns that distinction now (§1a.11).
@@ -325,13 +354,14 @@ export function SessionRun({
         runRecordForSession({
           mode: sessionMode,
           result,
-          isNewRecord: submission.isNewRecord,
+          isNewRecord: submission?.isNewRecord ?? false,
+          assist: assist.assist,
         }),
       );
 
       setOutcome({ result, submission });
     },
-    [sessionMode, clock, submitSessionRecord, recordHistory],
+    [sessionMode, clock, submitSessionRecord, recordHistory, assist.assist],
   );
 
   const handleTaskFinished = useCallback(
@@ -418,7 +448,7 @@ export function SessionRun({
           mistakes: finalMistakes,
           completedTasks: outcome.result.tasksCompleted,
           totalTasks: outcome.result.taskCount,
-          pbMs: outcome.submission.previousBest?.bestElapsedMs ?? null,
+          pbMs: outcome.submission?.previousBest?.bestElapsedMs ?? null,
         });
 
   return (
@@ -437,6 +467,8 @@ export function SessionRun({
           <h1 className="text-xl font-semibold tracking-tight text-ink">{challenge.prompt}</h1>
         </div>
         <div className="flex items-end gap-5">
+          {assist.stage === "revealed" && <UnrankedBadge />}
+          <HelpControl assist={assist} available={outcome === null} />
           <TaskProgressRail
             currentTask={taskNumber}
             completedTasks={completedCount}
@@ -459,6 +491,7 @@ export function SessionRun({
           key={`${attempt}:${taskIndex}`}
           challenge={challenge}
           records={personalRecords}
+          assist={assist}
           onFinished={handleTaskFinished}
           deadlineAtMs={deadlineAtMs}
           frozen={outcome !== null}
@@ -483,8 +516,8 @@ export function SessionRun({
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-canvas/70 backdrop-blur-[2px]">
             <SessionResultCard
               result={outcome.result}
-              previousBest={outcome.submission.previousBest}
-              isNewRecord={outcome.submission.isNewRecord}
+              previousBest={outcome.submission?.previousBest}
+              isNewRecord={outcome.submission?.isNewRecord ?? false}
               liveStats={finalLiveStats}
               onRetry={retry}
             />

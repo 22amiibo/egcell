@@ -231,6 +231,13 @@ export function SettingsPanel() {
               </div>
             )}
 
+            {category === "help" && (
+              <div>
+                <SettingControl label="Confirm before revealing" description="Revealing the fastest path unranks the run, and cannot be undone." htmlFor="confirm-before-reveal"><Toggle id="confirm-before-reveal" label="Confirm before revealing" checked={settings.help.confirmBeforeReveal} onChange={(value) => updateSection("help", { confirmBeforeReveal: value })} /></SettingControl>
+                <SettingControl label="Auto-reveal in Practice" description="Practice runs open with the path already showing. Those runs are unranked." htmlFor="auto-reveal-practice"><Toggle id="auto-reveal-practice" label="Auto-reveal in Practice" checked={settings.help.autoRevealInPractice} onChange={(value) => updateSection("help", { autoRevealInPractice: value })} /></SettingControl>
+              </div>
+            )}
+
             {category === "feedback" && (
               <div>
                 <SettingControl label="Live stats" htmlFor="live-stats"><Toggle id="live-stats" label="Live stats" checked={settings.feedback.liveStats} onChange={(value) => updateSection("feedback", { liveStats: value })} /></SettingControl>

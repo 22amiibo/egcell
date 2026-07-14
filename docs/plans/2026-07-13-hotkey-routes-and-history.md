@@ -244,6 +244,14 @@ Phase 4's acceptance test — *every generated variant and every classic yields 
 
 **Performance: the worst shipped drill is about half a second, not the tens of milliseconds assumed.** `selection.row-by-name` and `formatting.percent` at difficulty 5 are deep keyboard walks inside an offset table. Two optimisations paid for themselves: a node's cell hash is inherited from its parent and recomputed only when a step actually rewrote a cell (an arrow key cannot), and values are dropped from that hash entirely when a challenge cannot sort, since nothing can then move them. The search is memoised per `${challenge.id}:${challenge.seed}` and never runs during a live scored run — but **Phase 5 must keep it off the render path too**; a half-second solve on the result card's mount would be visible.
 
+### 1a.13 Phase 6 addendum: three reconciliations
+
+**An assisted session writes no session submission at all, rather than a fabricated one.** §7 says a session in which help was revealed banks no session record. `SessionRecordSubmission` is `{previousBest, currentBest, isNewRecord}` — every field of which is a *claim about a record that was written*. Rather than manufacture one (a `currentBest` for a record that does not exist would be a lie that the result card is one refactor away from believing), the session's outcome now holds `submission: SessionRecordSubmission | null`, and null means exactly what it says: nothing was banked. The result card reads `previousBest` and `isNewRecord` through it and treats null as "no record".
+
+**A session's assist is one assist, not one per task.** `useAssist` lives in `SessionRun`, not in `SessionTask`, and is passed down. A session is a single continuous performance that banks a single record, so there is no coherent way to unrank the third task while still ranking the sprint that contains it. Practice's `autoRevealInPractice` deliberately does **not** apply to sessions: a session that opened pre-assisted could never be ranked at all, which is a mode nobody asked for.
+
+**`aria-description` is not supported on a button**, which the a11y lint catches. The revealed control's warning ("Hiding the path does not change that") is attached with `aria-describedby` pointing at a visually-hidden span instead. The point stands and is what matters: a screen-reader user who presses "Hide fastest path" must not be left believing they just handed the ranking back.
+
 ## 2. Current-state findings
 
 ### 2.1 Stack

@@ -103,7 +103,15 @@ function MissedShortcuts({ path }: { path: FastestPath }) {
  * what makes it say so. And when an event arrived without a command, it drops the step-by-step
  * comparison rather than guess what the player pressed, and shows only what it can stand behind.
  */
-export function FastestPathCard({ path }: { path: FastestPath }) {
+export function FastestPathCard({
+  path,
+  // Mid-run, the help panel shows the same card with the comparison suppressed (§7.2): the run is
+  // still happening, so there is nothing yet to compare it against.
+  showComparison = true,
+}: {
+  path: FastestPath;
+  showComparison?: boolean;
+}) {
   const [selected, setSelected] = useState(0);
   const routes = path.routes;
   const { comparison } = path;
@@ -177,20 +185,21 @@ export function FastestPathCard({ path }: { path: FastestPath }) {
         </p>
       )}
 
-      {comparison.confidence === "low" ? (
-        <p className="mt-3 border-t border-line pt-3 text-[12px] text-muted">
-          {`This run recorded ${comparison.playerActions} actions but not what produced them, so it cannot be compared step by step.`}
-        </p>
-      ) : (
-        <div className="mt-3 flex flex-col gap-1 border-t border-line pt-3">
-          <StatRow label="Optimal actions" value={comparison.optimalActions} />
-          <StatRow label="Your actions" value={comparison.playerActions} />
-          <StatRow label="Extra actions" value={comparison.extraActions} />
-          <StatRow label="Efficiency" value={`${Math.round(comparison.efficiency * 100)}%`} />
-        </div>
-      )}
+      {showComparison &&
+        (comparison.confidence === "low" ? (
+          <p className="mt-3 border-t border-line pt-3 text-[12px] text-muted">
+            {`This run recorded ${comparison.playerActions} actions but not what produced them, so it cannot be compared step by step.`}
+          </p>
+        ) : (
+          <div className="mt-3 flex flex-col gap-1 border-t border-line pt-3">
+            <StatRow label="Optimal actions" value={comparison.optimalActions} />
+            <StatRow label="Your actions" value={comparison.playerActions} />
+            <StatRow label="Extra actions" value={comparison.extraActions} />
+            <StatRow label="Efficiency" value={`${Math.round(comparison.efficiency * 100)}%`} />
+          </div>
+        ))}
 
-      {comparison.confidence === "high" && <MissedShortcuts path={path} />}
+      {showComparison && comparison.confidence === "high" && <MissedShortcuts path={path} />}
     </section>
   );
 }

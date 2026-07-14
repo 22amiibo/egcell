@@ -9,7 +9,7 @@ import type { GridAction, GridState } from "@/domain/grid/gridTypes";
 import { isPersonalRecordEligible } from "@/domain/records/personalRecords";
 import type { PersonalRecord } from "@/domain/records/recordTypes";
 import { getRunEligibility } from "@/domain/runs/runEligibility";
-import { RUN_RECORD_VERSION } from "@/domain/runs/runRecord";
+import { RUN_RECORD_VERSION, type RunAssist } from "@/domain/runs/runRecord";
 import { buildRunResult, type RunResult } from "@/domain/runs/runResult";
 import type { RunEvent, RunState, RunStatus } from "@/domain/runs/runTypes";
 import { scoreRun } from "@/domain/scoring/scoreRun";
@@ -28,6 +28,8 @@ export type FinishedRun = {
   elapsedMs: number;
   previousBest: PersonalRecord | undefined;
   isNewRecord: boolean;
+  /** Whether this run saw the answer. The record reads it from here rather than re-deriving it. */
+  assist: RunAssist;
   /**
    * The leaderboard-shaped summary of this run. Built for every completed run and sent nowhere.
    * Having the UI read it keeps the shape honest: it cannot rot into a type nothing produces.
@@ -59,6 +61,12 @@ export type GameRunOptions = {
    * session must not: the session banks one record for the whole session instead.
    */
   recordPersonalBest?: boolean;
+  /**
+   * Whether this run has seen the fastest path. Monotonic within an attempt (`useAssist`), and read
+   * only by the eligibility policy — a `"revealed"` run still plays, still grades, still scores, and
+   * simply never banks a record (§6.2).
+   */
+  assist?: RunAssist;
   /** Fires once when the run completes through play. Not fired by `finishNow`, whose caller already holds the result. */
   onFinished?: (finished: FinishedRun) => void;
 };
@@ -73,7 +81,7 @@ export function useGameRun(
   records: LocalPersonalRecords,
   options: GameRunOptions = {},
 ): GameRun {
-  const { recordPersonalBest = true, onFinished } = options;
+  const { recordPersonalBest = true, assist = "none", onFinished } = options;
 
   const [clock] = useState(createRunClock);
   const [grid, setGrid] = useState<GridState>(challenge.initialGrid);
@@ -126,10 +134,14 @@ export function useGameRun(
       // floor the challenge itself sets. The policy composes it rather than duplicating it (§5.6).
       // Note what is *not* consulted: the mode. A Practice run banks a Practice best exactly as a
       // Speed run banks a Speed one — assistance, not mode identity, unranks a run (§1a.1).
+      // Assistance is an *input to the policy*, never a second gate standing beside it. A run that
+      // took help is unranked because `getRunEligibility` says so — the same function, reading the
+      // same field, that the log and the profile and the leaderboard read (§5.6). An inline
+      // `if (assisted) skip` here would be a second home for the rule, and the two would eventually
+      // disagree about what a record is.
       const eligibility = getRunEligibility({
         schemaVersion: RUN_RECORD_VERSION,
-        // Phase 6 threads the real assist state through here. Until Help exists, no run is assisted.
-        assist: "none",
+        assist,
         outcome: validation.isComplete ? "completed" : "failed",
         integrity: "ok",
       });
@@ -167,9 +179,9 @@ export function useGameRun(
         events: eventsRef.current,
       });
 
-      return { validation, score, elapsedMs, previousBest, isNewRecord, submission };
+      return { validation, score, elapsedMs, previousBest, isNewRecord, assist, submission };
     },
-    [challenge, mode, submit, getBest, recordPersonalBest],
+    [challenge, mode, submit, getBest, recordPersonalBest, assist],
   );
 
   const dispatch = useCallback(
