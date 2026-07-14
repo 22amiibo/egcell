@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-07-14 (hotkey routes, assisted runs, and the run log)
+
+- **The fastest path is derived, not authored.** A BFS solver searches the engine's own semantics — `resolveCommand`, the real reducer, the real validator — so a route cannot drift from the game the way the hand-written practice notes had. Four of those notes were provably wrong; the solver gets all four right for free.
+- **The solver found a live scoring exploit.** "Make the Name values bold" was solvable by selecting the whole table and pressing Ctrl+B: two actions, fewer than doing it properly, and it passed. `validateFormatting` now rejects formatting that spills outside the columns or rows the target range touches. This changed grading, deliberately.
+- **Every completed run explains itself**: the ordered steps with this platform's chords, optimal vs actual actions, efficiency, and up to three missed shortcuts ranked by what they would have saved. The card never invents a route it could not prove, never calls a composite's route "the fastest", and never guesses what the player pressed.
+- **Help, at a price.** Revealing the fastest path mid-run unranks that attempt. Hiding it again does not restore the ranking — hiding is a display toggle, not an undo. The personal-best path is skipped by the eligibility policy, not by a second inline check.
+- **Hotkey Mode**: a ranked, keyboard-only mode with its own record book. `encouraged` coaches, `strict` withholds the record, `ranked` refuses pointer input outright. The toolbar now records *who pressed it* — a button reached with Tab and Enter is keyboard input, and keeps its purity.
+- **The run log replaces the 50-row history.** Recent Runs is a 20-row window with a footer that says so; the totals still count every run ever played, including the ones v1's cap destroyed. Past 5,000 runs the oldest fold into daily rollups — except personal bests, which are kept verbatim forever.
+- **A performance graph**, by category and metric, with a trailing rolling average, an inverted axis where smaller is better, and the same numbers in a screen-reader table.
+- Deleted: the guessed "Retry focused" coaching line, `ProfilePanel`'s title-lookup hack, and `settings.scoring.mousePolicy`.
+- All five gates pass: lint, typecheck, production build, unit tests, and Chromium end-to-end tests.
+
 ## 2026-07-13 (fresh normal-speed queues)
 
 - Replaced the fixed classic default and fixed next-challenge sequence with a generated ten-task Normal Speed queue.

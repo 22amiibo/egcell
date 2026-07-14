@@ -262,6 +262,14 @@ Phase 4's acceptance test — *every generated variant and every classic yields 
 
 **`mousePolicy` is deleted, and its deletion is pinned by a test.** It duplicated `hotkeyStrictness`, nothing ever read it, and it contradicted `DECISIONS.md` (§10.1). `coerceSettings` is total and rebuilds each section from the keys it knows, so a settings blob written by an older build simply loses the key on its next load — no migration, no version bump.
 
+### 1a.15 Phase 10 addendum: `run-history:v1` is *not* retired yet, and that is the plan being followed
+
+**§11 Phase 10 task 4 says to retire `run-history:v1` "only now, one release after the log shipped". That condition is not met, so the key stays.** The log shipped in Phase 3 — of *this* release. Deleting the v1 backup in the same release that introduced the migration would remove the safety net precisely when it is load-bearing: the first release is the one where a migration bug is still undiscovered. The task's own wording is the reason it is being deferred rather than skipped, and the deferral is written into `DECISIONS.md` so the next release knows it is owed. `readRunLog` continues to treat the presence of the log key as the already-migrated flag, and never rewrites v1.
+
+**The fold keeps every personal best verbatim, forever.** §9.7 says the rollup keeps PB runs; the reason is worth stating, because it is the only code in the system that removes a run row. A record that has quietly become a number inside a daily aggregate is a record the player will believe was taken from them. Everything else about that day survives as a count, a mean, and a best, and `selectTotals` reads the same numbers on both sides of the fold — which the tests assert by counting.
+
+**The run-log write is best-effort.** A full storage quota now leaves the game playable rather than throwing out of `writeRunLog` and taking the page down. The run has already been played: losing the record of it is bad, and losing the game is worse. Nothing is logged and nothing is shown, because there is no action the player could take, and a toast reading "your storage is full" in the middle of a timed run is a worse outcome than a missing row.
+
 ## 2. Current-state findings
 
 ### 2.1 Stack

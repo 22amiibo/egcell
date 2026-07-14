@@ -477,3 +477,59 @@ Consequences:
 - Any future chord that collides with an OS-level shortcut on either platform follows this same shape: keep handling as `mod` wherever the OS allows it, and only narrow the *label* (or, where the OS genuinely blocks the chord outright as with `Ctrl+Space`, the handling too).
 - `commandRegistry.ts` is the single place these three decisions live in code (`ctrlOnly()`-labelled or `ctrl`-only entries); this decision is the single place they live in prose.
 - Other challenge families wait until this loop is verified.
+
+## The Run Log Replaces the 50-Row History, and Keeps What It Destroyed
+
+Decision: run history becomes an append-only log (`excel-speed-trainer:v1:run-log`, `RunRecord` v2) rather than a 50-row list. The old `run-history:v1` key stays on disk, untouched, as a backup.
+
+Reasoning:
+
+- v1 kept 50 rows and folded per-mode aggregates in as it went, so a best score set by a run the cap later destroyed still stood in `byMode` and **could not be recovered from the surviving rows**. A migration that rebuilt the profile from the rows alone would have taken a record away from the player — a 1450 best would have read 980. The log therefore carries `priorTotals` and `priorByMode`: what the cap ate, preserved as aggregates.
+- The 20-row Recent Runs list is a *window*, not the history. The cap lives in `selectRecentRuns`, so no component can render a 21st row, and the footer says "Showing the latest 20 of N runs. Older runs still count toward your trends." Without that sentence the cap reads as data loss.
+- Past `RUN_LOG_LIMIT` (5,000), the oldest runs fold into daily rollups — **except personal bests, which are kept verbatim forever**. A record that has quietly become a number inside an aggregate is a record the player will believe was taken from them.
+- The write is best-effort: a full storage quota does not throw. The run has already been played; losing the record of it is bad, and taking the page down is worse.
+
+Consequences:
+
+- Eligibility is decided once, in `getRunEligibility`, and read by the PB gate, the log, the profile, and the charts. It cannot see `modeKey`: **assistance, never mode identity, is what unranks a run.**
+- `run-history:v1` is retired one release *after* the log ships, not in the same one. The backup exists precisely for the release in which the migration is new.
+
+## The Toolbar Records Who Pressed It
+
+Decision: a toolbar button activated from the keyboard records `inputMethod: "keyboard"`; a real mouse click records `"pointer"`. The evidence is the click event's `detail` (0 for keyboard activation).
+
+Reasoning:
+
+- The toolbar previously hardcoded `"pointer"` for every activation. Nothing read the field that way, so the lie was inert — until Hotkey Mode, where it would have cost a keyboard-only player the record they earned for tabbing to Bold and pressing Enter.
+- Purity is a property of the *input*, and only the input knows. The resulting `GridAction` is identical either way, so reconstructing purity after the fact cannot distinguish them.
+- A keyboard-activated toolbar button is **pure but not a shortcut**: it keeps the Hotkey record, and it still earns the coaching that names the chord.
+
+Consequences:
+
+- Tests that mean a mouse click must say so (`fireEvent.click(el, { detail: 1 })`); `element.click()` is `detail: 0` and is indistinguishable from a keypress.
+
+## Formatting May Not Spill Outside What Was Asked For
+
+Decision: `validateFormatting` rejects a solve whose formatting landed outside the columns or rows the target range touches, measured against `challenge.initialGrid`.
+
+Reasoning:
+
+- The route solver found the hole: "make the Name values bold" was solvable by selecting the whole table and pressing Ctrl+B — two actions, *fewer* than doing it properly, and it graded as a pass. With scoring keyed to action count, bolding the sheet was the winning play.
+- The tolerance is narrow and deliberate: it is exactly the line between `Ctrl+Space` (which catches only that column's own header) and `Ctrl+A` (which reaches across the sheet).
+- Only formatting the player *added* counts against them, so a grid that arrives with a bold header never fails anyone for a cell they never touched.
+
+Consequences:
+
+- This changed grading. A player who bolds extra columns now fails a formatting drill — which is the point: the alternative is a trainer that rewards not doing the task.
+
+## `settings.scoring.mousePolicy` Is Deleted
+
+Decision: removed from `Settings`, `DEFAULT_SETTINGS`, `coerceSettings`, and the settings UI.
+
+Reasoning:
+
+- It duplicated `hotkeyStrictness`, nothing ever read it, and it contradicted this document's stance that correctness validation and route evaluation never touch.
+
+Consequences:
+
+- `coerceSettings` is total and rebuilds each section from the keys it knows, so a settings blob written by an older build simply loses the key on its next load. No migration, no version bump.

@@ -18,6 +18,7 @@ import {
 } from "@/domain/runs/runLog";
 import {
   RUN_LOG_KEY,
+  RUN_LOG_LIMIT,
   stampRunRecord,
   type NewRunRecord,
   type RunRecord,
@@ -290,5 +291,79 @@ describe("appendRun", () => {
 
     expect(log.runs.map((run) => run.id)).toEqual(["run-0", "run-1"]);
     expect(selectRecentRuns(log)[0].id).toBe("run-1");
+  });
+});
+
+describe("the daily fold, past the limit", () => {
+  function bigLog(size: number, overrides: (index: number) => Partial<NewRunRecord> = () => ({})) {
+    let log = emptyLog();
+
+    for (let index = 0; index < size; index += 1) {
+      log = appendRun(log, record(index, overrides(index)));
+    }
+
+    return log;
+  }
+
+  it("keeps the log at the limit, and loses nothing a player earned", () => {
+    // The only code in the system that removes a run row. The totals are the proof it is honest:
+    // they must read the same on both sides of the fold, because the player did not un-play a run.
+    const log = bigLog(RUN_LOG_LIMIT + 50);
+
+    expect(log.runs.length).toBeLessThanOrEqual(RUN_LOG_LIMIT);
+    expect(log.rollups.length).toBeGreaterThan(0);
+    expect(selectTotals(log)).toEqual({ runs: RUN_LOG_LIMIT + 50, tasksCompleted: RUN_LOG_LIMIT + 50 });
+  });
+
+  it("never folds a personal best, however old it gets", () => {
+    // The one row a player might actually go looking for. A record that has quietly become a number
+    // inside an aggregate is a record they will believe was taken from them.
+    const log = bigLog(RUN_LOG_LIMIT + 50, (index) =>
+      index === 0 ? { isNewRecord: true, score: 9999 } : {},
+    );
+
+    expect(log.runs.some((run) => run.score === 9999 && run.isNewRecord)).toBe(true);
+  });
+
+  it("folds a day into its count, its mean, and its best — not into its last run", () => {
+    const log = bigLog(RUN_LOG_LIMIT + 10, (index) => ({ score: 1000 + index }));
+    const folded = log.rollups.reduce((sum, rollup) => sum + rollup.runs, 0);
+
+    expect(folded).toBe(10);
+
+    for (const rollup of log.rollups) {
+      expect(rollup.bestScore).toBeGreaterThanOrEqual(rollup.meanScore);
+      expect(rollup.runs).toBeGreaterThan(0);
+    }
+  });
+
+  it("stays fast with five thousand runs", () => {
+    // Not a frame budget — a hang detector. The profile builds every view from this log on mount,
+    // and a player with years of history must not watch it think.
+    const log = bigLog(RUN_LOG_LIMIT);
+    const started = performance.now();
+
+    selectRecentRuns(log);
+    selectTotals(log);
+    selectByMode(log);
+    selectEligibleForStats(log, "speed");
+
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+});
+
+describe("when the browser refuses to store anything", () => {
+  it("keeps the game playable rather than taking the page down with it", () => {
+    // A full quota is not an exceptional circumstance, it is a Tuesday. The run still played, and
+    // the player must still be able to play the next one — a thrown write would end the session.
+    const storage = createMemoryJsonStorage();
+    const full = {
+      ...storage,
+      write() {
+        throw new DOMException("QuotaExceededError");
+      },
+    };
+
+    expect(() => writeRunLog(full, logOf(record(0)))).not.toThrow();
   });
 });

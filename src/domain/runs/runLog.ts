@@ -5,6 +5,7 @@ import {
   isRunRecord,
   RECENT_RUNS_LIMIT,
   RUN_LOG_KEY,
+  RUN_LOG_LIMIT,
   type RunRecord,
 } from "@/domain/runs/runRecord";
 import {
@@ -138,12 +139,92 @@ export function readRunLog(storage: JsonStorage): RunLog {
 }
 
 export function writeRunLog(storage: JsonStorage, log: RunLog): void {
-  storage.write(RUN_LOG_KEY, log);
+  try {
+    storage.write(RUN_LOG_KEY, log);
+  } catch {
+    // A full quota is not an exceptional circumstance, it is a Tuesday — and the run has already
+    // been played. Losing the record of it is bad; taking the page down and losing the *game* is
+    // worse. The write is best-effort, and the player keeps playing.
+    //
+    // Nothing is logged and nothing is shown: there is no action a player could take, and a toast
+    // that says "your storage is full" during a timed run is a worse outcome than a missing row.
+  }
 }
 
-/** Chronological, so the newest run goes on the end. Trimming to `RUN_LOG_LIMIT` lands in Phase 10. */
+/** The local day a run happened on, which is the unit both the rollups and the chart think in. */
+function localDay(atMs: number): string {
+  const date = new Date(atMs);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * Folds the oldest runs into daily buckets once the log passes `RUN_LOG_LIMIT` (§9.7).
+ *
+ * **A personal-best run is never folded.** It is kept verbatim, however old, because it is the one
+ * row a player might go looking for — and a record that has quietly become a number in an aggregate
+ * is a record they will believe was taken from them. Everything else about that day survives as a
+ * count, a mean, and a best, so the totals and the trends still add up to the same numbers they did
+ * the day before the fold.
+ *
+ * This is the only code in the system that removes a run row. It is written so that nothing a player
+ * earned can be lost by it, and the tests count the totals on both sides of the fold to prove it.
+ */
+function foldOldest(log: RunLog): RunLog {
+  const excess = log.runs.length - RUN_LOG_LIMIT;
+
+  if (excess <= 0) {
+    return log;
+  }
+
+  const oldest = log.runs.slice(0, excess);
+  const kept = log.runs.slice(excess);
+  const keptVerbatim = oldest.filter((run) => run.isNewRecord);
+  const foldable = oldest.filter((run) => !run.isNewRecord);
+  const byDay = new Map<string, RunRollup>();
+
+  for (const rollup of log.rollups) {
+    byDay.set(`${rollup.day}:${rollup.categoryId}`, { ...rollup });
+  }
+
+  for (const run of foldable) {
+    const key = `${localDay(run.atMs)}:${run.categoryId}`;
+    const existing = byDay.get(key);
+
+    if (existing === undefined) {
+      byDay.set(key, {
+        day: localDay(run.atMs),
+        categoryId: run.categoryId,
+        runs: 1,
+        tasksCompleted: run.tasksCompleted,
+        meanScore: run.score,
+        bestScore: run.score,
+      });
+      continue;
+    }
+
+    // The mean is recomputed from the running total rather than averaged with itself, which would
+    // weight the newest run as heavily as every run before it put together.
+    const total = existing.meanScore * existing.runs + run.score;
+
+    existing.runs += 1;
+    existing.tasksCompleted += run.tasksCompleted;
+    existing.meanScore = total / existing.runs;
+    existing.bestScore = Math.max(existing.bestScore, run.score);
+  }
+
+  return {
+    ...log,
+    rollups: [...byDay.values()].sort((left, right) => left.day.localeCompare(right.day)),
+    runs: [...keptVerbatim, ...kept],
+  };
+}
+
+/** Chronological, so the newest run goes on the end. Past the limit, the oldest are folded away. */
 export function appendRun(log: RunLog, record: RunRecord): RunLog {
-  return { ...log, runs: [...log.runs, record] };
+  return foldOldest({ ...log, runs: [...log.runs, record] });
 }
 
 /**
