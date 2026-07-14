@@ -138,4 +138,21 @@ describe("buildTaskQueue", () => {
 
     expect(queue.tasks.map((task) => task.variant.difficulty)).toEqual([1, 2, 3, 1, 2, 3]);
   });
+
+  it("treats an empty difficulties cycle as no cycle", () => {
+    const queue = buildTaskQueue({
+      request: {
+        mode: "single",
+        seed: "test-seed",
+        difficulty: 2,
+        taskCount: 4,
+        difficulties: [],
+      },
+      templates: generatedTemplates,
+      themes: DATASET_THEMES,
+    });
+
+    expect(queue.tasks).toHaveLength(4);
+    expect(queue.tasks.every((task) => task.variant.difficulty === 2)).toBe(true);
+  });
 });

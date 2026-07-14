@@ -103,8 +103,9 @@ export function buildTaskQueue(input: BuildTaskQueueInput): TaskQueue {
       const template = pickRng.fork(`t${attempt}`).pick(candidates);
       const slotSeed = taskSeed(request.seed, index);
       const seed = attempt === 0 ? slotSeed : `${slotSeed}~${attempt}`;
+      // An empty cycle is treated as no cycle: NaN % 0 would otherwise silently drop every slot.
       const slotDifficulty =
-        request.difficulties === undefined
+        request.difficulties === undefined || request.difficulties.length === 0
           ? request.difficulty
           : request.difficulties[index % request.difficulties.length];
       const variant = generateVariant({
