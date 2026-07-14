@@ -1,4 +1,4 @@
-import type { CellFormat, GridAction } from "@/domain/grid/gridTypes";
+import type { CellFormat, CellValue, GridAction } from "@/domain/grid/gridTypes";
 import type { RunEvent } from "@/domain/runs/runTypes";
 
 const DIGEST_VERSION = "v2";
@@ -13,6 +13,26 @@ function canonicalFormat(format: CellFormat): string {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => `${key}=${String(value)}`)
     .join(",");
+}
+
+/**
+ * Same rationale as `canonicalFormat`: a stable, hand-built representation. `comparableValue`
+ * (`cellValues.ts`) is not reused here because it collapses "text" and "number" to the same
+ * underlying representation, and the digest must not treat those as identical writes.
+ */
+function canonicalValue(value: CellValue): string {
+  switch (value.kind) {
+    case "blank":
+      return "blank";
+    case "text":
+      return `text:${value.value}`;
+    case "number":
+      return `number:${value.value}`;
+    case "date":
+      return `date:${value.iso}`;
+    case "formula":
+      return `formula:${value.formula}=${canonicalValue(value.computed)}`;
+  }
 }
 
 function canonicalAction(action: GridAction): string {
@@ -33,6 +53,8 @@ function canonicalAction(action: GridAction): string {
       return `filter-column:${action.col}:${action.op}:${String(action.value)}`;
     case "clear-filters":
       return "clear-filters";
+    case "set-cell-value":
+      return `set-cell-value:${action.cell.row},${action.cell.col}:${canonicalValue(action.value)}`;
   }
 }
 

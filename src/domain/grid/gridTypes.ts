@@ -71,7 +71,8 @@ export type GridActionKind =
   | "set-format"
   | "sort-column"
   | "filter-column"
-  | "clear-filters";
+  | "clear-filters"
+  | "set-cell-value";
 
 export type GridAction =
   | { kind: "select-cell"; cell: CellAddress }
@@ -82,4 +83,6 @@ export type GridAction =
   | { kind: "set-format"; range: RangeAddress; format: CellFormat }
   | { kind: "sort-column"; col: number; direction: SortDirection }
   | { kind: "filter-column"; col: number; op: FilterOp; value: string | number }
-  | { kind: "clear-filters" };
+  | { kind: "clear-filters" }
+  /** Atomic commit from the cell editor. The reducer never sees a keystroke. */
+  | { kind: "set-cell-value"; cell: CellAddress; value: CellValue };

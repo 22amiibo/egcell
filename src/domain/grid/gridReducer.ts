@@ -1,6 +1,7 @@
 import { compareCellValues, matchesFilter } from "@/domain/grid/cellValues";
 import type {
   CellAddress,
+  CellValue,
   FilterState,
   GridAction,
   GridCell,
@@ -208,6 +209,42 @@ export function gridReducer(state: GridState, action: GridAction): GridState {
       }
 
       return { ...state, filters: [], hiddenRows: [] };
+    }
+
+    case "set-cell-value": {
+      const { cell, value } = action;
+
+      if (cell.row < 0 || cell.row >= state.rowCount || cell.col < 0 || cell.col >= state.colCount) {
+        return state;
+      }
+
+      const key = cellKey(cell);
+      const existing = state.cells[key];
+      const current: CellValue = existing?.value ?? { kind: "blank" };
+
+      if (JSON.stringify(current) === JSON.stringify(value)) {
+        return state;
+      }
+
+      return {
+        ...state,
+        cells: {
+          ...state.cells,
+          [key]: { address: cell, value, format: existing?.format ?? {} },
+        },
+        activeCell: cell,
+        selection: { kind: "cell", cell },
+        usedRange: {
+          start: {
+            row: Math.min(state.usedRange.start.row, cell.row),
+            col: Math.min(state.usedRange.start.col, cell.col),
+          },
+          end: {
+            row: Math.max(state.usedRange.end.row, cell.row),
+            col: Math.max(state.usedRange.end.col, cell.col),
+          },
+        },
+      };
     }
   }
 }
