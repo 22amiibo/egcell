@@ -3,14 +3,14 @@
 import Link from "next/link";
 
 import { MasteryPanel } from "@/components/profile/MasteryPanel";
+import { RecentRuns } from "@/components/profile/RecentRuns";
 import { calculateMastery } from "@/domain/mastery/calculateMastery";
 import type { MasteryRun } from "@/domain/mastery/masteryTypes";
-import { HISTORY_LIMIT } from "@/domain/profile/runHistory";
 import { selectByMode, selectRecentRuns, selectTotals } from "@/domain/runs/runLog";
 import type { RunRecord } from "@/domain/runs/runRecord";
 import { SESSION_MODES, sessionModeLabel, type SessionMode } from "@/domain/sessions/sessionTypes";
 import { useRunLog } from "@/hooks/useRunLog";
-import { formatDateTime, formatElapsed, formatScore } from "@/lib/format";
+import { formatElapsed, formatScore } from "@/lib/format";
 
 function modeLabel(modeKey: string): string {
   if (modeKey === "main-speed") {
@@ -19,6 +19,10 @@ function modeLabel(modeKey: string): string {
 
   if (modeKey === "practice") {
     return "Practice";
+  }
+
+  if (modeKey === "hotkey") {
+    return "Hotkey";
   }
 
   if ((SESSION_MODES as string[]).includes(modeKey)) {
@@ -36,10 +40,10 @@ function masteryRun(run: RunRecord): MasteryRun {
   return {
     family: run.family ?? "mixed",
     score: run.score,
-    // Route metrics land in Phase 5. Until a run carries one, completion is still the only honest
-    // accuracy signal, and no shortcut credit is inferred from a title or a mode.
     accuracy: run.completed ? 1 : 0,
-    shortcutEfficiency: 0,
+    // The real number, now that a run carries one. A run recorded before the route fields existed
+    // has none, and gets a 0 rather than a flattering guess: mastery should read what happened.
+    shortcutEfficiency: run.keyboardShare === null ? 0 : Math.round(run.keyboardShare * 100),
   };
 }
 
@@ -51,9 +55,9 @@ export function ProfilePanel() {
   const { log } = useRunLog();
   const totals = selectTotals(log);
   const modes = Object.entries(selectByMode(log));
-  // The 50 rows this page has always shown. Phase 8 swaps in `RecentRuns`, which takes the
-  // selector's real 20-row window and its "latest 20 of N" footer (§1a.11).
-  const recent = selectRecentRuns(log, HISTORY_LIMIT);
+  // No limit passed: the selector's own 20 is the limit, and the footer says so. The 50-row list
+  // this page used to show was the v1 store's cap leaking into the UI (§1a.11).
+  const recent = selectRecentRuns(log);
   const mastery = calculateMastery(recent.map(masteryRun));
 
   return (
@@ -106,7 +110,7 @@ export function ProfilePanel() {
               <p className="text-[13px] text-muted">Nothing yet. Play a run and come back.</p>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-line">
-                <table className="w-full text-[13px]">
+                <table className="w-full text-[13px]" data-testid="bests-by-mode">
                   <thead>
                     <tr className="border-b border-line bg-surface-raised text-left text-[11px] tracking-widest text-muted uppercase">
                       <th className="px-3 py-2 font-medium">Mode</th>
@@ -136,40 +140,7 @@ export function ProfilePanel() {
             )}
           </section>
 
-          <section className="flex flex-col gap-3">
-            <h2 className="text-[11px] font-medium tracking-widest text-muted uppercase">
-              Recent runs
-            </h2>
-
-            {recent.length === 0 ? (
-              <p className="text-[13px] text-muted">No runs recorded yet.</p>
-            ) : (
-              <ol data-testid="run-history" className="flex flex-col rounded-lg border border-line">
-                {recent.map((run) => (
-                  <li
-                    key={run.id}
-                    className="flex items-baseline justify-between gap-4 border-b border-line px-3 py-2 text-[13px] last:border-b-0"
-                  >
-                    <span className="flex min-w-0 items-baseline gap-2">
-                      <span className="truncate text-ink">{run.label}</span>
-                      <span className="shrink-0 text-[11px] text-muted">
-                        {modeLabel(run.modeKey)}
-                      </span>
-                      {run.isNewRecord && (
-                        <span className="shrink-0 text-[11px] font-semibold text-accent-strong">
-                          PR
-                        </span>
-                      )}
-                    </span>
-                    <span className="shrink-0 tabular-nums text-muted">
-                      {formatScore(run.score)} pts · {formatElapsed(run.elapsedMs)} ·{" "}
-                      {formatDateTime(run.at)}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </section>
+          <RecentRuns runs={recent} totalRuns={totals.runs} />
         </div>
       </div>
     </main>

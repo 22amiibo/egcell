@@ -16,8 +16,12 @@ test.describe("the local profile", () => {
 
     await expect(page.getByTestId("total-runs")).toContainText("1");
     await expect(page.getByTestId("total-completed")).toContainText("1");
-    await expect(page.getByTestId("run-history")).toContainText("Select the Revenue column");
-    await expect(page.getByRole("cell", { name: "Speed" })).toBeVisible();
+    // The table names the challenge by the record's own family and difficulty now, not by looking
+    // its title up in a table of known titles (§8.3).
+    await expect(page.getByTestId("recent-runs")).toContainText("selection");
+    // One run is not a window onto anything, so the "latest 20 of N" footer stays quiet.
+    await expect(page.getByTestId("recent-runs-footer")).toHaveCount(0);
+    await expect(page.getByTestId("bests-by-mode").getByRole("cell", { name: "Speed" })).toBeVisible();
 
     // It survives a reload: this is storage, not component state.
     await page.reload();
@@ -46,7 +50,7 @@ test.describe("the local profile", () => {
 
     await expect(page.getByTestId("total-runs")).toContainText("1");
     await expect(page.getByTestId("total-completed")).toContainText("5");
-    await expect(page.getByTestId("run-history")).toContainText("Sprint 5");
-    await expect(page.getByTestId("run-history")).toContainText("PR");
+    await expect(page.getByTestId("recent-runs")).toContainText("Sprint 5");
+    await expect(page.getByTestId("recent-runs")).toContainText("PR");
   });
 });

@@ -129,11 +129,20 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
   const [genDifficulty, setGenDifficulty] = useState<ChallengeDifficulty>(2);
   const drawCounter = useRef(0);
 
-  const [play, setPlay] = useState<PlaySelection>(PLAY_OPTIONS[0].selection);
+  const { settings, isHydrated: settingsReady } = useSettings();
+
+  // The setting has existed, and rendered, and been saved, and been read by nobody. Honouring it is
+  // two lines, and it waited for this phase only because the mode list was not complete until now.
+  // Read once, as the initial state: a player who switches modes mid-session is not overruled by
+  // their own default on the next render.
+  const [play, setPlay] = useState<PlaySelection>(
+    () =>
+      PLAY_OPTIONS.find((option) => option.selection.mode === settings.gameplay.defaultMode)
+        ?.selection ?? PLAY_OPTIONS[0].selection,
+  );
   const records = useLocalPersonalRecords();
   const sessionRecords = useLocalSessionRecords();
   const history = useRunLog();
-  const { isHydrated: settingsReady } = useSettings();
 
   const { record: recordHistory } = history;
 

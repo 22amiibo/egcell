@@ -442,6 +442,7 @@ export type PromptPosition = "top" | "left" | "bottom";
 export type DefaultMode =
   | "main-speed"
   | "practice"
+  | "hotkey"
   | "sprint-5"
   | "sprint-10"
   | "timed-30"
@@ -659,7 +660,15 @@ export function coerceSettings(value: unknown): Settings {
       ),
       defaultMode: oneOf(
         gameplay.defaultMode,
-        ["main-speed", "practice", "sprint-5", "sprint-10", "timed-30", "timed-60"] as const,
+        [
+          "main-speed",
+          "practice",
+          "hotkey",
+          "sprint-5",
+          "sprint-10",
+          "timed-30",
+          "timed-60",
+        ] as const,
         DEFAULT_SETTINGS.gameplay.defaultMode,
       ),
       skipBehavior: oneOf(

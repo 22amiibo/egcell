@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { ProfilePanel } from "@/components/profile/ProfilePanel";
@@ -17,7 +17,7 @@ describe("the profile panel", () => {
     render(<ProfilePanel />);
 
     expect(screen.getByTestId("total-runs")).toHaveTextContent("0");
-    expect(screen.getByText("No runs recorded yet.")).toBeVisible();
+    expect(screen.getByText("No runs yet. Play one.")).toBeVisible();
     expect(screen.getByRole("link", { name: "Back to the game" })).toBeVisible();
   });
 
@@ -60,15 +60,19 @@ describe("the profile panel", () => {
     expect(screen.getByTestId("total-runs")).toHaveTextContent("12");
     expect(screen.getByTestId("total-completed")).toHaveTextContent("31");
 
-    // Bests by mode, with human labels.
-    expect(screen.getByRole("cell", { name: "Speed" })).toBeVisible();
-    expect(screen.getByRole("cell", { name: "1,450" })).toBeVisible();
-    expect(screen.getByRole("cell", { name: "1.82s" })).toBeVisible();
+    // Bests by mode, with human labels. Scoped to its own table: "Speed" is now a mode label in the
+    // recent-runs table too, and an unscoped query would match both.
+    const bests = within(screen.getByTestId("bests-by-mode"));
 
-    // Recent runs, newest first, with the PR marker.
-    const history = screen.getByTestId("run-history");
+    expect(bests.getByRole("cell", { name: "Speed" })).toBeVisible();
+    expect(bests.getByRole("cell", { name: "1,450" })).toBeVisible();
+    expect(bests.getByRole("cell", { name: "1.82s" })).toBeVisible();
+
+    // Recent runs, newest first, with the PR badge. The challenge column now reads the record's own
+    // family and difficulty rather than looking the title up in a table (§8.3).
+    const history = screen.getByTestId("recent-runs");
     expect(history).toHaveTextContent("Sprint 5");
-    expect(history).toHaveTextContent("Select the Revenue column");
+    expect(history).toHaveTextContent("selection");
     expect(history).toHaveTextContent("PR");
   });
 
