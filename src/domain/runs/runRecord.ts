@@ -4,6 +4,7 @@ import type {
   ChallengeMode,
 } from "@/domain/challenges/challengeTypes";
 import type { SkillFamily } from "@/domain/mastery/masteryTypes";
+import type { RouteComparison } from "@/domain/routes/compareRoute";
 import {
   SESSION_PLANS,
   sessionModeLabel,
@@ -106,7 +107,7 @@ export function skillFamilyOf(family: Challenge["family"]): SkillFamily {
   }
 }
 
-/** The route fields, all null. Phase 5 fills them; until then every write site says so out loud. */
+/** The route fields when there is nothing to say: a session, or a run recorded without a comparison. */
 const NO_ROUTE = {
   actions: null,
   keyboardActions: null,
@@ -116,6 +117,43 @@ const NO_ROUTE = {
   keyboardShare: null,
   routeId: null,
 } as const;
+
+type RouteFields = Pick<
+  RunRecord,
+  | "actions"
+  | "keyboardActions"
+  | "shortcutActions"
+  | "optimalActions"
+  | "routeEfficiency"
+  | "keyboardShare"
+  | "routeId"
+>;
+
+/**
+ * The route half of a record, from the comparison the result card computed.
+ *
+ * A `confidence: "low"` comparison writes only the counts it is sure of. `optimalActions` and
+ * `routeEfficiency` are claims about *the route the player walked*, and a run whose events carry no
+ * commands has no such route to speak of — a number there would put a guess in the permanent log,
+ * where Phase 9's trends would later plot it as though it had been measured.
+ */
+export function routeFieldsFrom(comparison: RouteComparison | undefined): RouteFields {
+  if (comparison === undefined) {
+    return NO_ROUTE;
+  }
+
+  const known = comparison.confidence === "high";
+
+  return {
+    actions: comparison.playerActions,
+    keyboardActions: comparison.keyboardActions,
+    shortcutActions: comparison.shortcutActions,
+    keyboardShare: comparison.keyboardShare,
+    optimalActions: known ? comparison.optimalActions : null,
+    routeEfficiency: known ? comparison.efficiency : null,
+    routeId: comparison.matchedRouteId,
+  };
+}
 
 export type ChallengeRunInput = {
   challenge: Challenge;
@@ -129,6 +167,8 @@ export type ChallengeRunInput = {
   eventDigest: string | null;
   assist?: RunAssist;
   attempts?: number;
+  /** How the run compared to the fastest route. Absent leaves every route field null (§5.4). */
+  comparison?: RouteComparison;
 };
 
 /** One finished single-challenge run → one record. Keeps the mapping out of the components. */
@@ -157,7 +197,7 @@ export function runRecordForChallenge(input: ChallengeRunInput): NewRunRecord {
     correctness: input.correctness,
     accuracy: input.accuracy,
 
-    ...NO_ROUTE,
+    ...routeFieldsFrom(input.comparison),
 
     assist: input.assist ?? "none",
     integrity: "ok",

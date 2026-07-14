@@ -19,6 +19,8 @@ import type {
 import type { ChallengeVariant } from "@/domain/challenges/variantTypes";
 import { recordKey } from "@/domain/records/personalRecords";
 import { createNewSessionSeed } from "@/domain/random/seeds";
+import { compareRoute } from "@/domain/routes/compareRoute";
+import { getRoutes } from "@/domain/routes/routeCache";
 import { runRecordForChallenge } from "@/domain/runs/runRecord";
 import type { SessionMode } from "@/domain/sessions/sessionTypes";
 import type { FinishedRun } from "@/hooks/useGameRun";
@@ -27,6 +29,7 @@ import { useLocalSessionRecords } from "@/hooks/useLocalSessionRecords";
 import { useRunLog } from "@/hooks/useRunLog";
 import { useSettings } from "@/hooks/useSettings";
 import { formatElapsed, formatScore } from "@/lib/format";
+import { getPlatform } from "@/lib/platform";
 
 /**
  * What the player is playing: one challenge at a time, or a session that strings tasks together
@@ -136,6 +139,12 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
   // Every finished single run lands in the run log, practice included.
   const recordSingleRun = useCallback(
     (finished: FinishedRun) => {
+      // The run is over, so the solve is allowed to cost something here (§6.3) — and it costs it
+      // once: `getRoutes` memoises per challenge and seed, so the result card mounting a moment
+      // later reads the same entry instead of searching again.
+      const routes = getRoutes(challenge);
+      const comparison = compareRoute(finished.submission.replayEvents, routes, getPlatform());
+
       recordHistory(
         runRecordForChallenge({
           challenge,
@@ -148,6 +157,7 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
           isComplete: true,
           isNewRecord: finished.isNewRecord,
           eventDigest: finished.submission.eventDigest,
+          comparison,
         }),
       );
     },

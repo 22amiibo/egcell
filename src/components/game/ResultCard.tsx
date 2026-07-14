@@ -1,11 +1,13 @@
 "use client";
 
+import { FastestPathCard } from "@/components/game/FastestPathCard";
 import { NewPrBadge } from "@/components/game/NewPrBadge";
 import { PracticeNotes } from "@/components/game/PracticeNotes";
 import { RetryButton } from "@/components/game/RetryButton";
 import { StatRow } from "@/components/game/StatRow";
 import type { Challenge, ChallengeMode } from "@/domain/challenges/challengeTypes";
 import { calculateLiveRunStats } from "@/domain/stats/liveRunStats";
+import { useFastestPath } from "@/hooks/useFastestPath";
 import type { FinishedRun } from "@/hooks/useGameRun";
 import { formatElapsed, formatPercent, formatScore } from "@/lib/format";
 
@@ -74,14 +76,10 @@ export function ResultCard({ challenge, mode, run, onRetry, onNext }: ResultCard
         : stats.pbDeltaMs < 0
           ? `${formatElapsed(Math.abs(stats.pbDeltaMs))} faster`
           : `${formatElapsed(stats.pbDeltaMs)} behind`;
-  const retryFocus =
-    stats.shortcutEfficiency < 100
-      ? "replace pointer actions with shortcuts"
-      : run.validation.accuracy < 1
-        ? "complete a clean route"
-        : run.elapsedMs > challenge.scoring.targetSeconds * 1000
-          ? `bring ${challenge.family} under target`
-          : "defend this pace";
+  // The run is over, which is exactly where the plan allows the solve to cost something (§6.3): the
+  // result card mounting is the trigger, and `routeCache` means a drill seen twice is solved once.
+  // Nothing here runs while the player is still pressing keys.
+  const path = useFastestPath(challenge, run.submission.replayEvents, true);
 
   return (
     <div
@@ -132,9 +130,7 @@ export function ResultCard({ challenge, mode, run, onRetry, onNext }: ResultCard
         <StatRow label="Shortcut efficiency" value={`${stats.shortcutEfficiency}%`} />
       </div>
 
-      <p className="mt-3 text-[12px] text-muted">
-        <span className="font-medium text-ink">Retry focused:</span> {retryFocus}.
-      </p>
+      {path !== null && <FastestPathCard path={path} />}
 
       {mode === "practice" && <PracticeNotes notes={challenge.practiceNotes} />}
 

@@ -42,20 +42,28 @@ function finishedRun(overrides: Partial<FinishedRun> = {}): FinishedRun {
       accuracy: 1,
       startedAtMs: 1_000_000,
       finishedAtMs: 1_003_000,
+      // Every event carries the command that produced it, as every live input path has minted since
+      // Phase 1. Without one the card cannot compare a route, and says so instead of guessing.
       events: [
         {
           atMs: 250,
           inputMethod: "pointer",
+          via: "grid",
+          command: "CLICK_CELL",
           action: { kind: "select-cell", cell: { row: 1, col: 1 } },
         },
         {
           atMs: 800,
           inputMethod: "keyboard",
+          via: "shortcut",
+          command: "MOVE_RIGHT",
           action: { kind: "select-cell", cell: { row: 1, col: 2 } },
         },
         {
           atMs: 1200,
           inputMethod: "keyboard",
+          via: "shortcut",
+          command: "SELECT_COLUMN",
           action: { kind: "select-column", col: 2, usedRangeOnly: true },
         },
       ],
@@ -91,7 +99,7 @@ function sessionResult(): SessionResult {
 }
 
 describe("the single-run result card", () => {
-  it("shows replay-driving metrics and leaves retry focused", () => {
+  it("shows replay-driving metrics, the fastest path, and leaves retry focused", () => {
     render(
       <ResultCard
         challenge={defaultChallenge}
@@ -115,7 +123,10 @@ describe("the single-run result card", () => {
     expect(screen.getByText("EPM")).toBeVisible();
     expect(screen.getByText("Shortcut efficiency")).toBeVisible();
     expect(screen.getByText("PB delta")).toBeVisible();
-    expect(screen.getByText(/retry focused/i)).toBeVisible();
+    // What used to be a guessed "Retry focused: replace pointer actions with shortcuts" is now the
+    // solver's answer: the actual fastest route for this drill, and how this run compared to it.
+    expect(screen.getByTestId("fastest-path")).toBeVisible();
+    expect(screen.getByText("Optimal actions")).toBeVisible();
     expect(screen.getByRole("button", { name: /retry/i })).toHaveFocus();
   });
 
