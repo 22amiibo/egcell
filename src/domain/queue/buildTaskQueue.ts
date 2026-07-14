@@ -5,7 +5,7 @@ import type { RunTask, TaskQueue, TaskQueueRequest } from "@/domain/queue/queueT
 import { createRng } from "@/domain/random/rng";
 import { taskSeed } from "@/domain/random/seeds";
 
-export const QUEUE_VERSION = "q1";
+export const QUEUE_VERSION = "q2";
 
 /** The fastest a task can reasonably be, used to size a timed queue's overshoot. */
 const MIN_TARGET_SECONDS = 4;
@@ -103,11 +103,15 @@ export function buildTaskQueue(input: BuildTaskQueueInput): TaskQueue {
       const template = pickRng.fork(`t${attempt}`).pick(candidates);
       const slotSeed = taskSeed(request.seed, index);
       const seed = attempt === 0 ? slotSeed : `${slotSeed}~${attempt}`;
+      const slotDifficulty =
+        request.difficulties === undefined
+          ? request.difficulty
+          : request.difficulties[index % request.difficulties.length];
       const variant = generateVariant({
         template,
         themes: sessionThemes,
         seed,
-        difficulty: request.difficulty,
+        difficulty: slotDifficulty,
       });
 
       if (variant === null) {

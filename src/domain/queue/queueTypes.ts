@@ -14,6 +14,12 @@ export type TaskQueueRequest = {
   durationSeconds?: number;
   /** Practice targeting: restrict the pool to these families. */
   families?: ChallengeFamily[];
+  /**
+   * Per-slot difficulty cycle (`difficulties[index % length]`), overriding `difficulty`.
+   * Speed uses it to mix the presets; sessions never pass it — their record book is keyed
+   * `${mode}:d${difficulty}` and one session must compare like with like.
+   */
+  difficulties?: ChallengeDifficulty[];
 };
 
 export type RunTask = {

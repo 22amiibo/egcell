@@ -122,4 +122,20 @@ describe("buildTaskQueue", () => {
 
     expect(queue.tasks).toHaveLength(10);
   });
+
+  it("draws each slot's difficulty from the cycle", () => {
+    const queue = buildTaskQueue({
+      request: {
+        mode: "single",
+        seed: "test-seed",
+        difficulty: 2,
+        taskCount: 6,
+        difficulties: [1, 2, 3],
+      },
+      templates: generatedTemplates,
+      themes: DATASET_THEMES,
+    });
+
+    expect(queue.tasks.map((task) => task.variant.difficulty)).toEqual([1, 2, 3, 1, 2, 3]);
+  });
 });

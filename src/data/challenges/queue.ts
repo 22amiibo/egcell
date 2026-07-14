@@ -11,18 +11,26 @@ import { SESSION_PLANS, type SessionMode } from "@/domain/sessions/sessionTypes"
  * like. A difficulty picker for sessions can come later; the record key already carries it.
  */
 export const SESSION_DIFFICULTY: ChallengeDifficulty = 2;
-export const NORMAL_SPEED_DIFFICULTY: ChallengeDifficulty = 2;
 export const NORMAL_SPEED_QUEUE_SIZE = 10;
+
+/**
+ * Ordinary Speed play mixes the presets — mostly the familiar 2, with warm-up 1s, stretch 3s, and
+ * one 4 — so runs stop being twenty variations of the same table. Sessions stay pinned at
+ * SESSION_DIFFICULTY: their record book carries difficulty in its key and must compare like with
+ * like. Per-challenge Speed PRs are safe because the challenge id embeds difficulty.
+ */
+export const SPEED_DIFFICULTY_MIX: ChallengeDifficulty[] = [2, 1, 3, 2, 2, 4, 2, 3, 1, 2];
 
 /** A generated sequence for ordinary Speed play, pinned entirely by the supplied session seed. */
 export function buildNormalSpeedQueue(run: string): TaskQueue {
-  const seed = queueSeed("main-speed", NORMAL_SPEED_DIFFICULTY, run);
+  const seed = queueSeed("main-speed", 2, run);
 
   return buildTaskQueue({
     request: {
       mode: "single",
       seed,
-      difficulty: NORMAL_SPEED_DIFFICULTY,
+      difficulty: 2,
+      difficulties: SPEED_DIFFICULTY_MIX,
       taskCount: NORMAL_SPEED_QUEUE_SIZE,
     },
     templates: generatedTemplates,
