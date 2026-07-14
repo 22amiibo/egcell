@@ -19,6 +19,40 @@ export type CommandContext = {
   anchor: CellAddress;
 };
 
+export type FocusAnchor = {
+  focus: CellAddress;
+  anchor: CellAddress;
+};
+
+/**
+ * Where the selection's two ends land after an action — the rule `SpreadsheetGrid` kept inline in
+ * its refs, now shared with the route solver so that a searched route and a played one track the
+ * anchor identically. Without that, a route the solver "proves" could reach a different state when
+ * a human presses the very same keys.
+ *
+ * `select-column`/`select-row` deliberately echo the caller's `base` rather than deriving
+ * `{row: 0, col}`/`{row, col: 0}` from the action: a keyboard shortcut (Ctrl+Space from row 3) and a
+ * header click (always row 0) disagree about what the anchor should become afterwards, and only the
+ * caller knows which one this is. Anything else — a format, a sort, a filter — moves neither end.
+ */
+export function nextFocusAnchor(
+  action: GridAction,
+  base: CellAddress,
+  current: FocusAnchor,
+): FocusAnchor {
+  switch (action.kind) {
+    case "select-cell":
+      return { focus: action.cell, anchor: action.cell };
+    case "select-range":
+      return { focus: action.range.end, anchor: action.range.start };
+    case "select-column":
+    case "select-row":
+      return { focus: base, anchor: base };
+    default:
+      return current;
+  }
+}
+
 /**
  * A data row's own value, or null when the cell is blank or in the header — Toolbar's filter guard,
  * in one place. Exported so `FilterMenu` can compute the same enablement without a third copy.

@@ -146,6 +146,7 @@ describe("selectTotals", () => {
     const log: RunLog = {
       version: 2,
       priorTotals: { runs: 87, tasksCompleted: 120 },
+      priorByMode: {},
       rollups: [
         {
           day: "2026-06-01",

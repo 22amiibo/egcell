@@ -94,6 +94,12 @@ export type CommandDefinition = {
   chords: Chord[];
   /** What to show. Null mirrors `chords: []`. */
   label: { windows: string; mac: string } | null;
+  /**
+   * What the command *does*, in the player's words — "Jump to the bottom of the data". A route step
+   * renders this alongside the chord `label` resolves for the platform: one definition, two
+   * renderings (§6.4). Unlike `label`, every command has one, chord or no chord.
+   */
+  description: string;
   /** The raw evidence for a toolbar/menu-originated command, e.g. "toolbar-bold". */
   pointerControlId?: string;
   /** Permitted in Hotkey Mode's pure-keyboard search space. Inert until Phase 4/7 consume it. */

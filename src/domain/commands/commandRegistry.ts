@@ -40,6 +40,56 @@ export const FILTER_MENU_COMMANDS: ReadonlySet<GridCommandId> = new Set([
 ]);
 
 /**
+ * What a route step *says*, as opposed to what it presses: "Jump to the bottom of the data" rather
+ * than "Ctrl + ↓". One definition, two renderings — the chord comes from `chordLabel`, resolved for
+ * the player's platform (§6.4). Exhaustive by type, so a new command cannot ship without one.
+ */
+const DESCRIPTIONS: Record<GridCommandId, string> = {
+  MOVE_UP: "Move up one cell",
+  MOVE_DOWN: "Move down one cell",
+  MOVE_LEFT: "Move left one cell",
+  MOVE_RIGHT: "Move right one cell",
+
+  JUMP_UP: "Jump to the top of the data",
+  JUMP_DOWN: "Jump to the bottom of the data",
+  JUMP_LEFT: "Jump to the left edge of the data",
+  JUMP_RIGHT: "Jump to the right edge of the data",
+
+  EXTEND_UP: "Extend the selection up",
+  EXTEND_DOWN: "Extend the selection down",
+  EXTEND_LEFT: "Extend the selection left",
+  EXTEND_RIGHT: "Extend the selection right",
+
+  EXTEND_JUMP_UP: "Extend the selection to the top of the data",
+  EXTEND_JUMP_DOWN: "Extend the selection to the bottom of the data",
+  EXTEND_JUMP_LEFT: "Extend the selection to the left edge of the data",
+  EXTEND_JUMP_RIGHT: "Extend the selection to the right edge of the data",
+
+  SELECT_COLUMN: "Select the column",
+  SELECT_ROW: "Select the row",
+  SELECT_TABLE: "Select the whole table",
+
+  TOGGLE_BOLD: "Toggle bold",
+  APPLY_BOLD: "Apply bold",
+  FORMAT_CURRENCY: "Format as currency",
+  FORMAT_PERCENT: "Format as percent",
+  FORMAT_DATE: "Format as a date",
+
+  OPEN_FILTER_MENU: "Open the sort and filter menu",
+  SORT_ASC: "Sort A to Z",
+  SORT_DESC: "Sort Z to A",
+  FILTER_TO_VALUE: "Filter to the selected value",
+  FILTER_ABOVE_VALUE: "Filter above the selected value",
+  CLEAR_FILTERS: "Clear the filters",
+  TOGGLE_FILTER: "Filter to the selected value, or clear the filters",
+
+  CLICK_CELL: "Click the cell",
+  DRAG_SELECT_RANGE: "Drag across the range",
+  CLICK_COLUMN_HEADER: "Click the column header",
+  CLICK_ROW_HEADER: "Click the row header",
+};
+
+/**
  * `hotkeyEligible` follows structurally from whether a keyboard route exists — never set by hand.
  * A route is either a top-level chord, or membership in `FILTER_MENU_COMMANDS` (reachable via
  * `Alt+↓` then arrows/Enter) — the only two ways a command is keyboard-reachable today.
@@ -47,6 +97,7 @@ export const FILTER_MENU_COMMANDS: ReadonlySet<GridCommandId> = new Set([
 function define(entry: Definition): CommandDefinition {
   return {
     ...entry,
+    description: DESCRIPTIONS[entry.id],
     hotkeyEligible: entry.chords.length > 0 || FILTER_MENU_COMMANDS.has(entry.id),
     recordable: true,
     inputVerifiable: true,

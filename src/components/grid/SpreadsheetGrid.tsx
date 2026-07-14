@@ -18,7 +18,7 @@ import { SelectionOverlay } from "@/components/grid/SelectionOverlay";
 import { cellLeft, getGridMetrics } from "@/components/grid/gridMetrics";
 import type { ActionMeta, GridCommandId } from "@/domain/commands/commandTypes";
 import { matchChord } from "@/domain/commands/keymap";
-import { resolveCommand } from "@/domain/commands/resolveCommand";
+import { nextFocusAnchor, resolveCommand } from "@/domain/commands/resolveCommand";
 import type {
   CellAddress,
   GridAction,
@@ -38,11 +38,9 @@ const SET_FORMAT_COMMANDS = new Set<GridCommandId>([
 ]);
 
 /**
- * Mirrors the ref assignments `handleKeyDown` and the pointer handlers made inline before the
- * command layer existed. `select-column`/`select-row` deliberately echo the caller's `base`
- * rather than deriving `{row: 0, col}`/`{row, col: 0}` from the action, because a keyboard
- * shortcut (Ctrl+Space from row 3) and a header click (always row 0) disagree on what the anchor
- * should become afterward, and only the caller knows which one this is.
+ * Writes the shared anchor/focus rule (`nextFocusAnchor`) into the refs this component tracks it
+ * in. The rule itself lives in `resolveCommand.ts`, because the route solver must apply exactly the
+ * same one: a route it proves has to reach the state a human pressing those keys actually reaches.
  */
 function updateRefsForAction(
   action: GridAction,
@@ -50,23 +48,13 @@ function updateRefsForAction(
   anchorRef: RefObject<CellAddress | null>,
   focusRef: RefObject<CellAddress | null>,
 ): void {
-  switch (action.kind) {
-    case "select-cell":
-      anchorRef.current = action.cell;
-      focusRef.current = action.cell;
-      return;
-    case "select-range":
-      anchorRef.current = action.range.start;
-      focusRef.current = action.range.end;
-      return;
-    case "select-column":
-    case "select-row":
-      anchorRef.current = base;
-      focusRef.current = base;
-      return;
-    default:
-      return;
-  }
+  const next = nextFocusAnchor(action, base, {
+    focus: focusRef.current ?? base,
+    anchor: anchorRef.current ?? base,
+  });
+
+  anchorRef.current = next.anchor;
+  focusRef.current = next.focus;
 }
 
 type SpreadsheetGridProps = {
