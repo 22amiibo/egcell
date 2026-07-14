@@ -2,35 +2,25 @@
 
 import Link from "next/link";
 
+import { CategorySelector } from "@/components/profile/CategorySelector";
 import { MasteryPanel } from "@/components/profile/MasteryPanel";
+import { PerformanceChart } from "@/components/profile/PerformanceChart";
 import { RecentRuns } from "@/components/profile/RecentRuns";
 import { calculateMastery } from "@/domain/mastery/calculateMastery";
 import type { MasteryRun } from "@/domain/mastery/masteryTypes";
 import { selectByMode, selectRecentRuns, selectTotals } from "@/domain/runs/runLog";
 import type { RunRecord } from "@/domain/runs/runRecord";
-import { SESSION_MODES, sessionModeLabel, type SessionMode } from "@/domain/sessions/sessionTypes";
+import {
+  PERFORMANCE_CATEGORIES,
+  modeLabel,
+  type PerformanceCategoryId,
+  type PerformanceMetricId,
+} from "@/domain/stats/categories";
+import { buildSeries } from "@/domain/stats/performanceSeries";
 import { useRunLog } from "@/hooks/useRunLog";
+import { useSettings } from "@/hooks/useSettings";
 import { formatElapsed, formatScore } from "@/lib/format";
 
-function modeLabel(modeKey: string): string {
-  if (modeKey === "main-speed") {
-    return "Speed";
-  }
-
-  if (modeKey === "practice") {
-    return "Practice";
-  }
-
-  if (modeKey === "hotkey") {
-    return "Hotkey";
-  }
-
-  if ((SESSION_MODES as string[]).includes(modeKey)) {
-    return sessionModeLabel(modeKey as SessionMode);
-  }
-
-  return modeKey;
-}
 
 /**
  * The title-lookup hack this used to need is gone: a record carries its own `family`, and a session
@@ -51,8 +41,39 @@ function masteryRun(run: RunRecord): MasteryRun {
  * The local book of everything played on this device. It lives on its own page so the run screen
  * stays a game surface; nothing here is required to play, and none of it leaves the machine.
  */
+/**
+ * The chart's selection, coerced back to something that exists. A settings blob can name a category
+ * a later release removed, or a metric this category does not offer — in both cases the answer is
+ * the category's own default, never a crash and never an empty chart the player cannot explain.
+ */
+function chartSelection(storedCategory: string, storedMetric: string) {
+  const category =
+    PERFORMANCE_CATEGORIES.find((candidate) => candidate.id === storedCategory) ??
+    PERFORMANCE_CATEGORIES[0];
+  const metric = category.metrics.includes(storedMetric as PerformanceMetricId)
+    ? (storedMetric as PerformanceMetricId)
+    : category.metrics[0];
+
+  return { categoryId: category.id as PerformanceCategoryId, metricId: metric };
+}
+
 export function ProfilePanel() {
   const { log } = useRunLog();
+  const { settings, setSettings } = useSettings();
+  const { categoryId, metricId } = chartSelection(
+    settings.stats.categoryId,
+    settings.stats.metricId,
+  );
+  const series = buildSeries(log, categoryId, metricId);
+
+  const selectCategory = (id: PerformanceCategoryId) => {
+    // Switching category re-picks the metric only when the new category cannot answer the old one.
+    setSettings((current) => ({ ...current, stats: { ...current.stats, categoryId: id } }));
+  };
+
+  const selectMetric = (id: PerformanceMetricId) => {
+    setSettings((current) => ({ ...current, stats: { ...current.stats, metricId: id } }));
+  };
   const totals = selectTotals(log);
   const modes = Object.entries(selectByMode(log));
   // No limit passed: the selector's own 20 is the limit, and the footer says so. The 50-row list
@@ -138,6 +159,19 @@ export function ProfilePanel() {
                 </table>
               </div>
             )}
+          </section>
+
+          <section className="flex flex-col gap-3" data-testid="performance">
+            <h2 className="text-[13px] font-semibold text-ink">Performance</h2>
+
+            <CategorySelector
+              categoryId={categoryId}
+              metricId={metricId}
+              onCategory={selectCategory}
+              onMetric={selectMetric}
+            />
+
+            <PerformanceChart series={series} />
           </section>
 
           <RecentRuns runs={recent} totalRuns={totals.runs} />

@@ -1,24 +1,8 @@
 import { RECENT_RUNS_LIMIT, type RunRecord } from "@/domain/runs/runRecord";
-import { SESSION_MODES, sessionModeLabel, type SessionMode } from "@/domain/sessions/sessionTypes";
+// The one place a mode string may live is the categories registry (§9.1). A label table here would
+// be a second one, and it is the second one that gets forgotten when a mode is added.
+import { modeLabel } from "@/domain/stats/categories";
 import { formatDateTime, formatElapsed, formatScore } from "@/lib/format";
-
-const MODE_LABELS: Record<string, string> = {
-  "main-speed": "Speed",
-  practice: "Practice",
-  hotkey: "Hotkey",
-};
-
-function modeLabel(modeKey: string): string {
-  const known = MODE_LABELS[modeKey];
-
-  if (known !== undefined) {
-    return known;
-  }
-
-  return (SESSION_MODES as string[]).includes(modeKey)
-    ? sessionModeLabel(modeKey as SessionMode)
-    : modeKey;
-}
 
 /** What the run was, in the player's words: "selection · d2", or "5 tasks" for a session. */
 function describeRun(run: RunRecord): string {

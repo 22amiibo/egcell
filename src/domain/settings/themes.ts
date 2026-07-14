@@ -472,6 +472,15 @@ export type Settings = {
     hotkeyStrictness: HotkeyStrictness;
     mistakePenalty: "light" | "standard" | "strict";
   };
+  stats: {
+    /**
+     * The chart's last selection (§9.5). Kept in settings rather than a fifth storage key, and kept
+     * as plain strings: an id a later release removes coerces back to the default rather than
+     * leaving the profile pointed at a category that no longer exists.
+     */
+    categoryId: string;
+    metricId: string;
+  };
   help: {
     /**
      * Ask before revealing the fastest path mid-run. On by default, and not out of politeness: the
@@ -538,6 +547,10 @@ export const DEFAULT_SETTINGS: Settings = {
   scoring: {
     hotkeyStrictness: "encouraged",
     mistakePenalty: "standard",
+  },
+  stats: {
+    categoryId: "speed",
+    metricId: "score",
   },
   help: {
     confirmBeforeReveal: true,
@@ -609,6 +622,7 @@ export function coerceSettings(value: unknown): Settings {
   const grid = section(value.grid);
   const gameplay = section(value.gameplay);
   const scoring = section(value.scoring);
+  const stats = section(value.stats);
   const help = section(value.help);
   const feedback = section(value.feedback);
   const sound = section(value.sound);
@@ -688,6 +702,10 @@ export function coerceSettings(value: unknown): Settings {
         ["light", "standard", "strict"] as const,
         DEFAULT_SETTINGS.scoring.mistakePenalty,
       ),
+    },
+    stats: {
+      categoryId: text(stats.categoryId, DEFAULT_SETTINGS.stats.categoryId),
+      metricId: text(stats.metricId, DEFAULT_SETTINGS.stats.metricId),
     },
     help: {
       confirmBeforeReveal: bool(help.confirmBeforeReveal, DEFAULT_SETTINGS.help.confirmBeforeReveal),

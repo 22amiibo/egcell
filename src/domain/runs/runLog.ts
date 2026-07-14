@@ -7,7 +7,10 @@ import {
   RUN_LOG_KEY,
   type RunRecord,
 } from "@/domain/runs/runRecord";
-import type { PerformanceCategoryId } from "@/domain/stats/categories";
+import {
+  PERFORMANCE_CATEGORIES,
+  type PerformanceCategoryId,
+} from "@/domain/stats/categories";
 import type { JsonStorage } from "@/lib/storage";
 
 /** Runs older than `RUN_LOG_LIMIT`, folded into daily buckets. Built in Phase 10 (§9.7). */
@@ -155,11 +158,27 @@ export function selectRecentRuns(log: RunLog, limit: number = RECENT_RUNS_LIMIT)
     .reverse();
 }
 
-/** Chronological, filtered to one category and to what the policy says may shape a statistic. */
+/**
+ * Chronological, filtered to one category and to what the policy says may shape a statistic.
+ *
+ * A category may demand more than the policy does, and Hotkey does: `requires.keyboardPure` keeps a
+ * run that reached for the mouse off the Hotkey chart. That run is still a run — it still played,
+ * still scored, and still appears in Recent Runs. It simply is not evidence about keyboard speed,
+ * which is the only thing that chart claims to be about.
+ */
 export function selectEligibleForStats(log: RunLog, categoryId: PerformanceCategoryId): RunRecord[] {
-  return log.runs.filter(
-    (run) => run.categoryId === categoryId && getRunEligibility(run).countsForPerformanceStats,
-  );
+  const category = PERFORMANCE_CATEGORIES.find((candidate) => candidate.id === categoryId);
+  const demandsPurity = category?.requires?.keyboardPure === true;
+
+  return log.runs.filter((run) => {
+    if (run.categoryId !== categoryId || !getRunEligibility(run).countsForPerformanceStats) {
+      return false;
+    }
+
+    // A run recorded before the route fields existed cannot prove it was pure, and an unproven
+    // claim is not a claim. It stays off the chart rather than being given the benefit of the doubt.
+    return !demandsPurity || run.keyboardShare === 1;
+  });
 }
 
 /**

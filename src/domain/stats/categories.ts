@@ -1,3 +1,4 @@
+import type { RunRecord } from "@/domain/runs/runRecord";
 import { SESSION_MODES, sessionModeLabel } from "@/domain/sessions/sessionTypes";
 
 /**
@@ -117,6 +118,16 @@ const CATEGORY_BY_MODE_KEY = new Map<string, PerformanceCategoryId>(
  * removed. Such a run is **kept in the log and shown in Recent Runs, and excluded from every
  * chart** (§9.2). Excluded, never guessed into a category it might not belong to.
  */
+export function modeLabel(modeKey: string): string {
+  const category = PERFORMANCE_CATEGORIES.find((candidate) =>
+    candidate.modeKeys.includes(modeKey),
+  );
+
+  // A mode no category claims still has to be shown — Recent Runs shows every run there is. It is
+  // shown under its raw key rather than under a guess, and it appears on no chart (§9.2).
+  return category?.label ?? modeKey;
+}
+
 export function categoryIdForMode(modeKey: string): PerformanceCategoryId | null {
   return CATEGORY_BY_MODE_KEY.get(modeKey) ?? null;
 }
@@ -130,3 +141,59 @@ export function performanceCategory(id: PerformanceCategoryId): PerformanceCateg
 
   return category;
 }
+
+export type PerformanceMetric = {
+  id: PerformanceMetricId;
+  label: string;
+  /** What to plot for a run, or null when this run cannot answer the question. */
+  value: (run: RunRecord) => number | null;
+  /** How to render it on the axis and in the hidden data table. */
+  format: (value: number) => string;
+  /**
+   * True when a smaller number is a better number, which inverts the axis. Pace index is the only
+   * one today: it is elapsed time over the challenge's target, so 0.8 means "twenty percent inside
+   * target" and is a result to be proud of.
+   */
+  lowerIsBetter?: boolean;
+};
+
+/**
+ * What can be plotted (§5.8).
+ *
+ * Every projection may return null, and that is not a formality: `keyboardShare` is null for a run
+ * recorded before the route fields existed, and `paceIndex` is meaningless for a session, which has
+ * no single target to be measured against. A null is dropped from the series rather than coerced to
+ * zero — a zero would draw a point on the chart, and the player would read it as a catastrophic run
+ * they never had.
+ */
+export const METRICS: Record<PerformanceMetricId, PerformanceMetric> = {
+  score: {
+    id: "score",
+    label: "Score",
+    value: (run) => run.score,
+    format: (value) => Math.round(value).toLocaleString("en-US"),
+  },
+  paceIndex: {
+    id: "paceIndex",
+    label: "Pace",
+    // Elapsed over target: comparable across challenges whose targets differ, which raw seconds are
+    // not. A run with no target — a session, which is many challenges under one clock — has no pace
+    // to speak of, and is dropped from the series rather than being given a made-up one.
+    value: (run) =>
+      run.targetMs === null || run.targetMs <= 0 ? null : run.elapsedMs / run.targetMs,
+    format: (value) => `${value.toFixed(2)}×`,
+    lowerIsBetter: true,
+  },
+  tasksCompleted: {
+    id: "tasksCompleted",
+    label: "Tasks",
+    value: (run) => run.tasksCompleted,
+    format: (value) => String(Math.round(value)),
+  },
+  keyboardShare: {
+    id: "keyboardShare",
+    label: "Keyboard",
+    value: (run) => run.keyboardShare,
+    format: (value) => `${Math.round(value * 100)}%`,
+  },
+};
