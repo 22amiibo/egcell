@@ -364,6 +364,7 @@ function bfs(
           grid: node.grid,
           focus: node.focus,
           anchor: node.anchor,
+          editBuffer: null,
         });
 
         if (action === null) {
@@ -490,6 +491,7 @@ function replay(
       grid,
       focus: currentFocus,
       anchor: currentAnchor,
+      editBuffer: null,
     });
 
     if (action === null) {

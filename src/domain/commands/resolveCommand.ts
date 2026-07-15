@@ -1,5 +1,6 @@
 import type { GridCommandId } from "@/domain/commands/commandTypes";
 import { comparableValue } from "@/domain/grid/cellValues";
+import { parseCellInput } from "@/domain/grid/editing";
 import type { CellAddress, GridAction, GridState } from "@/domain/grid/gridTypes";
 import { jumpActive, stepActive } from "@/domain/grid/keyboardNav";
 import { normalizeRange } from "@/domain/grid/range";
@@ -17,6 +18,8 @@ export type CommandContext = {
   focus: CellAddress;
   /** The fixed end of a selection in progress. Only read by `EXTEND_*` and `DRAG_SELECT_RANGE`. */
   anchor: CellAddress;
+  /** The live edit buffer, or null when no edit is open. Only COMMIT_EDIT reads it. */
+  editBuffer: string | null;
 };
 
 export type FocusAnchor = {
@@ -233,5 +236,18 @@ export function resolveCommand(
 
     case "OPEN_FILTER_MENU":
       return null;
+
+    case "START_EDIT":
+    case "CANCEL_EDIT":
+      // Edit lifecycle, not grid mutation: the buffer lives outside the reducer.
+      return null;
+    case "COMMIT_EDIT":
+      return context.editBuffer === null
+        ? null
+        : {
+            kind: "set-cell-value",
+            cell: context.grid.activeCell,
+            value: parseCellInput(context.editBuffer, context.grid),
+          };
   }
 }

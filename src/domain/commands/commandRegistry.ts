@@ -23,6 +23,8 @@ type Definition = {
   label: Label | null;
   pointerControlId?: string;
   reserved?: string;
+  /** Overrides the default `true` — the edit lifecycle's START_EDIT/CANCEL_EDIT are not recordable. */
+  recordable?: boolean;
 };
 
 /**
@@ -37,6 +39,13 @@ export const FILTER_MENU_COMMANDS: ReadonlySet<GridCommandId> = new Set([
   "FILTER_TO_VALUE",
   "FILTER_ABOVE_VALUE",
   "CLEAR_FILTERS",
+]);
+
+/** The edit lifecycle. Keyboard-reachable by definition, but never part of the BFS search space. */
+export const EDIT_COMMANDS: ReadonlySet<GridCommandId> = new Set([
+  "START_EDIT",
+  "COMMIT_EDIT",
+  "CANCEL_EDIT",
 ]);
 
 /**
@@ -87,19 +96,25 @@ const DESCRIPTIONS: Record<GridCommandId, string> = {
   DRAG_SELECT_RANGE: "Drag across the range",
   CLICK_COLUMN_HEADER: "Click the column header",
   CLICK_ROW_HEADER: "Click the row header",
+
+  START_EDIT: "Edit the active cell",
+  COMMIT_EDIT: "Commit the edit",
+  CANCEL_EDIT: "Cancel the edit",
 };
 
 /**
  * `hotkeyEligible` follows structurally from whether a keyboard route exists — never set by hand.
- * A route is either a top-level chord, or membership in `FILTER_MENU_COMMANDS` (reachable via
- * `Alt+↓` then arrows/Enter) — the only two ways a command is keyboard-reachable today.
+ * A route is a top-level chord, membership in `FILTER_MENU_COMMANDS` (reachable via `Alt+↓` then
+ * arrows/Enter), or membership in `EDIT_COMMANDS` (F2/Enter/Esc drive the in-cell editor, which
+ * `KEYBOARD_COMMANDS` still excludes below — see that export's comment).
  */
 function define(entry: Definition): CommandDefinition {
   return {
     ...entry,
     description: DESCRIPTIONS[entry.id],
-    hotkeyEligible: entry.chords.length > 0 || FILTER_MENU_COMMANDS.has(entry.id),
-    recordable: true,
+    hotkeyEligible:
+      entry.chords.length > 0 || FILTER_MENU_COMMANDS.has(entry.id) || EDIT_COMMANDS.has(entry.id),
+    recordable: entry.recordable ?? true,
     inputVerifiable: true,
     cost: 1,
   };
@@ -292,13 +307,29 @@ export const COMMAND_REGISTRY: Record<GridCommandId, CommandDefinition> = {
   DRAG_SELECT_RANGE: define({ id: "DRAG_SELECT_RANGE", chords: [], label: null }),
   CLICK_COLUMN_HEADER: define({ id: "CLICK_COLUMN_HEADER", chords: [], label: null }),
   CLICK_ROW_HEADER: define({ id: "CLICK_ROW_HEADER", chords: [], label: null }),
+
+  START_EDIT: define({
+    id: "START_EDIT",
+    chords: [{ key: "F2" }],
+    label: plain("F2"),
+    recordable: false,
+  }),
+  // Enter/Tab are intercepted by the editor's own input, like the filter menu's arrows — a
+  // top-level Enter chord would collide with every other Enter in the app.
+  COMMIT_EDIT: define({ id: "COMMIT_EDIT", chords: [], label: plain("Enter") }),
+  CANCEL_EDIT: define({ id: "CANCEL_EDIT", chords: [], label: plain("Esc"), recordable: false }),
 };
 
 /**
  * The Phase 4 solver's search space — derived from `hotkeyEligible`, not re-derived from
  * `chords.length` a second time, so the two notions of "keyboard-reachable" cannot drift apart
  * (a command reachable only through `FilterMenu` is `hotkeyEligible` but has `chords: []`).
+ *
+ * `EDIT_COMMANDS` is excluded even though its members are `hotkeyEligible` — the solver-never-
+ * searches-strings guarantee. A BFS that could press START_EDIT would need to search cell text
+ * itself to find a COMMIT_EDIT worth taking; the typing-route builder (Task 2.6) appends the
+ * commit step explicitly instead, so this set never enters the search space.
  */
 export const KEYBOARD_COMMANDS: GridCommandId[] = Object.values(COMMAND_REGISTRY)
-  .filter((definition) => definition.hotkeyEligible)
+  .filter((definition) => definition.hotkeyEligible && !EDIT_COMMANDS.has(definition.id))
   .map((definition) => definition.id);

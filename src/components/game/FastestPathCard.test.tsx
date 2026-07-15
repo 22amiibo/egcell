@@ -167,7 +167,7 @@ describe("FastestPathCard", () => {
     for (const step of (routes as Route[])[0].steps) {
       expect(rendered).toContain(step.label);
 
-      const action = resolveCommand(step.command, { grid, focus, anchor });
+      const action = resolveCommand(step.command, { grid, focus, anchor, editBuffer: null });
       const ends = nextFocusAnchor(action as GridAction, focus, { focus, anchor });
 
       grid = gridReducer(grid, action as GridAction);

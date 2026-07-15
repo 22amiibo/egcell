@@ -91,7 +91,7 @@ function replay(
 ): GridState {
   expect(COMMAND_REGISTRY[command].hotkeyEligible).toBe(true);
 
-  const action = resolveCommand(command, { grid, focus, anchor });
+  const action = resolveCommand(command, { grid, focus, anchor, editBuffer: null });
 
   expect(action).not.toBeNull();
 

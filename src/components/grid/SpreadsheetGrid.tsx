@@ -208,7 +208,12 @@ export function SpreadsheetGrid({
 
       draggedRef.current = true;
 
-      const action = resolveCommand("DRAG_SELECT_RANGE", { grid, focus: cell, anchor });
+      const action = resolveCommand("DRAG_SELECT_RANGE", {
+        grid,
+        focus: cell,
+        anchor,
+        editBuffer: null,
+      });
 
       if (action === null) {
         return;
@@ -236,7 +241,12 @@ export function SpreadsheetGrid({
         return;
       }
 
-      const action = resolveCommand("CLICK_CELL", { grid, focus: cell, anchor: cell });
+      const action = resolveCommand("CLICK_CELL", {
+        grid,
+        focus: cell,
+        anchor: cell,
+        editBuffer: null,
+      });
 
       if (action === null) {
         return;
@@ -258,7 +268,12 @@ export function SpreadsheetGrid({
   const selectColumn = useCallback(
     (col: number) => {
       const base = { row: 0, col };
-      const action = resolveCommand("CLICK_COLUMN_HEADER", { grid, focus: base, anchor: base });
+      const action = resolveCommand("CLICK_COLUMN_HEADER", {
+        grid,
+        focus: base,
+        anchor: base,
+        editBuffer: null,
+      });
 
       if (action === null) {
         return;
@@ -279,7 +294,12 @@ export function SpreadsheetGrid({
   const selectRow = useCallback(
     (row: number) => {
       const base = { row, col: 0 };
-      const action = resolveCommand("CLICK_ROW_HEADER", { grid, focus: base, anchor: base });
+      const action = resolveCommand("CLICK_ROW_HEADER", {
+        grid,
+        focus: base,
+        anchor: base,
+        editBuffer: null,
+      });
 
       if (action === null) {
         return;
@@ -333,7 +353,7 @@ export function SpreadsheetGrid({
 
           const focus = keyFocusRef.current ?? grid.activeCell;
           const anchor = keyAnchorRef.current ?? grid.activeCell;
-          const action = resolveCommand(option.command, { grid, focus, anchor });
+          const action = resolveCommand(option.command, { grid, focus, anchor, editBuffer: null });
 
           if (action === null) {
             return;
@@ -388,7 +408,7 @@ export function SpreadsheetGrid({
 
       const focus = keyFocusRef.current ?? grid.activeCell;
       const anchor = keyAnchorRef.current ?? grid.activeCell;
-      const action = resolveCommand(command, { grid, focus, anchor });
+      const action = resolveCommand(command, { grid, focus, anchor, editBuffer: null });
 
       if (action === null) {
         return;

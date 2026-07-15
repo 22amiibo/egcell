@@ -105,6 +105,7 @@ export function Toolbar({
       grid,
       focus: grid.activeCell,
       anchor: grid.activeCell,
+      editBuffer: null,
     });
 
     if (action !== null) {

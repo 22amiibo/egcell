@@ -52,7 +52,16 @@ export type GridCommandId =
   | "CLICK_CELL"
   | "DRAG_SELECT_RANGE"
   | "CLICK_COLUMN_HEADER"
-  | "CLICK_ROW_HEADER";
+  | "CLICK_ROW_HEADER"
+  /**
+   * The edit lifecycle: opens the in-cell editor on the active cell. Keyboard-reachable (F2) but
+   * never part of the route solver's search space — see `EDIT_COMMANDS` in `commandRegistry.ts`.
+   */
+  | "START_EDIT"
+  /** Commits the live edit buffer onto the active cell as a `set-cell-value`. */
+  | "COMMIT_EDIT"
+  /** Discards the live edit buffer without touching the grid. */
+  | "CANCEL_EDIT";
 
 /** How the player physically produced the input. Minted at the input boundary, never guessed. */
 export type ActionSource = "keyboard" | "pointer" | "unknown";
@@ -68,6 +77,8 @@ export type ActionMeta = {
   chord: string | null;
   /** Raw pointer/toolbar/menu control evidence, e.g. "toolbar-bold". Null for keyboard input. */
   controlId: string | null;
+  /** Present only on a COMMIT_EDIT: how the buffer was produced. Counts, never contents. */
+  keystrokes?: { chars: number; corrections: number };
 };
 
 export type Chord = {

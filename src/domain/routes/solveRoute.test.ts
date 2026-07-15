@@ -60,7 +60,7 @@ function replay(challenge: Challenge, route: Route): GridState {
   let anchor: CellAddress = grid.activeCell;
 
   for (const step of route.steps) {
-    const action = resolveCommand(step.command, { grid, focus, anchor });
+    const action = resolveCommand(step.command, { grid, focus, anchor, editBuffer: null });
 
     if (action === null) {
       throw new Error(`${challenge.id}: ${step.command} resolved to nothing mid-route.`);
@@ -288,6 +288,7 @@ describe("solveRoute — the routes the hand-authored notes get wrong", () => {
       grid: variant.initialGrid,
       focus: variant.initialGrid.activeCell,
       anchor: variant.initialGrid.activeCell,
+      editBuffer: null,
     });
 
     expect(table).not.toBeNull();
@@ -297,6 +298,7 @@ describe("solveRoute — the routes the hand-authored notes get wrong", () => {
       grid: selected,
       focus: selected.activeCell,
       anchor: selected.activeCell,
+      editBuffer: null,
     });
 
     expect(bold).not.toBeNull();

@@ -76,6 +76,10 @@ describe("matchChord", () => {
       "TOGGLE_FILTER",
     );
   });
+
+  it("F2 starts an edit", () => {
+    expect(matchChord(keydown({ key: "F2" }))).toEqual({ command: "START_EDIT", chord: "F2" });
+  });
 });
 
 describe("chordLabel", () => {
