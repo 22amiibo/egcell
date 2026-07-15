@@ -1,11 +1,56 @@
 import { describe, expect, it } from "vitest";
 
 import { SESSION_MODES } from "@/domain/sessions/sessionTypes";
+import type { RunRecord } from "@/domain/runs/runRecord";
 import {
   categoryIdForMode,
+  METRICS,
   PERFORMANCE_CATEGORIES,
   performanceCategory,
 } from "@/domain/stats/categories";
+
+function runRecord(overrides: Partial<RunRecord> = {}): RunRecord {
+  return {
+    id: "run-1",
+    schemaVersion: 2,
+    at: new Date(1_760_000_000_000).toISOString(),
+    atMs: 1_760_000_000_000,
+    modeKey: "main-speed",
+    categoryId: "speed",
+    label: "Select the Revenue column",
+    challengeId: "selection.revenue-column",
+    challengeVersion: "v1",
+    templateId: null,
+    family: "selection",
+    difficulty: 2,
+    seed: "seed",
+    outcome: "completed",
+    completed: true,
+    tasksCompleted: 1,
+    taskCount: 1,
+    score: 1000,
+    elapsedMs: 8000,
+    targetMs: 8000,
+    correctness: 1,
+    accuracy: 1,
+    actions: 5,
+    keyboardActions: 5,
+    shortcutActions: 5,
+    optimalActions: 5,
+    routeEfficiency: 1,
+    keyboardShare: 1,
+    routeId: "route-a",
+    peakTier: null,
+    wpm: null,
+    keystrokeAccuracy: null,
+    assist: "none",
+    integrity: "ok",
+    isNewRecord: false,
+    attempts: 0,
+    eventDigest: null,
+    ...overrides,
+  };
+}
 
 describe("PERFORMANCE_CATEGORIES", () => {
   it("gives every category a non-empty set of mode keys", () => {
@@ -52,6 +97,7 @@ describe("categoryIdForMode", () => {
     expect(categoryIdForMode("practice")).toBe("practice");
     expect(categoryIdForMode("hotkey")).toBe("hotkey");
     expect(categoryIdForMode("sprint-10")).toBe("sprint-10");
+    expect(categoryIdForMode("ascent")).toBe("ascent");
   });
 
   it("returns null for a mode no category claims, rather than guessing one", () => {
@@ -65,5 +111,23 @@ describe("categoryIdForMode", () => {
 describe("performanceCategory", () => {
   it("resolves an id to its category", () => {
     expect(performanceCategory("speed").label).toBe("Speed");
+  });
+});
+
+describe("METRICS.peakTier", () => {
+  it("is null for a non-Ascent run, so the series drops it rather than plotting a zero", () => {
+    const nonAscentRun = runRecord({ modeKey: "main-speed", categoryId: "speed", peakTier: null });
+
+    expect(METRICS.peakTier.value(nonAscentRun)).toBeNull();
+  });
+
+  it("returns the peak tier reached for an Ascent run", () => {
+    const ascentRun = runRecord({ modeKey: "ascent", categoryId: "ascent", peakTier: 4 });
+
+    expect(METRICS.peakTier.value(ascentRun)).toBe(4);
+  });
+
+  it("formats the tier as T<n>", () => {
+    expect(METRICS.peakTier.format(4)).toBe("T4");
   });
 });

@@ -13,9 +13,15 @@ export type PerformanceCategoryId =
   | "sprint-5"
   | "sprint-10"
   | "timed-30"
-  | "timed-60";
+  | "timed-60"
+  | "ascent";
 
-export type PerformanceMetricId = "score" | "paceIndex" | "tasksCompleted" | "keyboardShare";
+export type PerformanceMetricId =
+  | "score"
+  | "paceIndex"
+  | "tasksCompleted"
+  | "keyboardShare"
+  | "peakTier";
 
 export type PerformanceCategory = {
   id: PerformanceCategoryId;
@@ -95,6 +101,14 @@ export const PERFORMANCE_CATEGORIES: PerformanceCategory[] = [
     label: sessionModeLabel("timed-60"),
     modeKeys: ["timed-60"],
     metrics: ["score", "tasksCompleted"],
+    minimumDataPoints: 3,
+    aggregateAbove: AGGREGATE_ABOVE,
+  },
+  {
+    id: "ascent",
+    label: "Ascent",
+    modeKeys: ["ascent"],
+    metrics: ["score", "peakTier", "tasksCompleted"],
     minimumDataPoints: 3,
     aggregateAbove: AGGREGATE_ABOVE,
   },
@@ -195,5 +209,12 @@ export const METRICS: Record<PerformanceMetricId, PerformanceMetric> = {
     label: "Keyboard",
     value: (run) => run.keyboardShare,
     format: (value) => `${Math.round(value * 100)}%`,
+  },
+  peakTier: {
+    id: "peakTier",
+    label: "Peak tier",
+    // Null for every non-Ascent run: dropped from the series, never zeroed.
+    value: (run) => run.peakTier,
+    format: (value) => `T${Math.round(value)}`,
   },
 };
