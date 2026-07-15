@@ -29,6 +29,8 @@ export const SPEC_KIND_ACTIONS: Record<
   navigation: ["select-cell"],
   formatting: ["set-format"],
   "sort-filter": ["sort-column", "filter-column"],
+  "cell-value": ["select-cell", "set-cell-value"],
+  formula: ["select-cell", "set-cell-value"],
 };
 
 export type TemplateRegistry = {

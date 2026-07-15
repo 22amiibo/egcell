@@ -58,6 +58,10 @@ function specTargetCols(spec: LeafValidationSpec): number[] {
 
       return cols;
     }
+
+    case "cell-value":
+    case "formula":
+      return [spec.cell.col];
   }
 }
 
@@ -237,6 +241,17 @@ export function checkVariant(input: EligibilityInput): EligibilityIssue[] {
           if (col < 0 || col >= grid.colCount) {
             issues.push({ check: "target-outside-grid", detail: `Column ${col} is off-grid.` });
           }
+        }
+
+        break;
+
+      case "cell-value":
+      case "formula":
+        if (!inGrid(grid, { start: spec.cell, end: spec.cell })) {
+          issues.push({
+            check: "target-outside-grid",
+            detail: `Cell ${cellKey(spec.cell)} is off-grid.`,
+          });
         }
 
         break;

@@ -1,8 +1,10 @@
 import { validateComposite } from "@/domain/validation/validateComposite";
 import { validateFormatting } from "@/domain/validation/validateFormatting";
+import { validateFormula } from "@/domain/validation/validateFormula";
 import { validateNavigation } from "@/domain/validation/validateNavigation";
 import { validateSelection } from "@/domain/validation/validateSelection";
 import { validateSortFilter } from "@/domain/validation/validateSortFilter";
+import { validateValue } from "@/domain/validation/validateValue";
 import type { ValidationInput, ValidationResult } from "@/domain/validation/validatorTypes";
 
 /**
@@ -24,6 +26,10 @@ export function validateChallenge(input: ValidationInput): ValidationResult {
       return validateFormatting(input, spec);
     case "sort-filter":
       return validateSortFilter(input, spec);
+    case "cell-value":
+      return validateValue(input, spec);
+    case "formula":
+      return validateFormula(input, spec);
     case "composite":
       return validateComposite(input, spec);
   }

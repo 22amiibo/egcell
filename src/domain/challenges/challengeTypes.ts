@@ -55,6 +55,18 @@ export type LeafValidationSpec =
       requiredSort?: { col: number; direction: SortDirection };
       /** Exactly the data rows matching this predicate must be visible. */
       requiredVisible?: { col: number; op: FilterOp; value: string | number };
+    }
+  | {
+      kind: "cell-value";
+      cell: CellAddress;
+      expected: { kind: "text"; value: string } | { kind: "number"; value: number };
+    }
+  | {
+      kind: "formula";
+      cell: CellAddress;
+      /** Whitespace-stripped, uppercased canonical forms, e.g. "=SUM(B2:B10)". */
+      acceptedFormulas: string[];
+      expectedValue: number;
     };
 
 /**

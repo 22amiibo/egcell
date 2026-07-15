@@ -1,8 +1,10 @@
 import type { LeafValidationSpec } from "@/domain/challenges/challengeTypes";
 import { validateFormatting } from "@/domain/validation/validateFormatting";
+import { validateFormula } from "@/domain/validation/validateFormula";
 import { validateNavigation } from "@/domain/validation/validateNavigation";
 import { validateSelection } from "@/domain/validation/validateSelection";
 import { validateSortFilter } from "@/domain/validation/validateSortFilter";
+import { validateValue } from "@/domain/validation/validateValue";
 import {
   type ChallengeValidator,
   type ValidationInput,
@@ -20,6 +22,10 @@ function validatePart(input: ValidationInput, part: LeafValidationSpec): Validat
       return validateFormatting(input, part);
     case "sort-filter":
       return validateSortFilter(input, part);
+    case "cell-value":
+      return validateValue(input, part);
+    case "formula":
+      return validateFormula(input, part);
   }
 }
 
