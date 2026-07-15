@@ -15,6 +15,20 @@ const cellName = (row: number, col: number) => `${columnLabel(col)}${row + 1}`;
 // A string name is a full exact match in Testing Library, so "C1" can never catch "C10".
 const button = (name: string) => screen.getByRole("button", { name });
 
+/**
+ * Types a value into the active cell and commits it, the way a player would: F2 opens the editor
+ * (`CellEditor.tsx`) with an empty buffer, the input's value replaces it wholesale, and Enter
+ * commits through the real `parseCellInput` + reducer path — never a shortcut around either.
+ */
+function typeAndCommit(cell: { row: number; col: number }, text: string) {
+  fireEvent.click(button(cellName(cell.row, cell.col)));
+  fireEvent.keyDown(screen.getByTestId("spreadsheet-grid"), { key: "F2" });
+  fireEvent.change(screen.getByRole("textbox", { name: "Edit cell" }), {
+    target: { value: text },
+  });
+  fireEvent.keyDown(screen.getByRole("textbox", { name: "Edit cell" }), { key: "Enter" });
+}
+
 function selectRange(range: RangeAddress) {
   const { start, end } = normalizeRange(range);
 
@@ -102,6 +116,19 @@ function solvePart(challenge: Challenge, part: LeafValidationSpec) {
 
       return;
     }
+
+    case "formula":
+      typeAndCommit(part.cell, part.acceptedFormulas[0]);
+
+      return;
+
+    case "cell-value":
+      typeAndCommit(
+        part.cell,
+        part.expected.kind === "number" ? String(part.expected.value) : part.expected.value,
+      );
+
+      return;
   }
 }
 
