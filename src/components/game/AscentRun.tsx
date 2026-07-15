@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
+import { AscentResultCard } from "@/components/game/AscentResultCard";
 import { ChallengePrompt } from "@/components/game/ChallengePrompt";
 import {
   chordLabelForEvent,
@@ -15,14 +16,18 @@ import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
 import { generatedTemplates } from "@/data/challenges/generated";
 import { DATASET_THEMES } from "@/data/datasets/themes";
 import { advanceAscent } from "@/domain/ascent/ascentEngine";
+import { ascentRecordFromResult, type AscentResult } from "@/domain/ascent/ascentResult";
 import { ascentTaskScore } from "@/domain/ascent/ascentScore";
 import { ASCENT_CONFIG, ASCENT_START, type AscentState } from "@/domain/ascent/ascentTypes";
 import type { ChallengeDifficulty } from "@/domain/challenges/challengeTypes";
 import type { ChallengeVariant } from "@/domain/challenges/variantTypes";
 import { drawAscentTask } from "@/domain/ascent/drawAscentTask";
+import type { AscentRecord } from "@/domain/records/ascentRecords";
 import { createNewSessionSeed } from "@/domain/random/seeds";
 import { compareRoute } from "@/domain/routes/compareRoute";
 import { getRoutes } from "@/domain/routes/routeCache";
+import { runRecordForAscent, type NewRunRecord } from "@/domain/runs/runRecord";
+import type { RunEvent } from "@/domain/runs/runTypes";
 import {
   advanceCombo,
   comboMultiplier,
@@ -32,13 +37,13 @@ import {
 } from "@/domain/scoring/combo";
 import type { GridDensity, Settings } from "@/domain/settings/themes";
 import type { TaskOutcome } from "@/domain/sessions/sessionTypes";
-import { typingCorrections } from "@/domain/stats/typingStats";
+import { keystrokeAccuracy, typingCorrections, typingWpm } from "@/domain/stats/typingStats";
 import { createRunClock } from "@/hooks/runClock";
 import { useGameRun, type FinishedRun } from "@/hooks/useGameRun";
+import type { LocalAscentRecords } from "@/hooks/useLocalAscentRecords";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
 import { useSettings } from "@/hooks/useSettings";
 import { useWarmRoutes } from "@/hooks/useWarmRoutes";
-import { formatScore } from "@/lib/format";
 import { getPlatform } from "@/lib/platform";
 
 /**
@@ -215,6 +220,18 @@ type AscentRunProps = {
   runSeed: string;
   durationSeconds: number;
   records: LocalPersonalRecords;
+  /**
+   * The Ascent record book. One shared instance, passed down from `GameShell` rather than called
+   * here directly: `useLocalAscentRecords`'s own docs warn that two separate instances would each
+   * hold their own snapshot, and a bank through one would not appear in the other (GameShell's
+   * `bestLabel`) until a reload.
+   */
+  ascentRecords: LocalAscentRecords;
+  /**
+   * Appends the finished climb to the run log. Optional, like `SessionRun`'s `recordHistory`: a
+   * component test that only cares about the ladder itself need not wire one up.
+   */
+  recordHistory?: (entry: NewRunRecord) => void;
   /** UI-boundary injection keeps retry's seed assertions deterministic in tests. */
   createSessionSeed?: () => string;
 };
@@ -228,9 +245,12 @@ export function AscentRun({
   runSeed: initialRunSeed,
   durationSeconds,
   records,
+  ascentRecords,
+  recordHistory,
   createSessionSeed = createNewSessionSeed,
 }: AscentRunProps) {
   const { settings } = useSettings();
+  const { submit: submitAscentRecord } = ascentRecords;
 
   const [clock] = useState(createRunClock);
   const startedAt = useSyncExternalStore(clock.subscribe, clock.getSnapshot, clock.getServerSnapshot);
@@ -248,6 +268,23 @@ export function AscentRun({
   // The task in play when the clock stops. Held so the finish's own state updates (a promotion, the
   // template history) cannot redraw the frozen drill out from under the summary.
   const [frozenVariant, setFrozenVariant] = useState<ChallengeVariant | null>(null);
+  // This climb's longest combo streak, independent of the current one — `comboStreak` resets on a
+  // slow or dirty clear, but the result card reports the peak the run actually reached.
+  const [bestStreak, setBestStreak] = useState(0);
+  // Every task's replay events, whatever the challenge, concatenated so the buzzer can compute one
+  // run-wide wpm/keystrokeAccuracy instead of a single task's. A ref rather than state: nothing
+  // reads it before the run ends, and by then it must already hold the finishing task's events —
+  // appended synchronously inside `handleTaskFinished`, ahead of the state updates that flip
+  // `ended` — which a state setter's own render delay could not guarantee.
+  const replayEventsRef = useRef<RunEvent[]>([]);
+  // Guards the bank-once effect below across a re-render after `ended` flips true (and React
+  // Strict Mode's double effect invocation in development): without it, banking would run twice.
+  const bankedRef = useRef(false);
+  const [bankedOutcome, setBankedOutcome] = useState<{
+    result: AscentResult;
+    previousBest: AscentRecord | undefined;
+    isNewRecord: boolean;
+  } | null>(null);
 
   const [gridPresentation] = useState(() => ({
     density: settings.grid.density,
@@ -300,6 +337,10 @@ export function AscentRun({
       });
       const completed = outcome === "completed";
 
+      // Recorded synchronously (a ref, not state) so it is already settled by the time the
+      // bank-once effect reads it on the same render that flips `ended` true.
+      replayEventsRef.current = [...replayEventsRef.current, ...finished.submission.replayEvents];
+
       setTaskLog((log) => [
         ...log,
         {
@@ -316,6 +357,7 @@ export function AscentRun({
         completed ? comboOutcome : { underTarget: false, clean: false },
       );
       setComboStreak(comboRef.current.streak);
+      setBestStreak((previous) => Math.max(previous, comboRef.current.streak));
       setLastTemplateIds((previous) => [...previous, variant.templateId].slice(-2));
 
       // The wall clock is checked here as well as the outcome tag, because setTimeout is a lower
@@ -340,10 +382,14 @@ export function AscentRun({
 
     setAscent(ASCENT_START);
     setComboStreak(0);
+    setBestStreak(0);
     setTaskIndex(0);
     setTaskLog([]);
     setEnded(false);
     setFrozenVariant(null);
+    replayEventsRef.current = [];
+    bankedRef.current = false;
+    setBankedOutcome(null);
     setAttempt((current) => current + 1);
     // Retry always draws a fresh climb, like a fresh Monkeytype test.
     setRunSeed(createSessionSeed());
@@ -353,6 +399,40 @@ export function AscentRun({
   // A finished climb froze at the buzzer, so the countdown shows zero rather than overshoot.
   const frozenElapsedMs = ended ? durationMs : null;
   const totalScore = taskLog.reduce((sum, row) => sum + row.score, 0);
+
+  // Banks the climb exactly once, on the false→true edge of `ended`. `handleTaskFinished` batches
+  // every state update for the finishing task — `taskLog`, `ascent`, `frozenVariant`, this flip —
+  // into the same render (React 19 batches state updates regardless of where they are set from),
+  // so by the time this effect runs, `ascent`/`totalScore` already hold the run's true, settled
+  // final state rather than a stale mid-climb render.
+  useEffect(() => {
+    if (!ended || bankedRef.current) {
+      return;
+    }
+
+    bankedRef.current = true;
+
+    const result: AscentResult = {
+      durationSeconds,
+      totalScore,
+      tasksCompleted: ascent.tasksCompleted,
+      peakTier: ascent.peakTier,
+      overdriveRungs: ascent.overdriveRungs,
+      wpm: typingWpm(replayEventsRef.current, durationMs),
+      keystrokeAccuracy: keystrokeAccuracy(replayEventsRef.current),
+      finishedAt: new Date().toISOString(),
+    };
+
+    const submission = submitAscentRecord(ascentRecordFromResult(result));
+
+    recordHistory?.(runRecordForAscent({ result, isNewRecord: submission.isNewRecord }));
+
+    setBankedOutcome({
+      result,
+      previousBest: submission.previousBest,
+      isNewRecord: submission.isNewRecord,
+    });
+  }, [ended, durationSeconds, durationMs, totalScore, ascent, submitAscentRecord, recordHistory]);
 
   return (
     <div data-testid="ascent-frame" className="flex flex-col items-center gap-4">
@@ -403,48 +483,15 @@ export function AscentRun({
 
         {ended && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-canvas/70 backdrop-blur-[2px]">
-            <div
-              role="dialog"
-              aria-label="Ascent result"
-              data-testid="ascent-result-card"
-              className="w-96 rounded-lg border border-line bg-surface p-5 shadow-2xl shadow-black/40"
-            >
-              <span className="text-[11px] font-medium tracking-widest text-muted uppercase">
-                Time&apos;s up
-              </span>
-
-              <div className="mt-3 flex flex-col gap-1">
-                <p className="text-[13px] text-muted">
-                  Peak tier
-                  <span
-                    className="ml-2 text-xl font-semibold tabular-nums text-ink"
-                    data-testid="ascent-peak-tier"
-                  >
-                    {ascent.peakTier}
-                  </span>
-                </p>
-                <p
-                  className="text-lg font-medium tabular-nums text-accent-strong"
-                  data-testid="ascent-score"
-                >
-                  {formatScore(totalScore)} points
-                </p>
-                <p className="text-[13px] text-muted" data-testid="ascent-tasks">
-                  {`${ascent.tasksCompleted} task${ascent.tasksCompleted === 1 ? "" : "s"} completed`}
-                </p>
-              </div>
-
-              <div className="mt-5 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={retry}
-                  autoFocus
-                  className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-canvas transition-colors hover:bg-accent-strong"
-                >
-                  Retry
-                </button>
-              </div>
-            </div>
+            {bankedOutcome !== null && (
+              <AscentResultCard
+                result={bankedOutcome.result}
+                previousBest={bankedOutcome.previousBest}
+                isNewRecord={bankedOutcome.isNewRecord}
+                bestStreak={bestStreak}
+                onRetry={retry}
+              />
+            )}
           </div>
         )}
       </div>

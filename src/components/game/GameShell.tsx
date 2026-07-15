@@ -26,6 +26,7 @@ import { getRoutes } from "@/domain/routes/routeCache";
 import { runRecordForChallenge } from "@/domain/runs/runRecord";
 import type { SessionMode } from "@/domain/sessions/sessionTypes";
 import type { FinishedRun } from "@/hooks/useGameRun";
+import { useLocalAscentRecords } from "@/hooks/useLocalAscentRecords";
 import { useLocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
 import { useLocalSessionRecords } from "@/hooks/useLocalSessionRecords";
 import { useRunLog } from "@/hooks/useRunLog";
@@ -161,6 +162,7 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
         ?.selection ?? PLAY_OPTIONS[0].selection
     );
   });
+  const ascentRecords = useLocalAscentRecords();
   const records = useLocalPersonalRecords();
   const sessionRecords = useLocalSessionRecords();
   const history = useRunLog();
@@ -208,7 +210,13 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
   // best as a score, because that is what each mode chases.
   let bestLabel = "no record yet";
 
-  if (play.kind === "single") {
+  if (play.kind === "ascent") {
+    const record = ascentRecords.getBest(ascentDuration);
+
+    if (record !== undefined) {
+      bestLabel = `best T${record.bestPeakTier} · ${formatScore(record.bestScore)} pts`;
+    }
+  } else if (play.kind === "single") {
     const record = records.records[recordKey(challenge.id, play.mode)];
 
     if (record !== undefined) {
@@ -220,8 +228,6 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
     if (record !== undefined) {
       bestLabel = `best ${formatScore(record.bestScore)} pts`;
     }
-    // Ascent has no record book yet — Phase 4 banks its own (`AscentResultCard`). Until then the
-    // header simply says nothing rather than reading a session's or a challenge's book by mistake.
   }
 
   // A fresh seed per draw: the id (template + difficulty) stays stable so the record chase
@@ -403,6 +409,8 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
               runSeed={ascentSeed}
               durationSeconds={ascentDuration}
               records={records}
+              ascentRecords={ascentRecords}
+              recordHistory={recordHistory}
             />
           ) : play.kind === "single" ? (
             <ChallengeRun
