@@ -63,7 +63,7 @@ export function ResultCard({ challenge, mode, run, onRetry, onNext }: ResultCard
     elapsedMs: run.elapsedMs,
     actions,
     shortcutActions,
-    mistakes: Math.round(actions * (1 - run.validation.accuracy)),
+    mistakes: Math.round(actions * (1 - run.accuracy)),
     completedTasks: run.validation.completionPercent,
     totalTasks: 1,
     pbMs: run.previousBest?.bestElapsedMs ?? null,
@@ -129,7 +129,7 @@ export function ResultCard({ challenge, mode, run, onRetry, onNext }: ResultCard
       <div className="mt-4 flex flex-col gap-1 border-t border-line pt-4">
         <StatRow label="PB delta" value={pbDelta} />
         <StatRow label="Correctness" value={formatPercent(run.validation.correctness)} />
-        <StatRow label="Accuracy" value={formatPercent(run.validation.accuracy)} />
+        <StatRow label="Accuracy" value={formatPercent(run.accuracy)} />
         <StatRow label="Shortcut efficiency" value={`${stats.shortcutEfficiency}%`} />
       </div>
 

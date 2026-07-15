@@ -40,6 +40,7 @@ import {
   type TaskOutcome,
 } from "@/domain/sessions/sessionTypes";
 import { calculateLiveRunStats } from "@/domain/stats/liveRunStats";
+import { typingCorrections } from "@/domain/stats/typingStats";
 import { createRunClock } from "@/hooks/runClock";
 import { useAssist, type Assist } from "@/hooks/useAssist";
 import { useFastestPath } from "@/hooks/useFastestPath";
@@ -85,7 +86,7 @@ function toTaskResult(
     score: finished.score.score,
     correctness: finished.validation.correctness,
     completionPercent: finished.validation.completionPercent,
-    accuracy: finished.validation.accuracy,
+    accuracy: finished.accuracy,
     subgoals: finished.validation.subgoals,
   };
 }
@@ -219,7 +220,7 @@ function SessionTask({
   const taskShortcutActions = run.events.filter(
     (event) => event.inputMethod === "keyboard",
   ).length;
-  const taskMistakes = Math.round(taskActions * (1 - run.validation.accuracy));
+  const taskMistakes = typingCorrections(run.events);
   const feedbackEvent = feedbackEventForRun(run.events, run.validation, run.result !== null);
 
   useEffect(() => {
