@@ -1,4 +1,5 @@
 import type { CellAddress, CellValue, GridState } from "@/domain/grid/gridTypes";
+import { evaluateFormula } from "@/domain/grid/formulaEval";
 
 /**
  * The edit buffer lives outside the reducer on purpose: the reducer sees one atomic
@@ -43,13 +44,14 @@ const NUMBER_PATTERN = /^[+-]?(\d+\.?\d*|\.\d+)$/;
 
 /**
  * A committed buffer becomes a cell value: number when it reads as one, blank when empty, text
- * otherwise. Phase 2 adds the `=formula` branch, which is why the grid is a parameter already.
+ * otherwise. Phase 2 adds the `=formula` branch, which reads the grid to evaluate formulas.
  */
-// Unused until Phase 2's formula branch reads the grid; the parameter exists now so the
-// signature never churns.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function parseCellInput(raw: string, _grid: GridState): CellValue {
+export function parseCellInput(raw: string, grid: GridState): CellValue {
   const trimmed = raw.trim();
+
+  if (trimmed.startsWith("=")) {
+    return { kind: "formula", formula: raw, computed: evaluateFormula(grid, trimmed) };
+  }
 
   if (trimmed === "") {
     return { kind: "blank" };
