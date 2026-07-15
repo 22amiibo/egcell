@@ -440,6 +440,7 @@ export type GridDensity = "compact" | "comfortable" | "large";
 export type HotkeyStrictness = "encouraged" | "strict" | "ranked";
 export type PromptPosition = "top" | "left" | "bottom";
 export type DefaultMode =
+  | "ascent"
   | "main-speed"
   | "practice"
   | "hotkey"
@@ -541,7 +542,7 @@ export const DEFAULT_SETTINGS: Settings = {
   gameplay: {
     instantRestart: true,
     restartKeybind: "tab",
-    defaultMode: "main-speed",
+    defaultMode: "ascent",
     skipBehavior: "practice-only",
   },
   scoring: {
@@ -675,6 +676,7 @@ export function coerceSettings(value: unknown): Settings {
       defaultMode: oneOf(
         gameplay.defaultMode,
         [
+          "ascent",
           "main-speed",
           "practice",
           "hotkey",

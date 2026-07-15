@@ -1,5 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 
+// The challenge picker lives in single-challenge play; Ascent is the flagship default, so these
+// specs select Speed before choosing a specific drill.
+async function open(page: Page) {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Speed", exact: true }).click();
+}
+
 async function choose(page: Page, title: string) {
   await page.getByLabel("Challenge").selectOption({ label: title });
   await expect(page.getByTestId("result-card")).toBeHidden();
@@ -25,7 +32,7 @@ async function dragBetween(page: Page, fromCell: string, toCell: string) {
 }
 
 test("navigation: clicking the last Revenue cell completes the run", async ({ page }) => {
-  await page.goto("/");
+  await open(page);
   await choose(page, "Go to the last Revenue cell");
 
   await page.getByRole("button", { name: "C7", exact: true }).click();
@@ -36,7 +43,7 @@ test("navigation: clicking the last Revenue cell completes the run", async ({ pa
 test("selection: dragging across the table completes the whole-table challenge", async ({
   page,
 }) => {
-  await page.goto("/");
+  await open(page);
   await choose(page, "Select the whole table");
 
   await dragBetween(page, "A1", "E7");
@@ -45,7 +52,7 @@ test("selection: dragging across the table completes the whole-table challenge",
 });
 
 test("selection: a drag that stops short of the table does not complete it", async ({ page }) => {
-  await page.goto("/");
+  await open(page);
   await choose(page, "Select the whole table");
 
   await dragBetween(page, "A1", "D7");
@@ -54,7 +61,7 @@ test("selection: a drag that stops short of the table does not complete it", asy
 });
 
 test("formatting: selecting the header row and bolding it completes the run", async ({ page }) => {
-  await page.goto("/");
+  await open(page);
   await choose(page, "Bold the header row");
 
   // Exact, or the accessible-name match would also catch rows 10, 11, and 12.
@@ -65,7 +72,7 @@ test("formatting: selecting the header row and bolding it completes the run", as
 });
 
 test("formatting: the toolbar only offers what the challenge allows", async ({ page }) => {
-  await page.goto("/");
+  await open(page);
   await choose(page, "Select the Revenue column");
 
   // A selection challenge needs no tools at all.
@@ -78,7 +85,7 @@ test("formatting: the toolbar only offers what the challenge allows", async ({ p
 });
 
 test("sort: Revenue high to low completes the run, and the wrong way does not", async ({ page }) => {
-  await page.goto("/");
+  await open(page);
   await choose(page, "Sort Revenue high to low");
 
   await page.getByRole("button", { name: "C2", exact: true }).click();
@@ -91,7 +98,7 @@ test("sort: Revenue high to low completes the run, and the wrong way does not", 
 });
 
 test("sort: the whole row travels with the sorted value", async ({ page }) => {
-  await page.goto("/");
+  await open(page);
   await choose(page, "Sort Revenue high to low");
 
   await page.getByRole("button", { name: "C2", exact: true }).click();
@@ -102,7 +109,7 @@ test("sort: the whole row travels with the sorted value", async ({ page }) => {
 });
 
 test("filter: filtering to the selected East cell hides the other regions", async ({ page }) => {
-  await page.goto("/");
+  await open(page);
   await choose(page, "Show only the East region");
 
   await page.getByRole("button", { name: "A2", exact: true }).click();
@@ -117,7 +124,7 @@ test("filter: filtering to the selected East cell hides the other regions", asyn
 test("switching challenge starts a fresh run rather than carrying the old one over", async ({
   page,
 }) => {
-  await page.goto("/");
+  await open(page);
   await choose(page, "Select the Revenue column");
 
   await page.getByRole("button", { name: "Select column C" }).click();
@@ -129,7 +136,7 @@ test("switching challenge starts a fresh run rather than carrying the old one ov
 });
 
 test("Next challenge advances through the set", async ({ page }) => {
-  await page.goto("/");
+  await open(page);
   await choose(page, "Select the Revenue column");
 
   await page.getByRole("button", { name: "Select column C" }).click();

@@ -5,6 +5,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { GameShell } from "@/components/game/GameShell";
 import { buildNormalSpeedQueue } from "@/data/challenges/queue";
 
+// The flagship default is Ascent (Task 3.5). This file is about single-challenge Speed play, so
+// every test switches into Speed explicitly rather than relying on it being the mode a fresh shell
+// opens into.
+const switchToSpeed = () => userEvent.click(screen.getByRole("button", { name: "Speed" }));
+
 async function chooseChallenge(title: string) {
   await userEvent.selectOptions(screen.getByLabelText("Challenge"), [
     screen.getByRole("option", { name: title }),
@@ -22,10 +27,11 @@ describe("GameShell", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("opens straight into the first challenge, with no result card", () => {
+  it("switches into the first challenge, with no result card", async () => {
     const queue = buildNormalSpeedQueue("shell-open");
 
     render(<GameShell createSessionSeed={() => "shell-open"} />);
+    await switchToSpeed();
 
     expect(screen.getByRole("heading", { name: queue.tasks[0].variant.prompt })).toBeVisible();
     expect(screen.getByRole("grid", { name: "Spreadsheet" })).toBeVisible();
@@ -35,6 +41,7 @@ describe("GameShell", () => {
 
   it("counts keyboard-originated grid actions toward shortcut efficiency", async () => {
     render(<GameShell />);
+    await switchToSpeed();
     await chooseChallenge("Select the Revenue column");
 
     const grid = screen.getByRole("grid", { name: "Spreadsheet" });
@@ -51,6 +58,7 @@ describe("GameShell", () => {
 
   it("shows the result card once the Revenue column is selected", async () => {
     render(<GameShell />);
+    await switchToSpeed();
 
     await selectRevenueColumn();
 
@@ -61,6 +69,7 @@ describe("GameShell", () => {
 
   it("does not end the run when the wrong column is selected", async () => {
     render(<GameShell />);
+    await switchToSpeed();
     await chooseChallenge("Select the Revenue column");
 
     await userEvent.click(screen.getByRole("button", { name: "Select column D" }));
@@ -70,6 +79,7 @@ describe("GameShell", () => {
 
   it("clears the result card and the selection on retry", async () => {
     render(<GameShell />);
+    await switchToSpeed();
 
     await selectRevenueColumn();
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
@@ -80,6 +90,7 @@ describe("GameShell", () => {
 
   it("keeps the details behind a disclosure rather than crowding the card", async () => {
     render(<GameShell />);
+    await switchToSpeed();
 
     await selectRevenueColumn();
 
@@ -99,6 +110,7 @@ describe("the toolbar", () => {
 
   it("stays away from a selection challenge, which has no use for it", async () => {
     render(<GameShell />);
+    await switchToSpeed();
     await chooseChallenge("Select the Revenue column");
 
     expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
@@ -106,6 +118,7 @@ describe("the toolbar", () => {
 
   it("offers only formatting on a formatting challenge", async () => {
     render(<GameShell />);
+    await switchToSpeed();
 
     await chooseChallenge("Bold the header row");
 
@@ -116,6 +129,7 @@ describe("the toolbar", () => {
 
   it("offers only sorting on a sort challenge", async () => {
     render(<GameShell />);
+    await switchToSpeed();
 
     await chooseChallenge("Sort Revenue high to low");
 
@@ -132,6 +146,7 @@ describe("playing each family through the real UI", () => {
 
   it("completes the navigation challenge by landing on the target cell", async () => {
     render(<GameShell />);
+    await switchToSpeed();
 
     await chooseChallenge("Go to the last Revenue cell");
     await userEvent.click(screen.getByRole("button", { name: "C7" }));
@@ -141,6 +156,7 @@ describe("playing each family through the real UI", () => {
 
   it("completes the bold-header challenge by selecting the row and bolding it", async () => {
     render(<GameShell />);
+    await switchToSpeed();
 
     await chooseChallenge("Bold the header row");
     await userEvent.click(screen.getByRole("button", { name: "Select row 1" }));
@@ -151,6 +167,7 @@ describe("playing each family through the real UI", () => {
 
   it("completes the currency challenge by selecting the column and formatting it", async () => {
     render(<GameShell />);
+    await switchToSpeed();
 
     await chooseChallenge("Format Revenue as currency");
     await userEvent.click(screen.getByRole("button", { name: "Select column C" }));
@@ -161,6 +178,7 @@ describe("playing each family through the real UI", () => {
 
   it("completes the sort challenge, and sorting the wrong way does not finish it", async () => {
     render(<GameShell />);
+    await switchToSpeed();
 
     await chooseChallenge("Sort Revenue high to low");
     await userEvent.click(screen.getByRole("button", { name: "C2" }));
@@ -174,6 +192,7 @@ describe("playing each family through the real UI", () => {
 
   it("completes the filter challenge by filtering to the selected East cell", async () => {
     render(<GameShell />);
+    await switchToSpeed();
 
     await chooseChallenge("Show only the East region");
 
@@ -193,6 +212,7 @@ describe("moving between challenges", () => {
 
   it("advances to the next challenge from the result card", async () => {
     render(<GameShell />);
+    await switchToSpeed();
 
     await selectRevenueColumn();
     await userEvent.click(screen.getByRole("button", { name: "Next challenge" }));
@@ -205,6 +225,7 @@ describe("moving between challenges", () => {
 
   it("starts a fresh run when the challenge changes, rather than carrying the old one over", async () => {
     render(<GameShell />);
+    await switchToSpeed();
 
     await selectRevenueColumn();
     expect(screen.getByTestId("result-card")).toBeVisible();
@@ -217,6 +238,7 @@ describe("moving between challenges", () => {
 
   it("tracks a personal record per challenge, not one for the whole game", async () => {
     render(<GameShell />);
+    await switchToSpeed();
 
     await selectRevenueColumn();
     expect(screen.getByTestId("best-time")).toHaveTextContent("best");

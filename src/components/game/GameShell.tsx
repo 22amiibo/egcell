@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
+import { AscentRun } from "@/components/game/AscentRun";
 import { ChallengeRun } from "@/components/game/ChallengeRun";
 import { SessionRun } from "@/components/game/SessionRun";
 import { challengeAfter, challenges, defaultChallenge } from "@/data/challenges";
@@ -11,6 +12,7 @@ import {
   buildNormalSpeedQueue,
   SESSION_DIFFICULTY,
 } from "@/data/challenges/queue";
+import { ASCENT_CONFIG } from "@/domain/ascent/ascentTypes";
 import type {
   Challenge,
   ChallengeDifficulty,
@@ -32,14 +34,16 @@ import { formatElapsed, formatScore } from "@/lib/format";
 import { getPlatform } from "@/lib/platform";
 
 /**
- * What the player is playing: one challenge at a time, or a session that strings tasks together
- * under a single clock. The two keep separate record books.
+ * What the player is playing: the flagship fixed-clock ladder, one challenge at a time, or a
+ * session that strings tasks together under a single clock. Each keeps its own record book.
  */
 type PlaySelection =
+  | { kind: "ascent"; mode: "ascent" }
   | { kind: "single"; mode: ChallengeMode }
   | { kind: "session"; mode: SessionMode };
 
 const PLAY_OPTIONS: Array<{ key: string; label: string; selection: PlaySelection }> = [
+  { key: "ascent", label: "Ascent", selection: { kind: "ascent", mode: "ascent" } },
   { key: "speed", label: "Speed", selection: { kind: "single", mode: "main-speed" } },
   { key: "practice", label: "Practice", selection: { kind: "single", mode: "practice" } },
   { key: "hotkey", label: "Hotkey", selection: { kind: "single", mode: "hotkey" } },
@@ -121,6 +125,15 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
   );
   const [normalTaskIndex, setNormalTaskIndex] = useState(0);
 
+  // Read once per page load, same as `sessionSeed`: an unseeded climb draws its own entropy, and a
+  // seeded one (e2e, shared runs) re-races the exact same ladder.
+  const [ascentSeed] = useState(() => params.get("ascentSeed") ?? createSessionSeed());
+  const ascentDuration = useMemo(() => {
+    const parsed = Number(params.get("ascentDuration"));
+
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : ASCENT_CONFIG.durationSeconds;
+  }, [params]);
+
   // Null until the player picks something; the URL's challenge (if any) holds until then.
   const [picked, setPicked] = useState<Challenge | null>(null);
   const normalChallenge = normalQueue.tasks[normalTaskIndex % normalQueue.tasks.length].variant;
@@ -135,11 +148,19 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
   // two lines, and it waited for this phase only because the mode list was not complete until now.
   // Read once, as the initial state: a player who switches modes mid-session is not overruled by
   // their own default on the next render.
-  const [play, setPlay] = useState<PlaySelection>(
-    () =>
+  const [play, setPlay] = useState<PlaySelection>(() => {
+    // An explicit challenge in the URL (`?template=`) is a request to play that specific drill,
+    // which only single-challenge mode can honour, so it takes precedence over the stored default
+    // (now Ascent) — without this, a shared or e2e deep link lands on the ladder instead.
+    if (urlChallenge !== null) {
+      return { kind: "single", mode: "main-speed" };
+    }
+
+    return (
       PLAY_OPTIONS.find((option) => option.selection.mode === settings.gameplay.defaultMode)
-        ?.selection ?? PLAY_OPTIONS[0].selection,
-  );
+        ?.selection ?? PLAY_OPTIONS[0].selection
+    );
+  });
   const records = useLocalPersonalRecords();
   const sessionRecords = useLocalSessionRecords();
   const history = useRunLog();
@@ -188,12 +209,14 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
     if (record !== undefined) {
       bestLabel = `best ${formatElapsed(record.bestElapsedMs)}`;
     }
-  } else {
+  } else if (play.kind === "session") {
     const record = sessionRecords.getBest(play.mode, SESSION_DIFFICULTY);
 
     if (record !== undefined) {
       bestLabel = `best ${formatScore(record.bestScore)} pts`;
     }
+    // Ascent has no record book yet — Phase 4 banks its own (`AscentResultCard`). Until then the
+    // header simply says nothing rather than reading a session's or a challenge's book by mistake.
   }
 
   // A fresh seed per draw: the id (template + difficulty) stays stable so the record chase
@@ -369,7 +392,14 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
             Keyed by what is being played, so switching challenge, mode, or session length mounts
             a fresh run rather than inheriting the old clock, grid, and result.
           */}
-          {settingsReady && (play.kind === "single" ? (
+          {settingsReady && (play.kind === "ascent" ? (
+            <AscentRun
+              key={`ascent:${ascentSeed}`}
+              runSeed={ascentSeed}
+              durationSeconds={ascentDuration}
+              records={records}
+            />
+          ) : play.kind === "single" ? (
             <ChallengeRun
               key={`${challenge.id}:${challenge.seed}:${play.mode}`}
               challenge={challenge}

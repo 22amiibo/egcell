@@ -3,6 +3,8 @@ import { expect, test } from "@playwright/test";
 test("practice screen keeps the spreadsheet grid dominant", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
+  // The live-stats practice layout is single-challenge; Ascent is the flagship default.
+  await page.getByRole("button", { name: "Speed", exact: true }).click();
 
   const grid = await page.getByTestId("grid-stage").boundingBox();
   const prompt = await page.getByTestId("prompt-rail").boundingBox();

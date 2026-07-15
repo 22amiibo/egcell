@@ -8,15 +8,23 @@ import { buildNormalSpeedQueue } from "../src/data/challenges/queue";
 
 const MAIN_SEED = "e2e-main-speed";
 
+// Speed is the normal-queue mode. Ascent is the flagship default now, so these specs select Speed
+// to reach it and its challenge picker.
+async function openSpeed(page: Page) {
+  await page.getByRole("button", { name: "Speed", exact: true }).click();
+}
+
 async function gotoClassicRevenue(page: Page) {
   await page.goto(`/?sessionSeed=${MAIN_SEED}`);
+  await openSpeed(page);
   await page.getByLabel("Challenge").selectOption("selection.revenue-column");
 }
 
-test("the app opens directly into the explicit seeded normal queue", async ({ page }) => {
+test("Speed opens into the explicit seeded normal queue", async ({ page }) => {
   const queue = buildNormalSpeedQueue(MAIN_SEED);
 
   await page.goto(`/?sessionSeed=${MAIN_SEED}`);
+  await openSpeed(page);
 
   await expect(page.getByRole("heading", { name: queue.tasks[0].variant.prompt })).toBeVisible();
   await expect(page.getByRole("grid", { name: "Spreadsheet" })).toBeVisible();
@@ -40,14 +48,17 @@ test("two unseeded normal starts use two injected browser seeds", async ({ page 
   });
 
   await page.goto("/");
+  await openSpeed(page);
   await expect(page.getByRole("heading", { name: firstQueue.tasks[0].variant.prompt })).toBeVisible();
 
   await page.reload();
+  await openSpeed(page);
   await expect(page.getByRole("heading", { name: secondQueue.tasks[0].variant.prompt })).toBeVisible();
 });
 
 test("the clock is already running before the player acts", async ({ page }) => {
   await page.goto(`/?sessionSeed=${MAIN_SEED}`);
+  await openSpeed(page);
 
   const timer = page.getByTestId("timer");
   const first = await timer.textContent();
@@ -119,6 +130,7 @@ test("a personal record survives a reload and is shown in the top bar", async ({
   await expect(page.getByTestId("best-time")).toContainText("best");
 
   await page.reload();
+  await openSpeed(page);
   await page.getByLabel("Challenge").selectOption("selection.revenue-column");
 
   await expect(page.getByTestId("best-time")).toContainText("best");

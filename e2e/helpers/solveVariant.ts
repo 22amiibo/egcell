@@ -39,6 +39,21 @@ async function selectRange(page: Page, range: RangeAddress) {
   await page.mouse.up();
 }
 
+/**
+ * Types a value into a cell and commits it the way a player would: F2 opens the editor with an
+ * empty buffer, `fill` replaces it wholesale, and Enter commits through the real parse + reducer
+ * path — the browser mirror of `solveVariantDom`'s `typeAndCommit`.
+ */
+async function typeAndCommit(page: Page, target: { row: number; col: number }, text: string) {
+  await cell(page, target.row, target.col).click();
+  await page.keyboard.press("F2");
+
+  const editor = page.getByRole("textbox", { name: "Edit cell" });
+
+  await editor.fill(text);
+  await editor.press("Enter");
+}
+
 async function solvePart(page: Page, challenge: Challenge, part: LeafValidationSpec) {
   switch (part.kind) {
     case "navigation":
@@ -113,6 +128,20 @@ async function solvePart(page: Page, challenge: Challenge, part: LeafValidationS
 
       return;
     }
+
+    case "formula":
+      await typeAndCommit(page, part.cell, part.acceptedFormulas[0]);
+
+      return;
+
+    case "cell-value":
+      await typeAndCommit(
+        page,
+        part.cell,
+        part.expected.kind === "number" ? String(part.expected.value) : part.expected.value,
+      );
+
+      return;
   }
 }
 

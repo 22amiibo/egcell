@@ -121,6 +121,8 @@ test("the picker offers generated drills and a new draw changes the table but ke
   page,
 }) => {
   await page.goto("/");
+  // The challenge picker lives in single-challenge play; Ascent is the flagship default.
+  await page.getByRole("button", { name: "Speed", exact: true }).click();
 
   await page.getByRole("combobox", { name: "Challenge" }).selectOption("gen.selection.table");
 

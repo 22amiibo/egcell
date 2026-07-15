@@ -102,6 +102,7 @@ describe("sprint mode", () => {
     render(<GameShell />);
 
     // Bank a single-challenge record first.
+    await userEvent.click(screen.getByRole("button", { name: "Speed" }));
     await userEvent.selectOptions(
       screen.getByLabelText("Challenge"),
       "selection.revenue-column",

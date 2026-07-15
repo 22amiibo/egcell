@@ -6,6 +6,8 @@ import { solveChallenge } from "./helpers/solveVariant";
 test.describe("the local profile", () => {
   test("a finished run shows up in the history and the totals", async ({ page }) => {
     await page.goto("/");
+    // The challenge picker lives in single-challenge play; Ascent is the flagship default.
+    await page.getByRole("button", { name: "Speed", exact: true }).click();
     await page.getByLabel("Challenge").selectOption({ label: "Select the Revenue column" });
 
     // One quick completed run.

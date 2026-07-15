@@ -17,6 +17,7 @@ describe("keyboard state across retry", () => {
   it("starts arrowing from A1 again after a retry", async () => {
     render(<GameShell />);
 
+    await userEvent.click(screen.getByRole("button", { name: "Speed" }));
     await userEvent.selectOptions(screen.getByLabelText("Challenge"), [
       screen.getByRole("option", { name: "Go to the last Revenue cell" }),
     ]);

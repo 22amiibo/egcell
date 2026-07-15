@@ -14,6 +14,7 @@ const selectRevenueColumn = async () => {
 };
 
 const switchToPractice = () => userEvent.click(screen.getByRole("button", { name: "Practice" }));
+const switchToSpeed = () => userEvent.click(screen.getByRole("button", { name: "Speed" }));
 
 describe("practice mode", () => {
   beforeEach(() => {
@@ -21,10 +22,11 @@ describe("practice mode", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("starts in speed mode", () => {
+  it("starts in ascent mode, the flagship default", () => {
     render(<GameShell />);
 
-    expect(screen.getByRole("button", { name: "Speed" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Ascent" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Speed" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("button", { name: "Practice" })).toHaveAttribute(
       "aria-pressed",
       "false",
@@ -54,6 +56,7 @@ describe("practice mode", () => {
   it("never shows route notes in speed mode, even after the run is over", async () => {
     render(<GameShell />);
 
+    await switchToSpeed();
     await selectRevenueColumn();
 
     expect(screen.getByTestId("result-card")).toBeVisible();
@@ -76,6 +79,7 @@ describe("practice mode", () => {
   it("keeps a practice record apart from a speed record", async () => {
     render(<GameShell />);
 
+    await switchToSpeed();
     await selectRevenueColumn();
     expect(screen.getByTestId("best-time")).toHaveTextContent("best");
 
@@ -89,6 +93,7 @@ describe("practice mode", () => {
   it("starts a fresh run when the mode changes", async () => {
     render(<GameShell />);
 
+    await switchToSpeed();
     await selectRevenueColumn();
     expect(screen.getByTestId("result-card")).toBeVisible();
 

@@ -24,6 +24,7 @@ describe("a completed run", () => {
   it("builds a leaderboard-shaped result and sends it precisely nowhere", async () => {
     render(<GameShell />);
 
+    await userEvent.click(screen.getByRole("button", { name: "Speed" }));
     await chooseRevenueChallenge();
     await selectRevenueColumn();
     await userEvent.click(screen.getByText("Details"));
@@ -38,6 +39,8 @@ describe("a completed run", () => {
 
   it("counts the moves the player actually made", async () => {
     render(<GameShell />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Speed" }));
 
     // A wrong column, then the right one. Two moves.
     await chooseRevenueChallenge();

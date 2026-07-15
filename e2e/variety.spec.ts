@@ -2,6 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function pickChallenge(page: Page, title: string) {
   await page.goto("/");
+  // The challenge picker lives in single-challenge play; Ascent is the flagship default.
+  await page.getByRole("button", { name: "Speed", exact: true }).click();
   await page.getByLabel("Challenge").selectOption({ label: title });
   // The remounted grid takes focus in an effect. Keystrokes sent before that lands go to the
   // select instead, so wait for the handover rather than racing it.
