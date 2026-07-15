@@ -1,3 +1,4 @@
+import type { AscentResult } from "@/domain/ascent/ascentResult";
 import type {
   Challenge,
   ChallengeDifficulty,
@@ -77,6 +78,12 @@ export type RunRecord = {
   routeEfficiency: number | null;
   keyboardShare: number | null;
   routeId: string | null;
+
+  /** Ascent only: the highest tier the run reached. Null for every other mode. */
+  peakTier: number | null;
+  /** Typing runs only. Null when the run typed nothing — null is not zero. */
+  wpm: number | null;
+  keystrokeAccuracy: number | null;
 
   assist: RunAssist;
   integrity: RunIntegrity;
@@ -167,6 +174,10 @@ export type ChallengeRunInput = {
   eventDigest: string | null;
   assist?: RunAssist;
   attempts?: number;
+  /** Words per minute, when this run typed the answer. Absent or null both mean "did not type." */
+  wpm?: number | null;
+  /** Keystroke accuracy, when this run typed. Null (not the validator's pinned accuracy) otherwise. */
+  keystrokeAccuracy?: number | null;
   /** How the run compared to the fastest route. Absent leaves every route field null (§5.4). */
   comparison?: RouteComparison;
 };
@@ -198,6 +209,10 @@ export function runRecordForChallenge(input: ChallengeRunInput): NewRunRecord {
     accuracy: input.accuracy,
 
     ...routeFieldsFrom(input.comparison),
+
+    peakTier: null,
+    wpm: input.wpm ?? null,
+    keystrokeAccuracy: input.keystrokeAccuracy ?? null,
 
     assist: input.assist ?? "none",
     integrity: "ok",
@@ -255,7 +270,50 @@ export function runRecordForSession(input: SessionRunInput): NewRunRecord {
 
     ...NO_ROUTE,
 
+    peakTier: null,
+    wpm: null,
+    keystrokeAccuracy: null,
+
     assist: input.assist ?? "none",
+    integrity: "ok",
+    isNewRecord: input.isNewRecord,
+    attempts: 0,
+    eventDigest: null,
+  };
+}
+
+export type AscentRunInput = {
+  result: AscentResult;
+  isNewRecord: boolean;
+};
+
+/** One finished Ascent climb → one record. Sessions' shape, plus the peak. */
+export function runRecordForAscent(input: AscentRunInput): NewRunRecord {
+  const { result } = input;
+
+  return {
+    modeKey: "ascent",
+    label: `Ascent ${result.durationSeconds}s`,
+    challengeId: null,
+    challengeVersion: null,
+    templateId: null,
+    family: null,
+    difficulty: null,
+    seed: null,
+    outcome: "completed",
+    completed: true,
+    tasksCompleted: result.tasksCompleted,
+    taskCount: result.tasksCompleted,
+    score: result.totalScore,
+    elapsedMs: result.durationSeconds * 1000,
+    targetMs: null,
+    correctness: 1,
+    accuracy: result.keystrokeAccuracy ?? 1,
+    ...NO_ROUTE,
+    peakTier: result.peakTier,
+    wpm: result.wpm,
+    keystrokeAccuracy: result.keystrokeAccuracy,
+    assist: "none",
     integrity: "ok",
     isNewRecord: input.isNewRecord,
     attempts: 0,
@@ -269,6 +327,11 @@ function isNullableNumber(value: unknown): boolean {
 
 function isNullableString(value: unknown): boolean {
   return value === null || typeof value === "string";
+}
+
+/** For a field a legacy row may lack entirely: absent, null, and a number are all valid. */
+function isOptionalNullableNumber(value: unknown): boolean {
+  return value === undefined || value === null || typeof value === "number";
 }
 
 /**
@@ -315,6 +378,9 @@ export function isRunRecord(value: unknown): value is RunRecord {
     isNullableNumber(candidate.routeEfficiency) &&
     isNullableNumber(candidate.keyboardShare) &&
     isNullableString(candidate.routeId) &&
+    isOptionalNullableNumber(candidate.peakTier) &&
+    isOptionalNullableNumber(candidate.wpm) &&
+    isOptionalNullableNumber(candidate.keystrokeAccuracy) &&
     (candidate.assist === "none" || candidate.assist === "revealed") &&
     (candidate.integrity === "ok" || candidate.integrity === "suspect") &&
     typeof candidate.isNewRecord === "boolean" &&

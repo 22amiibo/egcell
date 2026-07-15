@@ -84,6 +84,11 @@ function recordFor(entry: RunHistoryEntry): RunRecord | null {
     keyboardShare: null,
     routeId: null,
 
+    // v1 predates typing metrics and Ascent alike. Null is the truth; a guess would be worse than a gap.
+    peakTier: null,
+    wpm: null,
+    keystrokeAccuracy: null,
+
     // Not a default, a fact (§9.3): the help button did not exist when these runs were played, so
     // no code path could have revealed a hint during one. No legacy run can have been assisted.
     assist: "none",

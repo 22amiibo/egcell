@@ -184,6 +184,11 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
           elapsedMs: finished.elapsedMs,
           correctness: finished.validation.correctness,
           accuracy: finished.accuracy,
+          // `wpm` is null exactly when the run never typed; `keystrokeAccuracy` must be null then
+          // too, not `finished.accuracy` — which for a silent run is the validator's pinned value,
+          // not a keystroke accuracy at all.
+          wpm: finished.wpm,
+          keystrokeAccuracy: finished.wpm !== null ? finished.accuracy : null,
           // Fired from `onFinished`, which only runs when the challenge is actually solved.
           isComplete: true,
           isNewRecord: finished.isNewRecord,

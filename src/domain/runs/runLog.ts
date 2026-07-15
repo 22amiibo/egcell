@@ -42,6 +42,23 @@ export type RunLog = {
   runs: RunRecord[];
 };
 
+/**
+ * Rows written before these fields existed lack the keys; reading fills null, no migration.
+ *
+ * Spelled as three `?? null` fallbacks rather than `{ peakTier: null, ..., ...record }`: `RunRecord`
+ * declares all three as always-present, so a default-then-spread reads to the type checker as
+ * always overwritten (TS2783) even though a pre-existing row on disk can genuinely lack the key.
+ * Same fill, expressed so it survives contact with `record`'s own declared type.
+ */
+export function normalizeRunRecord(record: RunRecord): RunRecord {
+  return {
+    ...record,
+    peakTier: record.peakTier ?? null,
+    wpm: record.wpm ?? null,
+    keystrokeAccuracy: record.keystrokeAccuracy ?? null,
+  };
+}
+
 export function emptyLog(): RunLog {
   return {
     version: 2,
@@ -134,7 +151,9 @@ export function readRunLog(storage: JsonStorage): RunLog {
         : { runs: 0, tasksCompleted: 0 },
     priorByMode,
     rollups: Array.isArray(candidate.rollups) ? candidate.rollups.filter(isRollup) : [],
-    runs: Array.isArray(candidate.runs) ? candidate.runs.filter(isRunRecord) : [],
+    runs: Array.isArray(candidate.runs)
+      ? candidate.runs.filter(isRunRecord).map(normalizeRunRecord)
+      : [],
   };
 }
 

@@ -53,6 +53,9 @@ function newRecord(overrides: Partial<NewRunRecord> = {}): NewRunRecord {
     routeEfficiency: null,
     keyboardShare: null,
     routeId: null,
+    peakTier: null,
+    wpm: null,
+    keystrokeAccuracy: null,
     assist: "none",
     integrity: "ok",
     isNewRecord: false,
@@ -216,6 +219,8 @@ describe("readRunLog", () => {
     expect(log.runs).toHaveLength(1);
     expect(log.runs[0].schemaVersion).toBe(1);
     expect(log.runs[0].label).toBe("Select the Revenue column");
+    // v1 predates typing metrics and Ascent alike — null is the honest answer, not a guess.
+    expect(log.runs[0]).toMatchObject({ peakTier: null, wpm: null, keystrokeAccuracy: null });
     // The backup is the point: v1 is never rewritten and never removed here (§9.5).
     expect(storage.read(RUN_HISTORY_KEY, null)).not.toBeNull();
   });
@@ -282,6 +287,35 @@ describe("readRunLog", () => {
     });
 
     expect(readRunLog(withBadRow).runs.map((run) => run.id)).toEqual(["run-0"]);
+  });
+
+  it("normalizes peakTier, wpm, and keystrokeAccuracy to null on a row written before they existed", () => {
+    // No migration and no version bump for these three: an old v2 row simply lacks the keys, the
+    // same way a row lacks a key today if a future field is added the same way.
+    const legacyRow: Partial<RunRecord> = { ...record(0) };
+
+    delete legacyRow.peakTier;
+    delete legacyRow.wpm;
+    delete legacyRow.keystrokeAccuracy;
+
+    const storage = createMemoryJsonStorage({
+      [RUN_LOG_KEY]: { ...emptyLog(), runs: [legacyRow] },
+    });
+
+    const log = readRunLog(storage);
+
+    expect(log.runs).toHaveLength(1);
+    expect(log.runs[0]).toMatchObject({ peakTier: null, wpm: null, keystrokeAccuracy: null });
+  });
+
+  it("round-trips a row that already carries peakTier, wpm, and keystrokeAccuracy", () => {
+    const storage = createMemoryJsonStorage({
+      [RUN_LOG_KEY]: logOf(record(0, { peakTier: 3, wpm: 61, keystrokeAccuracy: 0.88 })),
+    });
+
+    const log = readRunLog(storage);
+
+    expect(log.runs[0]).toMatchObject({ peakTier: 3, wpm: 61, keystrokeAccuracy: 0.88 });
   });
 });
 
