@@ -25,6 +25,8 @@ export type RunEvent = {
   chord?: string | null;
   /** Raw pointer/toolbar/menu control evidence, e.g. "toolbar-bold". Null for keyboard input. */
   controlId?: string | null;
+  /** Present only on an edit commit: how many characters were typed and corrected. */
+  keystrokes?: { chars: number; corrections: number };
 };
 
 export type RunState = {

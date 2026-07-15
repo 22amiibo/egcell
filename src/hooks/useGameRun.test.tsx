@@ -77,3 +77,26 @@ describe("useGameRun getComboMultiplier", () => {
     expect(withCombo.score.score).toBe(Math.round(plain.score.score * 1.5));
   });
 });
+
+describe("useGameRun keystroke tracking", () => {
+  it("carries keystroke counts from meta through to the event log", () => {
+    const view = renderHook(() =>
+      useGameRun(challenge, "main-speed", records(), { recordPersonalBest: false }),
+    );
+
+    const keystrokesMeta: ActionMeta = {
+      ...SELECT_REVENUE_COLUMN,
+      keystrokes: { chars: 5, corrections: 1 },
+    };
+
+    act(() => {
+      view.result.current.dispatch(
+        { kind: "select-column", col: REVENUE_COL, usedRangeOnly: true },
+        keystrokesMeta,
+      );
+    });
+
+    const lastEvent = view.result.current.events.at(-1);
+    expect(lastEvent?.keystrokes).toEqual({ chars: 5, corrections: 1 });
+  });
+});

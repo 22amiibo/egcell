@@ -241,6 +241,7 @@ export function useGameRun(
           via: meta.via,
           chord: meta.chord,
           controlId: meta.controlId,
+          keystrokes: meta.keystrokes,
         },
       ];
       setEvents(eventsRef.current);
