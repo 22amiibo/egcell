@@ -25,6 +25,7 @@ import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
 import type { Challenge, ChallengeMode } from "@/domain/challenges/challengeTypes";
 import { hotkeyVerdict } from "@/domain/routes/hotkeyEligibility";
 import { getRoutes } from "@/domain/routes/routeCache";
+import { typingCorrections } from "@/domain/stats/typingStats";
 import { useAssist } from "@/hooks/useAssist";
 import { useFastestPath } from "@/hooks/useFastestPath";
 import { useGameRun, type FinishedRun } from "@/hooks/useGameRun";
@@ -77,7 +78,7 @@ export function ChallengeRun({ challenge, mode, records, onNext, onFinished }: C
   const shortcutActionCount = run.events.filter(
     (event) => event.inputMethod === "keyboard",
   ).length;
-  const mistakes = Math.round(actionCount * (1 - run.validation.accuracy));
+  const mistakes = typingCorrections(run.events);
   const feedbackEvent = feedbackEventForRun(run.events, run.validation, run.result !== null);
 
   useEffect(() => {

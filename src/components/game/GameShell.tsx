@@ -162,7 +162,7 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
           score: finished.score.score,
           elapsedMs: finished.elapsedMs,
           correctness: finished.validation.correctness,
-          accuracy: finished.validation.accuracy,
+          accuracy: finished.accuracy,
           // Fired from `onFinished`, which only runs when the challenge is actually solved.
           isComplete: true,
           isNewRecord: finished.isNewRecord,

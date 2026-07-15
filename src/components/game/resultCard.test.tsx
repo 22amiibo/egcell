@@ -32,6 +32,8 @@ function finishedRun(overrides: Partial<FinishedRun> = {}): FinishedRun {
     elapsedMs: 3000,
     previousBest: undefined,
     isNewRecord: false,
+    accuracy: 1,
+    wpm: null,
     submission: buildRunResult({
       challengeId: defaultChallenge.id,
       challengeVersion: defaultChallenge.version,

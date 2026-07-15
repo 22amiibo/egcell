@@ -2,8 +2,10 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { selectionRevenueColumnChallenge } from "@/data/challenges";
-import { REVENUE_COL } from "@/data/grids/revenueGrid";
+import { createRevenueGrid, REVENUE_COL } from "@/data/grids/revenueGrid";
+import type { Challenge } from "@/domain/challenges/challengeTypes";
 import type { ActionMeta } from "@/domain/commands/commandTypes";
+import type { CellAddress } from "@/domain/grid/gridTypes";
 import type { PersonalRecord } from "@/domain/records/recordTypes";
 import { useGameRun, type FinishedRun, type GameRunOptions } from "@/hooks/useGameRun";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
@@ -45,6 +47,60 @@ function completeRun(options: GameRunOptions = {}): FinishedRun {
     view.result.current.dispatch(
       { kind: "select-column", col: REVENUE_COL, usedRangeOnly: true },
       SELECT_REVENUE_COLUMN,
+    );
+  });
+
+  const finished = view.result.current.result;
+
+  expect(finished).not.toBeNull();
+
+  return finished!;
+}
+
+/** A9, just past the fixed Revenue dataset's used range — free for a player to write into. */
+const CELL_VALUE_TARGET: CellAddress = { row: 8, col: 0 };
+
+/** A challenge a single `set-cell-value` commit completes, mirroring validateValue.test.ts's stub. */
+const cellValueChallenge: Challenge = {
+  id: "test.keystroke-accuracy",
+  version: "v1",
+  slug: "test-keystroke-accuracy",
+  title: "Test keystroke accuracy",
+  prompt: "Write the value into A9.",
+  family: "formula",
+  difficulty: 1,
+  seed: "test-keystroke-accuracy-v1",
+  timingPolicy: { kind: "single-challenge", targetSeconds: 10 },
+  initialGrid: createRevenueGrid(),
+  allowedActions: ["select-cell", "set-cell-value"],
+  validation: { kind: "cell-value", cell: CELL_VALUE_TARGET, expected: { kind: "number", value: 42 } },
+  scoring: { basePoints: 100, targetSeconds: 10, minimumCorrectnessForPr: 1 },
+  practiceNotes: [],
+};
+
+/**
+ * Mounts a fresh run against `cellValueChallenge` and drives its one completing action: a
+ * `COMMIT_EDIT`-shaped `set-cell-value` whose committed value satisfies the validator and whose
+ * meta carries the keystroke evidence the caller wants graded.
+ */
+function completeCellValueRun(keystrokes: { chars: number; corrections: number }): FinishedRun {
+  const view = renderHook(() =>
+    useGameRun(cellValueChallenge, "main-speed", records(), { recordPersonalBest: false }),
+  );
+
+  const commitEdit: ActionMeta = {
+    command: "COMMIT_EDIT",
+    inputMethod: "keyboard",
+    via: "grid",
+    chord: null,
+    controlId: null,
+    keystrokes,
+  };
+
+  act(() => {
+    view.result.current.dispatch(
+      { kind: "set-cell-value", cell: CELL_VALUE_TARGET, value: { kind: "number", value: 42 } },
+      commitEdit,
     );
   });
 
@@ -98,5 +154,25 @@ describe("useGameRun keystroke tracking", () => {
 
     const lastEvent = view.result.current.events.at(-1);
     expect(lastEvent?.keystrokes).toEqual({ chars: 5, corrections: 1 });
+  });
+});
+
+describe("useGameRun keystroke accuracy", () => {
+  it("a typing run's accuracy can finally be a value other than 1", () => {
+    const finished = completeCellValueRun({ chars: 6, corrections: 1 });
+
+    // The milestone: a run whose completing action typed and corrected is graded on that typing,
+    // not waved through at the validator's flat 1 — for both the number the player reads and the
+    // multiplier that number feeds into.
+    expect(finished.accuracy).toBeCloseTo(5 / 6);
+    expect(finished.score.accuracyMultiplier).toBeLessThan(1);
+  });
+
+  it("falls back to the validator's accuracy when nothing in the run carries keystrokes", () => {
+    // `completeRun` drives a column selection: no event carries a `keystrokes` field, so
+    // `keystrokeAccuracy` is null and `buildFinished` must fall back to `validation.accuracy`.
+    const finished = completeRun();
+
+    expect(finished.accuracy).toBe(finished.validation.accuracy);
   });
 });

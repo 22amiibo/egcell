@@ -15,6 +15,7 @@ import { buildRunResult, type RunResult } from "@/domain/runs/runResult";
 import type { RunEvent, RunState, RunStatus } from "@/domain/runs/runTypes";
 import { scoreRun } from "@/domain/scoring/scoreRun";
 import type { ScoreResult } from "@/domain/scoring/scoringTypes";
+import { keystrokeAccuracy, typingWpm } from "@/domain/stats/typingStats";
 import { validateChallenge } from "@/domain/validation/validateChallenge";
 import {
   NOTHING_DONE_YET,
@@ -31,6 +32,14 @@ export type FinishedRun = {
   isNewRecord: boolean;
   /** Whether this run saw the answer. The record reads it from here rather than re-deriving it. */
   assist: RunAssist;
+  /**
+   * The run's effective accuracy: keystroke accuracy when the run typed, else the validator's 1.
+   * This is what fed `score` and `submission`, not `validation.accuracy` — the two only ever
+   * differ on a run whose completing action typed.
+   */
+  accuracy: number;
+  /** Words per minute at five characters per word. Null when the run never typed. */
+  wpm: number | null;
   /**
    * The leaderboard-shaped summary of this run. Built for every completed run and sent nowhere.
    * Having the UI read it keeps the shape honest: it cannot rot into a type nothing produces.
@@ -140,11 +149,18 @@ export function useGameRun(
   const buildFinished = useCallback(
     (validation: ValidationResult, now: number, runStartedAt: number): FinishedRun => {
       const elapsedMs = now - runStartedAt;
+
+      // The one place the two mistake signals meet the score. Validators stay end-state-only
+      // (DECISIONS.md); the run engine is what knows how the value was produced.
+      const keystrokeAcc = keystrokeAccuracy(eventsRef.current);
+      const accuracy = keystrokeAcc ?? validation.accuracy;
+      const wpm = typingWpm(eventsRef.current, elapsedMs);
+
       const score = scoreRun({
         elapsedMs,
         correctness: validation.correctness,
         completionPercent: validation.completionPercent,
-        accuracy: validation.accuracy,
+        accuracy,
         basePoints: challenge.scoring.basePoints,
         targetSeconds: challenge.scoring.targetSeconds,
         comboMultiplier: getComboMultiplier?.() ?? 1,
@@ -201,13 +217,23 @@ export function useGameRun(
         score: score.score,
         correctness: validation.correctness,
         completionPercent: validation.completionPercent,
-        accuracy: validation.accuracy,
+        accuracy,
         startedAtMs: runStartedAt,
         finishedAtMs: now,
         events: eventsRef.current,
       });
 
-      return { validation, score, elapsedMs, previousBest, isNewRecord, assist, submission };
+      return {
+        validation,
+        score,
+        elapsedMs,
+        previousBest,
+        isNewRecord,
+        assist,
+        accuracy,
+        wpm,
+        submission,
+      };
     },
     [challenge, mode, submit, getBest, recordPersonalBest, assist, requireKeyboardPure, getComboMultiplier],
   );
