@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import { challenges } from "@/data/challenges";
 import { generatedTemplates } from "@/data/challenges/generated";
 import { DATASET_THEMES } from "@/data/datasets/themes";
-import type { Challenge, ChallengeDifficulty } from "@/domain/challenges/challengeTypes";
+import type {
+  Challenge,
+  ChallengeDifficulty,
+  LeafValidationSpec,
+} from "@/domain/challenges/challengeTypes";
 import { generateVariant } from "@/domain/challenges/generateVariant";
 import type { ChallengeTemplate, ChallengeVariant } from "@/domain/challenges/variantTypes";
 import { COMMAND_REGISTRY } from "@/domain/commands/commandRegistry";
@@ -53,6 +57,10 @@ function isComplete(challenge: Challenge, grid: GridState): boolean {
  * This is what makes a route a claim rather than a decoration. The solver could be searching a space
  * that has drifted from the one the app runs in; a replay ending in a grid the real validator grades
  * complete is the proof that it has not.
+ *
+ * `COMMIT_EDIT` is the one step that reads `editBuffer` at all (§the edit lifecycle); every other
+ * command ignores it, so handing it the step's own `argument` here — and `null` everywhere else — is
+ * exactly what a player's keystrokes would leave sitting in the buffer at the moment they commit.
  */
 function replay(challenge: Challenge, route: Route): GridState {
   let grid = challenge.initialGrid;
@@ -60,7 +68,12 @@ function replay(challenge: Challenge, route: Route): GridState {
   let anchor: CellAddress = grid.activeCell;
 
   for (const step of route.steps) {
-    const action = resolveCommand(step.command, { grid, focus, anchor, editBuffer: null });
+    const action = resolveCommand(step.command, {
+      grid,
+      focus,
+      anchor,
+      editBuffer: step.command === "COMMIT_EDIT" ? (step.argument ?? null) : null,
+    });
 
     if (action === null) {
       throw new Error(`${challenge.id}: ${step.command} resolved to nothing mid-route.`);
@@ -330,6 +343,71 @@ describe("solveRoute — the routes the hand-authored notes get wrong", () => {
 
     expect(isComplete(easy, replay(easy, easyRoute))).toBe(true);
     expect(isComplete(hard, replay(hard, hardRoute))).toBe(true);
+  });
+});
+
+/**
+ * Task 2.6: typing tasks (`cell-value`, `formula`) are routed, never searched. The BFS stays sound
+ * over `KEYBOARD_COMMANDS` only because `COMMIT_EDIT` is off-limits to it (§1.3); these tests pin
+ * that the solver still produces a route for a typing drill — navigation, plus exactly one commit —
+ * rather than quietly falling through to `null`.
+ */
+describe("solveRoute — typing tasks route as navigation plus one authored commit", () => {
+  it("routes a typing task as navigation plus one commit", () => {
+    const variant = draw("gen.formula.sum-column", "typing-route", 3);
+    const routes = solveRoute(variant);
+
+    expect(routes).not.toBeNull();
+
+    const route = (routes as Route[])[0];
+    const steps = route.steps;
+
+    expect(steps.at(-1)).toMatchObject({ command: "COMMIT_EDIT", cost: 1 });
+    expect(steps.slice(0, -1).every((step) => step.command !== "COMMIT_EDIT")).toBe(true);
+    expect(route.keyboardComplete).toBe(true);
+  });
+
+  it.each(["gen.formula.sum-column", "gen.formula.average-column", "gen.formula.copy-value"])(
+    "%s: replaying the typing route through the real reducer passes the real validator",
+    (id) => {
+      for (const difficulty of DIFFICULTIES) {
+        const variant = draw(id, `typing-replay-${id}-${difficulty}`, difficulty);
+        const routes = solveRoute(variant);
+
+        expect(routes).not.toBeNull();
+
+        const route = (routes as Route[])[0];
+
+        expect(isComplete(variant, variant.initialGrid)).toBe(false);
+        expect(isComplete(variant, replay(variant, route))).toBe(true);
+      }
+    },
+  );
+
+  it("refuses composites that contain a typing leaf", () => {
+    const variant = draw("gen.formula.sum-column", "typing-composite", 3);
+    const compositeWithTypingLeaf: Challenge = {
+      ...variant,
+      validation: {
+        kind: "composite",
+        parts: [
+          { kind: "navigation", requiredCell: variant.initialGrid.activeCell },
+          variant.validation as LeafValidationSpec,
+        ],
+      },
+    };
+
+    expect(solveRoute(compositeWithTypingLeaf)).toBeNull();
+  });
+
+  it("never proposes an edit command for a non-typing challenge", () => {
+    const variant = draw("gen.navigation.last-in-column", "no-typing", 3);
+    const routes = solveRoute(variant);
+
+    expect(routes).not.toBeNull();
+    expect(
+      (routes as Route[]).flatMap((route) => route.steps.map((step) => step.command)),
+    ).not.toContain("COMMIT_EDIT");
   });
 });
 

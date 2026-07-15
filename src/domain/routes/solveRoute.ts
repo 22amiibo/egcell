@@ -652,6 +652,66 @@ function solveComposite(
 }
 
 /**
+ * Typing is never searched. The BFS is sound only over `KEYBOARD_COMMANDS` — a finite set of grid
+ * commands whose effect on a state the search already enumerates — and "what string does this
+ * challenge want" is not a finite set of anything; searching over strings is what `EDIT_COMMANDS`
+ * being excluded from `KEYBOARD_COMMANDS` already prevents (Task 1.3).
+ *
+ * So a typing task is split in two: a navigation leg, solved by recursing into `solveRoute` against
+ * a *synthetic* navigation challenge that targets the typing cell (reusing the exact search the
+ * `navigation` family already gets); and one authored step, `COMMIT_EDIT`, appended after it. The
+ * commit is never discovered — it is asserted from the spec itself, which already knows the one
+ * right formula (`acceptedFormulas[0]`) or the one right literal (`expected`). There is nothing to
+ * search: the spec *is* the answer.
+ *
+ * A zero-step navigation leg — the drill starts on the typing cell — is a legitimate route: the
+ * whole thing is the one commit.
+ */
+function solveTypingRoute(
+  challenge: Challenge,
+  spec: Extract<LeafValidationSpec, { kind: "cell-value" | "formula" }>,
+  settings: Required<SolveOptions>,
+): Route[] | null {
+  const target = spec.cell;
+  const navChallenge: Challenge = {
+    ...challenge,
+    validation: { kind: "navigation", requiredCell: { row: target.row, col: target.col } },
+    allowedActions: ["select-cell"],
+  };
+
+  const navRoutes = solveRoute(navChallenge, settings);
+
+  if (navRoutes === null) {
+    return null;
+  }
+
+  const argument =
+    spec.kind === "formula"
+      ? spec.acceptedFormulas[0]
+      : spec.expected.kind === "number"
+        ? String(spec.expected.value)
+        : spec.expected.value;
+
+  const typedStep: RouteStep = {
+    command: "COMMIT_EDIT",
+    label: `Type ${argument} and press Enter`,
+    argument,
+    cost: 1,
+  };
+
+  return navRoutes.map((route) => ({
+    ...route,
+    id: `${route.id}+type`,
+    steps: [...route.steps, typedStep],
+    optimalActions: route.optimalActions + 1,
+    optimalCost: route.optimalCost + 1,
+    // keyboardComplete stays whatever the nav leg computed: COMMIT_EDIT is hotkeyEligible (it is in
+    // EDIT_COMMANDS), and the nav leg's own steps are all keyboard commands by construction, so
+    // appending one more hotkey-eligible step can never turn a keyboard-complete route incomplete.
+  }));
+}
+
+/**
  * The fastest keyboard route(s) to a challenge, or `null` when the search cannot prove one inside
  * its budget. Never a partial or best-effort route: `null` means the card says "no fastest path is
  * available for this drill", and it never invents one.
@@ -665,6 +725,19 @@ function solveComposite(
 export function solveRoute(challenge: Challenge, options: SolveOptions = {}): Route[] | null {
   const settings = { ...DEFAULTS, ...options };
   const spec = challenge.validation;
+
+  if (spec.kind === "cell-value" || spec.kind === "formula") {
+    return solveTypingRoute(challenge, spec, settings);
+  }
+
+  if (
+    spec.kind === "composite" &&
+    spec.parts.some((part) => part.kind === "cell-value" || part.kind === "formula")
+  ) {
+    // BFS over strings is unsound, and interleaving typed parts of a composite is out of scope for
+    // v1. Null is the honest "no fastest path recorded" the result card already renders.
+    return null;
+  }
 
   if (spec.kind === "composite") {
     return solveComposite(challenge, spec.parts, settings);
