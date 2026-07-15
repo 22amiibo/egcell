@@ -5,20 +5,23 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type PointerEvent,
   type RefObject,
 } from "react";
 
+import { CellEditor } from "@/components/grid/CellEditor";
 import { CellView } from "@/components/grid/CellView";
 import { ColumnHeader } from "@/components/grid/ColumnHeader";
 import { FilterMenu, filterMenuOptions } from "@/components/grid/FilterMenu";
 import { RowHeader } from "@/components/grid/RowHeader";
 import { SelectionOverlay } from "@/components/grid/SelectionOverlay";
-import { cellLeft, getGridMetrics } from "@/components/grid/gridMetrics";
+import { cellLeft, cellTop, getGridMetrics, type GridMetrics } from "@/components/grid/gridMetrics";
 import type { ActionMeta, GridCommandId } from "@/domain/commands/commandTypes";
 import { matchChord } from "@/domain/commands/keymap";
 import { nextFocusAnchor, resolveCommand } from "@/domain/commands/resolveCommand";
+import { EDIT_IDLE, editInput, parseCellInput, startEdit, type EditState } from "@/domain/grid/editing";
 import type {
   CellAddress,
   GridAction,
@@ -27,7 +30,12 @@ import type {
 } from "@/domain/grid/gridTypes";
 import type { GridDensity, Settings } from "@/domain/settings/themes";
 import { cellKey } from "@/domain/grid/range";
-import { isCellSelected, renderedRows, visibleDataRows } from "@/domain/grid/selectors";
+import {
+  isCellSelected,
+  renderedRowIndex,
+  renderedRows,
+  visibleDataRows,
+} from "@/domain/grid/selectors";
 
 /** Commands whose action the challenge can disable, the same way the toolbar gates its buttons. */
 const SET_FORMAT_COMMANDS = new Set<GridCommandId>([
@@ -55,6 +63,22 @@ function updateRefsForAction(
 
   anchorRef.current = next.anchor;
   focusRef.current = next.focus;
+}
+
+/**
+ * Where the editor sits over the active cell. The editor only ever opens on `grid.activeCell`,
+ * which is always rendered, so `drawnRow` is non-null in practice — the null guard is honesty
+ * about `renderedRowIndex`'s type, not a real code path.
+ */
+function cellRectStyle(grid: GridState, metrics: GridMetrics, cell: CellAddress): CSSProperties {
+  const drawnRow = renderedRowIndex(grid, cell.row);
+
+  return {
+    left: cellLeft(metrics, cell.col),
+    top: drawnRow === null ? 0 : cellTop(metrics, drawnRow),
+    width: metrics.colWidth,
+    height: metrics.rowHeight,
+  };
 }
 
 type SpreadsheetGridProps = {
@@ -127,6 +151,10 @@ export function SpreadsheetGrid({
     (kind: GridActionKind) => allowedActions === undefined || allowedActions.includes(kind),
     [allowedActions],
   );
+
+  // The in-cell editor's buffer. Lives outside the reducer (see editing.ts's doc comment): the
+  // reducer sees one atomic set-cell-value commit, never a keystroke.
+  const [editState, setEditState] = useState<EditState>(EDIT_IDLE);
 
   // FilterMenu owns no focus or keydown of its own (§1a.10 of the plan) — handleKeyDown below
   // intercepts arrows/Enter/Escape while it's open, so DOM focus never leaves the grid container.
@@ -319,6 +347,12 @@ export function SpreadsheetGrid({
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
+      // The editor's own <input> owns every key while it's open (CellEditor.tsx's onKeyDown,
+      // which stops propagation on Enter/Tab/Escape). This is belt-and-braces for a bubbled event.
+      if (editState.mode === "editing") {
+        return;
+      }
+
       // The menu owns arrows/Enter/Escape while it's open — it has no keydown listener of its own
       // (§1a.10), so every other key is a no-op rather than falling through to grid movement.
       if (filterMenuOpen) {
@@ -375,6 +409,20 @@ export function SpreadsheetGrid({
       const match = matchChord(event);
 
       if (match === null) {
+        // A printable character with no chord of its own (a bare letter or digit) seeds the
+        // editor with it, the way Excel does — but only when the challenge allows the commit
+        // that character will eventually produce.
+        if (
+          allows("set-cell-value") &&
+          event.key.length === 1 &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey
+        ) {
+          event.preventDefault();
+          setEditState(startEdit(grid.activeCell, event.key));
+        }
+
         return;
       }
 
@@ -385,6 +433,18 @@ export function SpreadsheetGrid({
           event.preventDefault();
           setFilterMenuOpen(true);
           setFilterMenuHighlight(0);
+        }
+
+        return;
+      }
+
+      // The edit lifecycle's open step. Resolves to null in resolveCommand (the buffer lives
+      // outside the reducer), so it must be intercepted here rather than falling through to the
+      // generic resolve path below, which would silently no-op it.
+      if (command === "START_EDIT") {
+        if (allows("set-cell-value")) {
+          event.preventDefault();
+          setEditState(startEdit(grid.activeCell));
         }
 
         return;
@@ -427,12 +487,44 @@ export function SpreadsheetGrid({
       grid,
       onAction,
       allows,
+      editState,
       filterMenuOpen,
       menuOptions,
       highlightedIndex,
       closeFilterMenu,
     ],
   );
+
+  // Commit and cancel both hand focus straight back to the grid container — the editor is the
+  // one place DOM focus deliberately leaves it, and neither exit may leave it stranded there.
+  const commitEdit = (chord: "Enter" | "Tab") => {
+    if (editState.mode !== "editing") {
+      return;
+    }
+
+    onAction(
+      {
+        kind: "set-cell-value",
+        cell: editState.cell,
+        value: parseCellInput(editState.buffer, grid),
+      },
+      {
+        command: "COMMIT_EDIT",
+        inputMethod: "keyboard",
+        via: "shortcut",
+        chord,
+        controlId: null,
+        keystrokes: { chars: editState.chars, corrections: editState.corrections },
+      },
+    );
+    setEditState(EDIT_IDLE);
+    containerRef.current?.focus({ preventScroll: true });
+  };
+
+  const cancelEdit = () => {
+    setEditState(EDIT_IDLE);
+    containerRef.current?.focus({ preventScroll: true });
+  };
 
   const isColumnSelected = (col: number) =>
     grid.selection.kind === "column" && grid.selection.col === col;
@@ -549,6 +641,16 @@ export function SpreadsheetGrid({
       )}
 
       <SelectionOverlay grid={grid} metrics={presentation.metrics} />
+
+      {editState.mode === "editing" && (
+        <CellEditor
+          buffer={editState.buffer}
+          onInput={(next) => setEditState((current) => editInput(current, next))}
+          onCommit={commitEdit}
+          onCancel={cancelEdit}
+          style={cellRectStyle(grid, presentation.metrics, editState.cell)}
+        />
+      )}
 
       {filterMenuOpen && (
         <FilterMenu

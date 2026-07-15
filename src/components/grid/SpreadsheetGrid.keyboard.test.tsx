@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { SpreadsheetGrid } from "@/components/grid/SpreadsheetGrid";
@@ -301,5 +302,68 @@ describe("filter toggle shortcut (mod+Shift+L)", () => {
     fireEvent.keyDown(container, { key: "l", ctrlKey: true, shiftKey: true });
 
     expect(onAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("cell editor", () => {
+  it("F2 opens the editor on the active cell and Enter commits", async () => {
+    const user = userEvent.setup();
+    const activeCell = { row: 0, col: 0 };
+    const grid: GridState = { ...createRevenueGrid(), activeCell };
+    const { onAction, container } = renderGrid(grid, ["select-cell", "set-cell-value"]);
+
+    await user.keyboard("{F2}");
+    await user.keyboard("42{Enter}");
+
+    expect(onAction).toHaveBeenLastCalledWith(
+      { kind: "set-cell-value", cell: activeCell, value: { kind: "number", value: 42 } },
+      {
+        command: "COMMIT_EDIT",
+        inputMethod: "keyboard",
+        via: "shortcut",
+        chord: "Enter",
+        controlId: null,
+        keystrokes: { chars: 2, corrections: 0 },
+      },
+    );
+    expect(screen.queryByRole("textbox", { name: /edit cell/i })).not.toBeInTheDocument();
+    // Focus must return to the grid container — an arrow key right after Enter has to move the
+    // active cell, not vanish into a detached, blurred-out input.
+    expect(container).toHaveFocus();
+  });
+
+  it("a printable character opens the editor seeded with it", async () => {
+    const user = userEvent.setup();
+    renderGrid(createRevenueGrid(), ["select-cell", "set-cell-value"]);
+
+    await user.keyboard("h");
+
+    expect(screen.getByRole("textbox", { name: /edit cell/i })).toHaveValue("h");
+  });
+
+  it("Escape cancels without dispatching", async () => {
+    const user = userEvent.setup();
+    const { onAction, container } = renderGrid(createRevenueGrid(), [
+      "select-cell",
+      "set-cell-value",
+    ]);
+
+    await user.keyboard("{F2}abc{Escape}");
+
+    expect(onAction).not.toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "set-cell-value" }),
+      expect.anything(),
+    );
+    expect(screen.queryByRole("textbox", { name: /edit cell/i })).not.toBeInTheDocument();
+    expect(container).toHaveFocus();
+  });
+
+  it("F2 does nothing when the challenge does not allow editing", async () => {
+    const user = userEvent.setup();
+    renderGrid(createRevenueGrid(), ["select-cell"]);
+
+    await user.keyboard("{F2}");
+
+    expect(screen.queryByRole("textbox", { name: /edit cell/i })).not.toBeInTheDocument();
   });
 });
