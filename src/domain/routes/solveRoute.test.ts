@@ -362,7 +362,13 @@ describe("solveRoute — typing tasks route as navigation plus one authored comm
     const route = (routes as Route[])[0];
     const steps = route.steps;
 
-    expect(steps.at(-1)).toMatchObject({ command: "COMMIT_EDIT", cost: 1 });
+    // The label comes from the registry, same as every other step (§stepFor) — never an
+    // authored string baked into the typing branch.
+    expect(steps.at(-1)).toMatchObject({
+      command: "COMMIT_EDIT",
+      label: COMMAND_REGISTRY.COMMIT_EDIT.description,
+      cost: 1,
+    });
     expect(steps.slice(0, -1).every((step) => step.command !== "COMMIT_EDIT")).toBe(true);
     expect(route.keyboardComplete).toBe(true);
   });

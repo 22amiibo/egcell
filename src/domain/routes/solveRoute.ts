@@ -694,7 +694,7 @@ function solveTypingRoute(
 
   const typedStep: RouteStep = {
     command: "COMMIT_EDIT",
-    label: `Type ${argument} and press Enter`,
+    label: COMMAND_REGISTRY.COMMIT_EDIT.description,
     argument,
     cost: 1,
   };
