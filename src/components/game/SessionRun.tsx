@@ -22,6 +22,7 @@ import { createNewSessionSeed } from "@/domain/random/seeds";
 import { compareRoute } from "@/domain/routes/compareRoute";
 import { getRoutes } from "@/domain/routes/routeCache";
 import { runRecordForSession, type NewRunRecord } from "@/domain/runs/runRecord";
+import type { RunEvent } from "@/domain/runs/runTypes";
 import {
   advanceCombo,
   comboMultiplier,
@@ -63,6 +64,12 @@ type SessionRunProps = {
   sessionRecords: LocalSessionRecords;
   /** Lets the shell log the finished session to the run log. */
   recordHistory?: (entry: NewRunRecord) => void;
+  /**
+   * Feeds one task's replay events into the per-command stats store, once per task. Optional, same
+   * reasoning as `recordHistory`: a component test that only cares about the session itself need
+   * not wire one up.
+   */
+  foldCommands?: (events: RunEvent[]) => void;
   /**
    * Pins the queue seed, for tests and shared runs. With an override, retry re-races the exact
    * same queue; without one, every attempt draws a fresh queue, like a fresh Monkeytype test.
@@ -310,6 +317,7 @@ export function SessionRun({
   personalRecords,
   sessionRecords,
   recordHistory,
+  foldCommands,
   seedOverride,
   createSessionSeed = createNewSessionSeed,
 }: SessionRunProps) {
@@ -412,6 +420,10 @@ export function SessionRun({
       setTasks(next);
 
       const replayEvents = finished.submission.replayEvents;
+      // This task's own events. Unlike Ascent, nothing here accumulates a run-wide event log to
+      // fold by mistake — but the rule is the same: once per task, not once per session.
+      foldCommands?.(replayEvents);
+
       // The solve was warmed off the render path (`useWarmRoutes`), so this is a cache hit rather
       // than the difficulty-5 cost of a fresh search landing here, mid-session.
       const routes = getRoutes(challenge);
@@ -461,7 +473,7 @@ export function SessionRun({
         setTaskIndex(next.length);
       }
     },
-    [challenge, plan, finishSession, deadlineAtMs],
+    [challenge, plan, finishSession, deadlineAtMs, foldCommands],
   );
 
   const retry = useCallback(() => {

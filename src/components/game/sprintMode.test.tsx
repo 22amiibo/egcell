@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { GameShell } from "@/components/game/GameShell";
 import { buildSessionQueue } from "@/data/challenges/queue";
+import { COMMAND_STATS_KEY, type CommandStatsStore } from "@/domain/mastery/commandMastery";
 import { scoreRun } from "@/domain/scoring/scoreRun";
 import { solveChallengeDom } from "@/test/solveVariantDom";
 
@@ -173,5 +174,27 @@ describe("sprint mode", () => {
     }).score;
 
     expect(secondTaskScore).toBe(Math.round(bareScore * 1.1));
+  });
+
+  it("feeds the per-command stats store as each task in the sprint completes", async () => {
+    render(<GameShell />);
+
+    await startSprintFive();
+    completeAllFiveTasks();
+
+    expect(screen.getByTestId("session-result-card")).toBeVisible();
+
+    // No spy here — SessionRun has no dedicated component-test harness of its own (unlike
+    // AscentRun), so this proves the same wiring end to end: five real tasks solved through the
+    // DOM leave real counts in the real `localStorage`-backed store, through `GameShell`'s actual
+    // `useCommandStats` instance rather than an injected mock.
+    const raw = window.localStorage.getItem(COMMAND_STATS_KEY);
+
+    expect(raw).not.toBeNull();
+
+    const stored = JSON.parse(raw as string) as CommandStatsStore;
+    const totalUses = Object.values(stored).reduce((sum, stat) => sum + (stat?.uses ?? 0), 0);
+
+    expect(totalUses).toBeGreaterThan(0);
   });
 });

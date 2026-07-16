@@ -25,6 +25,7 @@ import { compareRoute } from "@/domain/routes/compareRoute";
 import { getRoutes } from "@/domain/routes/routeCache";
 import { runRecordForChallenge } from "@/domain/runs/runRecord";
 import type { SessionMode } from "@/domain/sessions/sessionTypes";
+import { useCommandStats } from "@/hooks/useCommandStats";
 import type { FinishedRun } from "@/hooks/useGameRun";
 import { useLocalAscentRecords } from "@/hooks/useLocalAscentRecords";
 import { useLocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
@@ -165,13 +166,19 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
   const ascentRecords = useLocalAscentRecords();
   const records = useLocalPersonalRecords();
   const sessionRecords = useLocalSessionRecords();
+  const commandStats = useCommandStats();
   const history = useRunLog();
 
   const { record: recordHistory } = history;
+  const { fold: foldCommands } = commandStats;
 
   // Every finished single run lands in the run log, practice included.
   const recordSingleRun = useCallback(
     (finished: FinishedRun) => {
+      // Single-challenge play is one task, one run: exactly one fold, same as one task inside a
+      // session or a climb.
+      foldCommands(finished.submission.replayEvents);
+
       // The run is over, so the solve is allowed to cost something here (§6.3) — and it costs it
       // once: `getRoutes` memoises per challenge and seed, so the result card mounting a moment
       // later reads the same entry instead of searching again.
@@ -202,7 +209,7 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
         }),
       );
     },
-    [recordHistory, challenge, play],
+    [recordHistory, challenge, play, foldCommands],
   );
 
   // Records are keyed by mode, so a practice best can never be mistaken for a speed best, and
@@ -411,6 +418,7 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
               records={records}
               ascentRecords={ascentRecords}
               recordHistory={recordHistory}
+              foldCommands={foldCommands}
             />
           ) : play.kind === "single" ? (
             <ChallengeRun
@@ -428,6 +436,7 @@ function HydratedGameShell({ params, createSessionSeed }: HydratedGameShellProps
               personalRecords={records}
               sessionRecords={sessionRecords}
               recordHistory={recordHistory}
+              foldCommands={foldCommands}
               seedOverride={params.get("sessionSeed")}
               createSessionSeed={createSessionSeed}
             />

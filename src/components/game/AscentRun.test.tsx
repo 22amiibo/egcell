@@ -18,6 +18,7 @@ import {
 } from "@/domain/records/ascentRecords";
 import type { LocalAscentRecords } from "@/hooks/useLocalAscentRecords";
 import type { LocalPersonalRecords } from "@/hooks/useLocalPersonalRecords";
+import type { RunEvent } from "@/domain/runs/runTypes";
 import { formatScore } from "@/lib/format";
 import { solveChallengeDom } from "@/test/solveVariantDom";
 
@@ -347,5 +348,62 @@ describe("AscentRun banking", () => {
     expect(screen.getByTestId("ascent-result-card")).toBeVisible();
     expect(screen.queryByText("WPM")).not.toBeInTheDocument();
     expect(screen.queryByText("Accuracy")).not.toBeInTheDocument();
+  });
+});
+
+describe("AscentRun command stats", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("folds each task's own replay events exactly once — never the run-wide accumulator", () => {
+    const foldCommands = vi.fn();
+
+    render(
+      <AscentRun
+        runSeed={RUN_SEED}
+        durationSeconds={SHORT_CLOCK_SECONDS}
+        records={records}
+        ascentRecords={makeAscentRecordsStore()}
+        foldCommands={foldCommands}
+      />,
+    );
+
+    const climb = makeClimb();
+
+    // Task 1 clears well inside the deadline, so the climb keeps going...
+    climb.clear(true);
+    expect(foldCommands).toHaveBeenCalledTimes(1);
+
+    // ...and task 2 lands after it, ending the climb at exactly two tasks.
+    vi.setSystemTime(6000);
+    climb.clear(true);
+
+    expect(screen.getByTestId("ascent-result-card")).toBeVisible();
+    expect(screen.getByTestId("ascent-tasks")).toHaveTextContent("2 tasks");
+
+    // Exactly once per task, never once per run — a run-end-only fold, or a fold of every task's
+    // accumulated history, would both fail this count in different ways.
+    expect(foldCommands).toHaveBeenCalledTimes(2);
+
+    const firstTaskEvents = foldCommands.mock.calls[0][0] as RunEvent[];
+    const secondTaskEvents = foldCommands.mock.calls[1][0] as RunEvent[];
+
+    expect(firstTaskEvents.length).toBeGreaterThan(0);
+    expect(secondTaskEvents.length).toBeGreaterThan(0);
+
+    // The guard against the accumulator bug: `replayEventsRef.current` (the run-wide log) holds
+    // task 1's exact event objects, then appends task 2's onto the same array. Folding that ref
+    // instead of `finished.submission.replayEvents` would carry task 1's own event objects forward
+    // into task 2's call too, silently inflating every stat a second time.
+    for (const firstTaskEvent of firstTaskEvents) {
+      expect(secondTaskEvents).not.toContain(firstTaskEvent);
+    }
   });
 });

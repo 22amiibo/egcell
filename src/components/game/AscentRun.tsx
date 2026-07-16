@@ -232,6 +232,12 @@ type AscentRunProps = {
    * component test that only cares about the ladder itself need not wire one up.
    */
   recordHistory?: (entry: NewRunRecord) => void;
+  /**
+   * Feeds one task's replay events into the per-command stats store, once per task. Optional, same
+   * reasoning as `recordHistory`: a component test that only cares about the ladder itself need not
+   * wire one up.
+   */
+  foldCommands?: (events: RunEvent[]) => void;
   /** UI-boundary injection keeps retry's seed assertions deterministic in tests. */
   createSessionSeed?: () => string;
 };
@@ -247,6 +253,7 @@ export function AscentRun({
   records,
   ascentRecords,
   recordHistory,
+  foldCommands,
   createSessionSeed = createNewSessionSeed,
 }: AscentRunProps) {
   const { settings } = useSettings();
@@ -337,6 +344,11 @@ export function AscentRun({
       });
       const completed = outcome === "completed";
 
+      // This task's own events, not `replayEventsRef` below — that ref concatenates every task
+      // played so far, and folding it here would count task 1's events again on every later task's
+      // fold, silently inflating every command's stats a second (and third, and fourth...) time.
+      foldCommands?.(finished.submission.replayEvents);
+
       // Recorded synchronously (a ref, not state) so it is already settled by the time the
       // bank-once effect reads it on the same render that flips `ended` true.
       replayEventsRef.current = [...replayEventsRef.current, ...finished.submission.replayEvents];
@@ -373,7 +385,7 @@ export function AscentRun({
         setTaskIndex((index) => index + 1);
       }
     },
-    [variant, ascent, deadlineAtMs],
+    [variant, ascent, deadlineAtMs, foldCommands],
   );
 
   const retry = useCallback(() => {
