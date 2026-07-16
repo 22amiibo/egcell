@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { chordLabel, matchChord, type ChordEvent } from "@/domain/commands/keymap";
+import {
+  chordLabel,
+  commandChordLabel,
+  matchChord,
+  type ChordEvent,
+} from "@/domain/commands/keymap";
 
 function keydown(overrides: Partial<ChordEvent> & { key: string }): ChordEvent {
   return {
@@ -103,5 +108,22 @@ describe("chordLabel", () => {
   it("returns null for a command with no top-level chord — menu-only commands included", () => {
     expect(chordLabel("SORT_ASC", "windows")).toBeNull();
     expect(chordLabel("CLEAR_FILTERS", "mac")).toBeNull();
+  });
+});
+
+describe("commandChordLabel", () => {
+  it("returns the direct chord label for a command that has one, same as chordLabel", () => {
+    expect(commandChordLabel("JUMP_DOWN", "windows")).toBe("Ctrl + ↓");
+    expect(commandChordLabel("JUMP_DOWN", "mac")).toBe("Cmd + ↓");
+  });
+
+  it("falls back to the filter-menu route for a FILTER_MENU_COMMANDS member, platform-labelled", () => {
+    expect(commandChordLabel("SORT_ASC", "windows")).toBe("Alt + ↓, then choose");
+    expect(commandChordLabel("SORT_ASC", "mac")).toBe("Option + ↓, then choose");
+  });
+
+  it("returns null for a pointer-only command with no keyboard route at all", () => {
+    expect(commandChordLabel("CLICK_CELL", "windows")).toBeNull();
+    expect(commandChordLabel("CLICK_CELL", "mac")).toBeNull();
   });
 });

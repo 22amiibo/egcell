@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { CategorySelector } from "@/components/profile/CategorySelector";
+import { CommandCodex } from "@/components/profile/CommandCodex";
 import { MasteryPanel } from "@/components/profile/MasteryPanel";
 import { PerformanceChart } from "@/components/profile/PerformanceChart";
 import { RecentRuns } from "@/components/profile/RecentRuns";
@@ -17,6 +18,7 @@ import {
   type PerformanceMetricId,
 } from "@/domain/stats/categories";
 import { buildSeries } from "@/domain/stats/performanceSeries";
+import { useCommandStats } from "@/hooks/useCommandStats";
 import { useRunLog } from "@/hooks/useRunLog";
 import { useSettings } from "@/hooks/useSettings";
 import { formatElapsed, formatScore } from "@/lib/format";
@@ -59,6 +61,7 @@ function chartSelection(storedCategory: string, storedMetric: string) {
 
 export function ProfilePanel() {
   const { log } = useRunLog();
+  const { stats: commandStats } = useCommandStats();
   const { settings, setSettings } = useSettings();
   const { categoryId, metricId } = chartSelection(
     settings.stats.categoryId,
@@ -175,6 +178,8 @@ export function ProfilePanel() {
           </section>
 
           <RecentRuns runs={recent} totalRuns={totals.runs} />
+
+          <CommandCodex stats={commandStats} />
         </div>
       </div>
     </main>

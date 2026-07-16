@@ -1,4 +1,4 @@
-import { COMMAND_REGISTRY } from "@/domain/commands/commandRegistry";
+import { COMMAND_REGISTRY, FILTER_MENU_COMMANDS } from "@/domain/commands/commandRegistry";
 import type { Chord, GridCommandId } from "@/domain/commands/commandTypes";
 import type { Platform } from "@/lib/platform";
 
@@ -121,4 +121,28 @@ export function chordLabel(command: GridCommandId, platform: Platform): string |
   const label = COMMAND_REGISTRY[command].label;
 
   return label === null ? null : label[platform];
+}
+
+/**
+ * What to press for a command, including the filter-menu fallback: a command reachable only by
+ * opening the filter menu (`FILTER_MENU_COMMANDS`) has no top-level chord of its own — `label` is
+ * `null` for it — but is not therefore mouse-only. Alt+↓ opens the menu, and the player chooses from
+ * there (§1a.10), so this returns that two-step instruction instead of leaving the step blank and
+ * implying a reach for the mouse. Extracted out of `FastestPathCard`'s original `stepChord`, which
+ * the Command Codex (Task 5.3) needs verbatim: one function, not two copies that can drift apart.
+ */
+export function commandChordLabel(command: GridCommandId, platform: Platform): string | null {
+  const direct = chordLabel(command, platform);
+
+  if (direct !== null) {
+    return direct;
+  }
+
+  if (!FILTER_MENU_COMMANDS.has(command)) {
+    return null;
+  }
+
+  const open = chordLabel("OPEN_FILTER_MENU", platform);
+
+  return open === null ? null : `${open}, then choose`;
 }

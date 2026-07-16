@@ -3,37 +3,14 @@
 import { useState } from "react";
 
 import { StatRow } from "@/components/game/StatRow";
-import { COMMAND_REGISTRY, FILTER_MENU_COMMANDS } from "@/domain/commands/commandRegistry";
-import type { GridCommandId } from "@/domain/commands/commandTypes";
-import { chordLabel } from "@/domain/commands/keymap";
+import { COMMAND_REGISTRY } from "@/domain/commands/commandRegistry";
+import { commandChordLabel } from "@/domain/commands/keymap";
 import type { Route, RouteStep } from "@/domain/routes/routeTypes";
 import type { FastestPath } from "@/hooks/useFastestPath";
 import type { Platform } from "@/lib/platform";
 
-/**
- * What to press for a step. A command with no chord of its own is not therefore mouse-only: sort and
- * filter are reached by opening the filter menu and choosing (§1a.10), which is a keyboard route and
- * is the whole reason those commands count as `hotkeyEligible`. The card says how to get there
- * rather than leaving the step blank and implying a player must reach for the mouse.
- */
-function stepChord(command: GridCommandId, platform: Platform): string | null {
-  const direct = chordLabel(command, platform);
-
-  if (direct !== null) {
-    return direct;
-  }
-
-  if (!FILTER_MENU_COMMANDS.has(command)) {
-    return null;
-  }
-
-  const open = chordLabel("OPEN_FILTER_MENU", platform);
-
-  return open === null ? null : `${open}, then choose`;
-}
-
 function StepRow({ step, index, platform }: { step: RouteStep; index: number; platform: Platform }) {
-  const chord = stepChord(step.command, platform);
+  const chord = commandChordLabel(step.command, platform);
   const label =
     step.argument === undefined
       ? COMMAND_REGISTRY[step.command].description
