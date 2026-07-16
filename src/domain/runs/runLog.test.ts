@@ -56,6 +56,9 @@ function newRecord(overrides: Partial<NewRunRecord> = {}): NewRunRecord {
     peakTier: null,
     wpm: null,
     keystrokeAccuracy: null,
+    peakComboStreak: null,
+    comboBreakCount: null,
+    comboOpportunityCount: null,
     assist: "none",
     integrity: "ok",
     isNewRecord: false,
@@ -316,6 +319,64 @@ describe("readRunLog", () => {
     const log = readRunLog(storage);
 
     expect(log.runs[0]).toMatchObject({ peakTier: 3, wpm: 61, keystrokeAccuracy: 0.88 });
+  });
+
+  it("normalizes peakComboStreak, comboBreakCount, and comboOpportunityCount to null on a row written before they existed", () => {
+    // Same additive-fill rule as peakTier/wpm/keystrokeAccuracy: no migration, no version bump —
+    // a pre-instrumentation row simply lacks the keys.
+    const legacyRow: Partial<RunRecord> = { ...record(0) };
+
+    delete legacyRow.peakComboStreak;
+    delete legacyRow.comboBreakCount;
+    delete legacyRow.comboOpportunityCount;
+
+    const storage = createMemoryJsonStorage({
+      [RUN_LOG_KEY]: { ...emptyLog(), runs: [legacyRow] },
+    });
+
+    const log = readRunLog(storage);
+
+    expect(log.runs).toHaveLength(1);
+    expect(log.runs[0]).toMatchObject({
+      peakComboStreak: null,
+      comboBreakCount: null,
+      comboOpportunityCount: null,
+    });
+  });
+
+  it("round-trips a row that already carries peakComboStreak, comboBreakCount, and comboOpportunityCount", () => {
+    const storage = createMemoryJsonStorage({
+      [RUN_LOG_KEY]: logOf(
+        record(0, { peakComboStreak: 6, comboBreakCount: 2, comboOpportunityCount: 9 }),
+      ),
+    });
+
+    const log = readRunLog(storage);
+
+    expect(log.runs[0]).toMatchObject({
+      peakComboStreak: 6,
+      comboBreakCount: 2,
+      comboOpportunityCount: 9,
+    });
+  });
+
+  it("keeps a stored zero distinct from a missing key — proves `?? null`, not `|| null`", () => {
+    const storage = createMemoryJsonStorage({
+      [RUN_LOG_KEY]: logOf(
+        record(0, { peakComboStreak: 0, comboBreakCount: 0, comboOpportunityCount: 0 }),
+      ),
+    });
+
+    const log = readRunLog(storage);
+
+    // `0 || null` would read as falsy and collapse to null, silently turning "built no combo yet,
+    // flawless" into the same value as "never applicable". `?? null` only substitutes for a truly
+    // missing (null/undefined) value, so a genuine zero survives the read.
+    expect(log.runs[0]).toMatchObject({
+      peakComboStreak: 0,
+      comboBreakCount: 0,
+      comboOpportunityCount: 0,
+    });
   });
 });
 

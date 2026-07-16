@@ -89,6 +89,11 @@ function recordFor(entry: RunHistoryEntry): RunRecord | null {
     wpm: null,
     keystrokeAccuracy: null,
 
+    // v1 predates the combo economy too — there is no streak to report for these rows.
+    peakComboStreak: null,
+    comboBreakCount: null,
+    comboOpportunityCount: null,
+
     // Not a default, a fact (§9.3): the help button did not exist when these runs were played, so
     // no code path could have revealed a hint during one. No legacy run can have been assisted.
     assist: "none",

@@ -56,6 +56,9 @@ export function normalizeRunRecord(record: RunRecord): RunRecord {
     peakTier: record.peakTier ?? null,
     wpm: record.wpm ?? null,
     keystrokeAccuracy: record.keystrokeAccuracy ?? null,
+    peakComboStreak: record.peakComboStreak ?? null,
+    comboBreakCount: record.comboBreakCount ?? null,
+    comboOpportunityCount: record.comboOpportunityCount ?? null,
   };
 }
 

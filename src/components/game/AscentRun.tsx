@@ -34,7 +34,9 @@ import {
   comboOutcomeFrom,
   COMBO_RESET,
   type ComboState,
+  type ComboTaskOutcome,
 } from "@/domain/scoring/combo";
+import { foldComboRunMetrics } from "@/domain/scoring/comboRunMetrics";
 import type { GridDensity, Settings } from "@/domain/settings/themes";
 import type { TaskOutcome } from "@/domain/sessions/sessionTypes";
 import { keystrokeAccuracy, typingCorrections, typingWpm } from "@/domain/stats/typingStats";
@@ -284,6 +286,10 @@ export function AscentRun({
   // appended synchronously inside `handleTaskFinished`, ahead of the state updates that flip
   // `ended` — which a state setter's own render delay could not guarantee.
   const replayEventsRef = useRef<RunEvent[]>([]);
+  // The exact outcome fed to `advanceCombo` for every task this climb, in order — folded once at
+  // bank time (`foldComboRunMetrics`) into the calibration metrics. Authoritative by construction:
+  // it is not recomputed from anything, it is the same signal that scored the combo.
+  const comboOutcomesRef = useRef<ComboTaskOutcome[]>([]);
   // Guards the bank-once effect below across a re-render after `ended` flips true (and React
   // Strict Mode's double effect invocation in development): without it, banking would run twice.
   const bankedRef = useRef(false);
@@ -364,10 +370,16 @@ export function AscentRun({
         },
       ]);
       setAscent(advanceAscent(stateBefore, { completed, underTarget: comboOutcome.underTarget }));
-      comboRef.current = advanceCombo(
-        comboRef.current,
-        completed ? comboOutcome : { underTarget: false, clean: false },
-      );
+
+      // A skip or an expiry breaks the chain outright, whatever the grid happened to look like at
+      // that moment — so this, not the bare `comboOutcome` above, is the exact outcome fed to
+      // `advanceCombo`, and the exact one captured for the run's combo metrics fold.
+      const advancedOutcome: ComboTaskOutcome = completed
+        ? comboOutcome
+        : { underTarget: false, clean: false };
+
+      comboOutcomesRef.current = [...comboOutcomesRef.current, advancedOutcome];
+      comboRef.current = advanceCombo(comboRef.current, advancedOutcome);
       setComboStreak(comboRef.current.streak);
       setBestStreak((previous) => Math.max(previous, comboRef.current.streak));
       setLastTemplateIds((previous) => [...previous, variant.templateId].slice(-2));
@@ -400,6 +412,7 @@ export function AscentRun({
     setEnded(false);
     setFrozenVariant(null);
     replayEventsRef.current = [];
+    comboOutcomesRef.current = [];
     bankedRef.current = false;
     setBankedOutcome(null);
     setAttempt((current) => current + 1);
@@ -437,7 +450,13 @@ export function AscentRun({
 
     const submission = submitAscentRecord(ascentRecordFromResult(result));
 
-    recordHistory?.(runRecordForAscent({ result, isNewRecord: submission.isNewRecord }));
+    // Folded once, here, from the exact outcomes each task advanced the live combo with — never
+    // recomputed from the tasks or the run events.
+    const comboMetrics = foldComboRunMetrics(comboOutcomesRef.current);
+
+    recordHistory?.(
+      runRecordForAscent({ result, isNewRecord: submission.isNewRecord, comboMetrics }),
+    );
 
     setBankedOutcome({
       result,

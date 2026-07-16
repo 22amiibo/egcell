@@ -247,7 +247,9 @@ describe("AscentRun banking", () => {
     expect(ascentRecords.getBest(SHORT_CLOCK_SECONDS)).toBeDefined();
     expect(screen.getByTestId("pr-badge")).toBeVisible();
 
-    // ...and the run log heard about it exactly once, shaped like an Ascent climb.
+    // ...and the run log heard about it exactly once, shaped like an Ascent climb — combo metrics
+    // included, since Ascent is a combo mode and always has a fold to report (even a run of all
+    // zeros is a real answer here, never the null a non-combo mode would carry).
     expect(recordHistory).toHaveBeenCalledTimes(1);
     expect(recordHistory).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -255,6 +257,9 @@ describe("AscentRun banking", () => {
         tasksCompleted: 2,
         taskCount: 2,
         isNewRecord: true,
+        peakComboStreak: expect.any(Number),
+        comboBreakCount: expect.any(Number),
+        comboOpportunityCount: expect.any(Number),
       }),
     );
 
@@ -348,6 +353,97 @@ describe("AscentRun banking", () => {
     expect(screen.getByTestId("ascent-result-card")).toBeVisible();
     expect(screen.queryByText("WPM")).not.toBeInTheDocument();
     expect(screen.queryByText("Accuracy")).not.toBeInTheDocument();
+  });
+
+  it("banks combo metrics that match the real streak the climb reached", () => {
+    const ascentRecords = makeAscentRecordsStore();
+    const recordHistory = vi.fn();
+
+    render(
+      <AscentRun
+        runSeed={RUN_SEED}
+        durationSeconds={SHORT_CLOCK_SECONDS}
+        records={records}
+        ascentRecords={ascentRecords}
+        recordHistory={recordHistory}
+      />,
+    );
+
+    const climb = makeClimb();
+
+    // A clean, instant first clear grows the streak to 1 without ending the climb — the deadline
+    // (5s) is nowhere near crossed yet.
+    climb.clear(true);
+    expect(screen.queryByTestId("ascent-result-card")).not.toBeInTheDocument();
+
+    // The second clear lands minutes past any plausible per-task target *and* past the run's own
+    // deadline — the same `clear(false)` trick the ladder tests above use to force an over-target
+    // grade, ending the climb in the same stroke and breaking the streak it just built.
+    vi.setSystemTime(600_000);
+    climb.clear(false);
+
+    expect(screen.getByTestId("ascent-result-card")).toBeVisible();
+    expect(screen.getByTestId("ascent-tasks")).toHaveTextContent("2 tasks");
+    expect(recordHistory).toHaveBeenCalledTimes(1);
+    // Faithful replay: the under-target-and-clean first clear grows the streak to 1 (the real peak
+    // this climb reached), the second clear is the one chance the streak had to continue or break
+    // (an active-combo opportunity), and it broke.
+    expect(recordHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        peakComboStreak: 1,
+        comboOpportunityCount: 1,
+        comboBreakCount: 1,
+      }),
+    );
+  });
+
+  it("resets combo outcomes on retry — the next climb's metrics carry none of the discarded run's streak", () => {
+    const ascentRecords = makeAscentRecordsStore();
+    const recordHistory = vi.fn();
+    // Retry always draws a fresh climb; pinning it to the same seed keeps `makeClimb` a valid
+    // mirror across the retry, exactly as the book-comparison test above does.
+    const pinnedSeed = () => RUN_SEED;
+
+    render(
+      <AscentRun
+        runSeed={RUN_SEED}
+        durationSeconds={SHORT_CLOCK_SECONDS}
+        records={records}
+        ascentRecords={ascentRecords}
+        recordHistory={recordHistory}
+        createSessionSeed={pinnedSeed}
+      />,
+    );
+
+    // Run 1: a clean clear builds a streak of 1, then a forced-slow second clear breaks it and
+    // banks the climb — the same two-task shape the faithful-replay test above proves out.
+    const firstClimb = makeClimb();
+
+    firstClimb.clear(true);
+    vi.setSystemTime(600_000);
+    firstClimb.clear(false);
+
+    expect(recordHistory).toHaveBeenCalledTimes(1);
+    expect(recordHistory).toHaveBeenCalledWith(
+      expect.objectContaining({ peakComboStreak: 1, comboOpportunityCount: 1, comboBreakCount: 1 }),
+    );
+
+    vi.setSystemTime(0);
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    // Run 2: a single forced-slow clear, with no clean clear first. If `comboOutcomesRef` carried
+    // run 1's two outcomes forward instead of resetting, this run's fold would replay run 1's clean
+    // clear and its break first — reporting a peak of 1 and an opportunity/break of 1 instead of
+    // the true, empty-streak shape of a climb that never once had an active combo.
+    vi.setSystemTime(600_000);
+    const secondClimb = makeClimb();
+
+    secondClimb.clear(false);
+
+    expect(recordHistory).toHaveBeenCalledTimes(2);
+    expect(recordHistory).toHaveBeenLastCalledWith(
+      expect.objectContaining({ peakComboStreak: 0, comboOpportunityCount: 0, comboBreakCount: 0 }),
+    );
   });
 });
 

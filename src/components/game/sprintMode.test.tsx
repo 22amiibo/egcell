@@ -5,8 +5,20 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { GameShell } from "@/components/game/GameShell";
 import { buildSessionQueue } from "@/data/challenges/queue";
 import { COMMAND_STATS_KEY, type CommandStatsStore } from "@/domain/mastery/commandMastery";
+import type { RunLog } from "@/domain/runs/runLog";
+import { RUN_LOG_KEY } from "@/domain/runs/runRecord";
 import { scoreRun } from "@/domain/scoring/scoreRun";
 import { solveChallengeDom } from "@/test/solveVariantDom";
+
+function readRunLog(): RunLog {
+  const raw = window.localStorage.getItem(RUN_LOG_KEY);
+
+  if (raw === null) {
+    throw new Error("Expected the run log to have been written.");
+  }
+
+  return JSON.parse(raw) as RunLog;
+}
 
 /**
  * The shell reads a session seed from the URL once per page load. Setting it before the first
@@ -196,5 +208,77 @@ describe("sprint mode", () => {
     const totalUses = Object.values(stored).reduce((sum, stat) => sum + (stat?.uses ?? 0), 0);
 
     expect(totalUses).toBeGreaterThan(0);
+  });
+
+  it("banks combo metrics matching the real streak: peak 5, opportunity 4, no breaks for a fully clean sprint", async () => {
+    render(<GameShell />);
+
+    await startSprintFive();
+    completeAllFiveTasks();
+
+    expect(screen.getByTestId("session-result-card")).toBeVisible();
+
+    // Faithful replay: five clean, instant clears (the same guarantee the combo-multiplier test
+    // above relies on) grow the streak to 5 without ever clamping to COMBO_CAP (5, so this run
+    // happens not to distinguish "raw" from "capped" — comboRunMetrics.test.ts pins that directly),
+    // with one opportunity to break per task after the first, and none taken.
+    const log = readRunLog();
+
+    expect(log.runs.at(-1)).toMatchObject({
+      peakComboStreak: 5,
+      comboOpportunityCount: 4,
+      comboBreakCount: 0,
+    });
+  });
+
+  it("resets combo tracking on retry — a second clean sprint reports its own peak, not an accumulation", async () => {
+    render(<GameShell />);
+
+    await startSprintFive();
+    completeAllFiveTasks();
+    expect(screen.getByTestId("session-result-card")).toBeVisible();
+
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    completeAllFiveTasks();
+    expect(screen.getByTestId("session-result-card")).toBeVisible();
+
+    // If `comboOutcomesRef` were not reset on retry, the second sprint's fold would replay the
+    // first sprint's five clean outcomes first, and — since the streak never resets between the
+    // two sprints — count the second sprint's first task as an active-combo opportunity too,
+    // reporting 9 opportunities instead of the true, fresh-run count of 4.
+    const log = readRunLog();
+
+    expect(log.runs).toHaveLength(2);
+    expect(log.runs.at(-1)).toMatchObject({
+      peakComboStreak: 5,
+      comboOpportunityCount: 4,
+      comboBreakCount: 0,
+    });
+  });
+
+  it("counts a skipped task as a combo break in the recorded metrics, not a silent continuation", async () => {
+    render(<GameShell />);
+
+    await startSprintFive();
+
+    const queue = sprintQueue();
+
+    // Task 1: a real clean clear, growing the streak to 1.
+    solveChallengeDom(queue.tasks[0].variant);
+
+    // Task 2: skipped, incomplete. The driver must record this as a break — whatever
+    // `comboOutcomeFrom` would have computed for the untouched grid at this instant is not the
+    // question; a skip forces the same combo-ending outcome the live streak actually advanced with.
+    await userEvent.click(screen.getByRole("button", { name: "Skip task" }));
+
+    for (const task of queue.tasks.slice(2)) {
+      solveChallengeDom(task.variant);
+    }
+
+    expect(screen.getByTestId("session-result-card")).toBeVisible();
+
+    const log = readRunLog();
+
+    expect(log.runs.at(-1)).toMatchObject({ comboBreakCount: 1 });
   });
 });

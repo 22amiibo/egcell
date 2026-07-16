@@ -29,7 +29,9 @@ import {
   comboOutcomeFrom,
   COMBO_RESET,
   type ComboState,
+  type ComboTaskOutcome,
 } from "@/domain/scoring/combo";
+import { foldComboRunMetrics } from "@/domain/scoring/comboRunMetrics";
 import { sessionRecordFromResult } from "@/domain/sessions/sessionRecords";
 import { buildSessionResult } from "@/domain/sessions/sessionResult";
 import {
@@ -361,6 +363,10 @@ export function SessionRun({
   const comboRef = useRef<ComboState>(COMBO_RESET);
   const [comboStreak, setComboStreak] = useState(0);
   const getComboMultiplier = useCallback(() => comboMultiplier(comboRef.current), []);
+  // The exact outcome fed to `advanceCombo` for every task this run, in order — folded once at
+  // session finish (`foldComboRunMetrics`) into the calibration metrics. Authoritative by
+  // construction: it is not recomputed from anything, it is the same signal that scored the combo.
+  const comboOutcomesRef = useRef<ComboTaskOutcome[]>([]);
 
   const [runSeed, setRunSeed] = useState<string>(() => seedOverride ?? createSessionSeed());
 
@@ -396,6 +402,10 @@ export function SessionRun({
           ? null
           : submitSessionRecord(sessionRecordFromResult(result, SESSION_DIFFICULTY));
 
+      // Folded once, here, from the exact outcomes each task advanced the live combo with — never
+      // recomputed from the tasks or the run events.
+      const comboMetrics = foldComboRunMetrics(comboOutcomesRef.current);
+
       // A sprint with skips is a finished session but not a completed one; a timed run always ran
       // its full course. `runRecordForSession` owns that distinction now (§1a.11).
       recordHistory?.(
@@ -404,6 +414,7 @@ export function SessionRun({
           result,
           isNewRecord: submission?.isNewRecord ?? false,
           assist: assist.assist,
+          comboMetrics,
         }),
       );
 
@@ -451,11 +462,14 @@ export function SessionRun({
         extraActions: comparison.confidence === "high" ? comparison.extraActions : null,
         corrections: 0,
       });
+      // A skip or an expiry breaks the chain outright, whatever the grid happened to look like at
+      // that moment — so this, not the bare `comboOutcome` above, is the exact outcome fed to
+      // `advanceCombo`, and the exact one captured for the run's combo metrics fold.
+      const advancedOutcome: ComboTaskOutcome =
+        taskOutcome === "completed" ? comboOutcome : { underTarget: false, clean: false };
 
-      comboRef.current = advanceCombo(
-        comboRef.current,
-        taskOutcome === "completed" ? comboOutcome : { underTarget: false, clean: false },
-      );
+      comboOutcomesRef.current = [...comboOutcomesRef.current, advancedOutcome];
+      comboRef.current = advanceCombo(comboRef.current, advancedOutcome);
       setComboStreak(comboRef.current.streak);
 
       const sprintDone = plan.kind === "task-count" && next.length >= plan.taskCount;
@@ -479,6 +493,7 @@ export function SessionRun({
   const retry = useCallback(() => {
     tasksRef.current = [];
     comboRef.current = COMBO_RESET;
+    comboOutcomesRef.current = [];
 
     setTasks([]);
     setFinishedTaskStats([]);

@@ -6,6 +6,7 @@ import type {
 } from "@/domain/challenges/challengeTypes";
 import type { SkillFamily } from "@/domain/mastery/masteryTypes";
 import type { RouteComparison } from "@/domain/routes/compareRoute";
+import type { ComboRunMetrics } from "@/domain/scoring/comboRunMetrics";
 import {
   SESSION_PLANS,
   sessionModeLabel,
@@ -84,6 +85,14 @@ export type RunRecord = {
   /** Typing runs only. Null when the run typed nothing — null is not zero. */
   wpm: number | null;
   keystrokeAccuracy: number | null;
+
+  /**
+   * Session/Ascent (combo modes) only. Null for single/practice/hotkey runs, which bank no combo,
+   * and for records predating this field (§ Phase 6 calibration instrumentation).
+   */
+  peakComboStreak: number | null;
+  comboBreakCount: number | null;
+  comboOpportunityCount: number | null;
 
   assist: RunAssist;
   integrity: RunIntegrity;
@@ -214,6 +223,12 @@ export function runRecordForChallenge(input: ChallengeRunInput): NewRunRecord {
     wpm: input.wpm ?? null,
     keystrokeAccuracy: input.keystrokeAccuracy ?? null,
 
+    // A single/practice/hotkey run banks a per-challenge record, not a streak — the combo economy
+    // does not apply here at all (combo.ts's own docstring), so there is nothing to fold.
+    peakComboStreak: null,
+    comboBreakCount: null,
+    comboOpportunityCount: null,
+
     assist: input.assist ?? "none",
     integrity: "ok",
     isNewRecord: input.isNewRecord,
@@ -227,6 +242,8 @@ export type SessionRunInput = {
   result: SessionResult;
   isNewRecord: boolean;
   assist?: RunAssist;
+  /** Folded once from the run's own `advanceCombo` outcomes. Null when there is nothing to fold. */
+  comboMetrics: ComboRunMetrics | null;
 };
 
 /**
@@ -274,6 +291,10 @@ export function runRecordForSession(input: SessionRunInput): NewRunRecord {
     wpm: null,
     keystrokeAccuracy: null,
 
+    peakComboStreak: input.comboMetrics?.peakComboStreak ?? null,
+    comboBreakCount: input.comboMetrics?.comboBreakCount ?? null,
+    comboOpportunityCount: input.comboMetrics?.comboOpportunityCount ?? null,
+
     assist: input.assist ?? "none",
     integrity: "ok",
     isNewRecord: input.isNewRecord,
@@ -285,6 +306,8 @@ export function runRecordForSession(input: SessionRunInput): NewRunRecord {
 export type AscentRunInput = {
   result: AscentResult;
   isNewRecord: boolean;
+  /** Folded once from the climb's own `advanceCombo` outcomes. Null when there is nothing to fold. */
+  comboMetrics: ComboRunMetrics | null;
 };
 
 /** One finished Ascent climb → one record. Sessions' shape, plus the peak. */
@@ -313,6 +336,9 @@ export function runRecordForAscent(input: AscentRunInput): NewRunRecord {
     peakTier: result.peakTier,
     wpm: result.wpm,
     keystrokeAccuracy: result.keystrokeAccuracy,
+    peakComboStreak: input.comboMetrics?.peakComboStreak ?? null,
+    comboBreakCount: input.comboMetrics?.comboBreakCount ?? null,
+    comboOpportunityCount: input.comboMetrics?.comboOpportunityCount ?? null,
     assist: "none",
     integrity: "ok",
     isNewRecord: input.isNewRecord,
@@ -381,6 +407,9 @@ export function isRunRecord(value: unknown): value is RunRecord {
     isOptionalNullableNumber(candidate.peakTier) &&
     isOptionalNullableNumber(candidate.wpm) &&
     isOptionalNullableNumber(candidate.keystrokeAccuracy) &&
+    isOptionalNullableNumber(candidate.peakComboStreak) &&
+    isOptionalNullableNumber(candidate.comboBreakCount) &&
+    isOptionalNullableNumber(candidate.comboOpportunityCount) &&
     (candidate.assist === "none" || candidate.assist === "revealed") &&
     (candidate.integrity === "ok" || candidate.integrity === "suspect") &&
     typeof candidate.isNewRecord === "boolean" &&

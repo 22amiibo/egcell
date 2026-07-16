@@ -13,6 +13,7 @@ import {
   type NewRunRecord,
   type RunRecord,
 } from "@/domain/runs/runRecord";
+import type { ComboRunMetrics } from "@/domain/scoring/comboRunMetrics";
 import type { SessionResult } from "@/domain/sessions/sessionTypes";
 
 const challenge: Challenge = challenges[0];
@@ -61,6 +62,15 @@ function ascentResult(overrides: Partial<AscentResult> = {}): AscentResult {
   };
 }
 
+function comboMetrics(overrides: Partial<ComboRunMetrics> = {}): ComboRunMetrics {
+  return {
+    peakComboStreak: 3,
+    comboBreakCount: 1,
+    comboOpportunityCount: 2,
+    ...overrides,
+  };
+}
+
 /** A real, fully-stamped record — built from the challenge builder rather than hand-maintained. */
 function fullRecord(overrides: Partial<RunRecord> = {}): RunRecord {
   const entry: NewRunRecord = runRecordForChallenge(challengeInput());
@@ -98,6 +108,50 @@ describe("isRunRecord: peakTier, wpm, keystrokeAccuracy", () => {
   });
 });
 
+describe("isRunRecord: peakComboStreak, comboBreakCount, comboOpportunityCount", () => {
+  it("accepts a record that carries them as numbers", () => {
+    const candidate = fullRecord({
+      peakComboStreak: 4,
+      comboBreakCount: 1,
+      comboOpportunityCount: 3,
+    });
+
+    expect(isRunRecord(candidate)).toBe(true);
+  });
+
+  it("accepts a record that carries them as null", () => {
+    const candidate = fullRecord({
+      peakComboStreak: null,
+      comboBreakCount: null,
+      comboOpportunityCount: null,
+    });
+
+    expect(isRunRecord(candidate)).toBe(true);
+  });
+
+  it("accepts a legacy row that lacks the keys entirely — undefined is not a reason to drop it", () => {
+    const candidate: Partial<RunRecord> = { ...fullRecord() };
+
+    delete candidate.peakComboStreak;
+    delete candidate.comboBreakCount;
+    delete candidate.comboOpportunityCount;
+
+    expect(isRunRecord(candidate)).toBe(true);
+  });
+
+  it("rejects a record where one of the three is the wrong type", () => {
+    expect(
+      isRunRecord(fullRecord({ peakComboStreak: "5" as unknown as number })),
+    ).toBe(false);
+    expect(
+      isRunRecord(fullRecord({ comboBreakCount: "1" as unknown as number })),
+    ).toBe(false);
+    expect(
+      isRunRecord(fullRecord({ comboOpportunityCount: "2" as unknown as number })),
+    ).toBe(false);
+  });
+});
+
 describe("runRecordForChallenge: wpm and keystrokeAccuracy", () => {
   it("carries them through when the caller supplies them, and always nulls peakTier", () => {
     const result = runRecordForChallenge(challengeInput({ wpm: 58, keystrokeAccuracy: 0.92 }));
@@ -121,6 +175,14 @@ describe("runRecordForChallenge: wpm and keystrokeAccuracy", () => {
     expect(result.wpm).toBe(0);
     expect(result.keystrokeAccuracy).toBe(0);
   });
+
+  it("always nulls the three combo fields — a single run carries no combo economy", () => {
+    const result = runRecordForChallenge(challengeInput());
+
+    expect(result.peakComboStreak).toBeNull();
+    expect(result.comboBreakCount).toBeNull();
+    expect(result.comboOpportunityCount).toBeNull();
+  });
 });
 
 describe("runRecordForSession: wpm, keystrokeAccuracy, peakTier", () => {
@@ -129,6 +191,7 @@ describe("runRecordForSession: wpm, keystrokeAccuracy, peakTier", () => {
       mode: "sprint-5",
       result: sessionResult(),
       isNewRecord: false,
+      comboMetrics: null,
     });
 
     expect(result.peakTier).toBeNull();
@@ -137,9 +200,66 @@ describe("runRecordForSession: wpm, keystrokeAccuracy, peakTier", () => {
   });
 });
 
+describe("runRecordForSession: combo metrics", () => {
+  it("nulls all three combo fields when no combo metrics were folded", () => {
+    const result = runRecordForSession({
+      mode: "sprint-5",
+      result: sessionResult(),
+      isNewRecord: false,
+      comboMetrics: null,
+    });
+
+    expect(result.peakComboStreak).toBeNull();
+    expect(result.comboBreakCount).toBeNull();
+    expect(result.comboOpportunityCount).toBeNull();
+  });
+
+  it("maps peakComboStreak, comboBreakCount, and comboOpportunityCount from the folded metrics", () => {
+    const result = runRecordForSession({
+      mode: "sprint-5",
+      result: sessionResult(),
+      isNewRecord: false,
+      comboMetrics: comboMetrics({
+        peakComboStreak: 5,
+        comboBreakCount: 1,
+        comboOpportunityCount: 4,
+      }),
+    });
+
+    expect(result.peakComboStreak).toBe(5);
+    expect(result.comboBreakCount).toBe(1);
+    expect(result.comboOpportunityCount).toBe(4);
+  });
+
+  it("keeps an explicit zero distinct from a missing value", () => {
+    const result = runRecordForSession({
+      mode: "sprint-5",
+      result: sessionResult(),
+      isNewRecord: false,
+      comboMetrics: comboMetrics({
+        peakComboStreak: 0,
+        comboBreakCount: 0,
+        comboOpportunityCount: 0,
+      }),
+    });
+
+    expect(result.peakComboStreak).toBe(0);
+    expect(result.comboBreakCount).toBe(0);
+    expect(result.comboOpportunityCount).toBe(0);
+  });
+});
+
 describe("runRecordForAscent", () => {
   it("maps a finished climb onto a session-shaped record, plus the peak and typing stats", () => {
-    const result = runRecordForAscent({ result: ascentResult(), isNewRecord: true });
+    const result = runRecordForAscent({
+      result: ascentResult(),
+      isNewRecord: true,
+      comboMetrics: comboMetrics({
+        peakComboStreak: 6,
+        comboBreakCount: 2,
+        comboOpportunityCount: 9,
+      }),
+    });
 
     expect(result).toEqual({
       modeKey: "ascent",
@@ -169,6 +289,9 @@ describe("runRecordForAscent", () => {
       peakTier: 4,
       wpm: 62,
       keystrokeAccuracy: 0.97,
+      peakComboStreak: 6,
+      comboBreakCount: 2,
+      comboOpportunityCount: 9,
       assist: "none",
       integrity: "ok",
       isNewRecord: true,
@@ -181,6 +304,7 @@ describe("runRecordForAscent", () => {
     const result = runRecordForAscent({
       result: ascentResult({ wpm: null, keystrokeAccuracy: null }),
       isNewRecord: false,
+      comboMetrics: null,
     });
 
     expect(result.accuracy).toBe(1);
@@ -189,10 +313,26 @@ describe("runRecordForAscent", () => {
   });
 
   it("does not claim a route: the ladder has no comparison to make", () => {
-    const result = runRecordForAscent({ result: ascentResult(), isNewRecord: false });
+    const result = runRecordForAscent({
+      result: ascentResult(),
+      isNewRecord: false,
+      comboMetrics: null,
+    });
 
     expect(result.actions).toBeNull();
     expect(result.optimalActions).toBeNull();
     expect(result.routeEfficiency).toBeNull();
+  });
+
+  it("nulls all three combo fields when no combo metrics were folded", () => {
+    const result = runRecordForAscent({
+      result: ascentResult(),
+      isNewRecord: false,
+      comboMetrics: null,
+    });
+
+    expect(result.peakComboStreak).toBeNull();
+    expect(result.comboBreakCount).toBeNull();
+    expect(result.comboOpportunityCount).toBeNull();
   });
 });
